@@ -1,5 +1,3 @@
-.vscode/
-
 # Python-generated files
 __pycache__/
 *.py[oc]
@@ -26,3 +24,7 @@ wheels/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Logs
+logs/*
+!logs/.gitkeep

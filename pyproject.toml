@@ -1,7 +1,7 @@
 [project]
 name = "customer-shop-assistant"
 version = "0.1.0"
-description = "Add your description here"
+description = "Research demo chatbot for clothing customer shop assistant"
 readme = "README.md"
 authors = [
     { name = "Ngô Quang Trường", email = "nqt26304@gmail.com" }
@@ -22,3 +22,23 @@ customer-shop-assistant = "customer_shop_assistant:main"
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]
 build-backend = "uv_build"
+
+[tool.ruff]
+line-length = 88
+target-version = "py313"
+exclude = ["_legacy"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = []
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[dependency-groups]
+dev = [
+    "httpx>=0.28.1",
+    "pytest>=9.1.1",
+    "ruff>=0.17.0",
+]

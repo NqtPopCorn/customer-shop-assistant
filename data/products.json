@@ -1,0 +1,41 @@
+{
+  "_comment": "MOCK DATA: Clothing store product catalog for research demo only",
+  "products": [
+    {
+      "id": "prod-001",
+      "name": "Classic Cotton Crewneck T-Shirt",
+      "category": "tops",
+      "price": 250000,
+      "currency": "VND",
+      "sizes": ["S", "M", "L", "XL"],
+      "colors": ["Trắng", "Đen", "Xanh navy"],
+      "material": "100% Cotton",
+      "in_stock": true,
+      "description": "Áo thun cổ tròn chất liệu cotton thoáng mát, form regular fit mặc hàng ngày."
+    },
+    {
+      "id": "prod-002",
+      "name": "Slim-Fit Denim Jeans",
+      "category": "bottoms",
+      "price": 550000,
+      "currency": "VND",
+      "sizes": ["29", "30", "31", "32"],
+      "colors": ["Xanh đậm", "Xanh nhạt"],
+      "material": "98% Cotton, 2% Spandex",
+      "in_stock": true,
+      "description": "Quần jean slim-fit co giãn nhẹ, phong cách trẻ trung năng động."
+    },
+    {
+      "id": "prod-003",
+      "name": "Minimalist Windbreaker Jacket",
+      "category": "outerwear",
+      "price": 680000,
+      "currency": "VND",
+      "sizes": ["M", "L", "XL"],
+      "colors": ["Đen", "Be"],
+      "material": "Polyester kháng nước nhẹ",
+      "in_stock": false,
+      "description": "Áo khoác gió tối giản chống gió và trượt nước nhẹ, thích hợp thời tiết giao mùa."
+    }
+  ]
+}

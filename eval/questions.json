@@ -1,0 +1,55 @@
+{
+  "_comment": "10 sample customer evaluation questions in Vietnamese for model comparison",
+  "questions": [
+    {
+      "id": 1,
+      "category": "product_inquiry",
+      "question": "Shop có những mẫu áo thun nào đang bán và giá bao nhiêu vậy?"
+    },
+    {
+      "id": 2,
+      "category": "inventory_check",
+      "question": "Áo khoác gió Windbreaker màu be size L hiện tại còn hàng không bạn?"
+    },
+    {
+      "id": 3,
+      "category": "size_advice",
+      "question": "Mình cao 1m73, nặng 68kg thì nên chọn size gì cho áo thun cotton?"
+    },
+    {
+      "id": 4,
+      "category": "size_advice",
+      "question": "Vòng bụng mình 78cm thì mặc quần jean slim-fit size 29 hay size 30 vừa?"
+    },
+    {
+      "id": 5,
+      "category": "policy_shipping",
+      "question": "Phí ship về Đà Nẵng là bao nhiêu và mấy ngày nhận được hàng?"
+    },
+    {
+      "id": 6,
+      "category": "policy_shipping",
+      "question": "Mình mua 2 chiếc áo thun tổng 500k thì có được freeship không?"
+    },
+    {
+      "id": 7,
+      "category": "policy_returns",
+      "question": "Nếu mình mua về mặc không vừa thì có được đổi trả không, quy định thế nào?"
+    },
+    {
+      "id": 8,
+      "category": "material_inquiry",
+      "question": "Quần jean này có co giãn không hay vải jean cứng?"
+    },
+    {
+      "id": 9,
+      "category": "recommendation",
+      "question": "Mình muốn tìm một bộ đồ đi chơi cuối tuần thoải mái và trẻ trung, shop gợi ý giúp mình với."
+    },
+    {
+      "id": 10,
+      "category": "out_of_stock_handling",
+      "question": "Nếu áo khoác gió hết hàng thì bao giờ có đợt hàng mới về?"
+    }
+  ]
+}

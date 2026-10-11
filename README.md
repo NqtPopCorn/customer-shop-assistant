@@ -1,116 +1,110 @@
 # Customer Shop Assistant
 
-Hệ thống trợ lý ảo bán hàng (Customer Shop Assistant) xây dựng bằng **FastAPI**, **LangChain**, và **Ollama**, quản lý môi trường và gói phụ thuộc qua **uv**.
+Research prototype AI chatbot for a clothing store, designed to evaluate and compare local LLM models (Ollama vs. LM Studio) for customer inquiries, sizing advice, product catalog questions, and store policies.
 
 ---
 
-## Cấu trúc thư mục
+## Tech Stack
+- **Language**: Python `>= 3.14`
+- **Package & Environment Manager**: [uv](https://docs.astral.sh/uv/)
+- **Backend**: FastAPI, Uvicorn
+- **AI Framework**: LangChain (`langchain`, `langchain-ollama`, `langchain-openai`)
+- **Settings**: `pydantic-settings`
+- **Testing & Tooling**: Pytest, HTTPX, Ruff
 
+---
+
+## Directory Structure
 ```text
 customer-shop-assistant/
-├── pyproject.toml
-├── .python-version
-├── .env.example
-├── .gitignore
-├── README.md
-└── src/
-    └── customer_shop_assistant/
+├── AGENTS.md                         # Single source of truth for coding agents
+├── README.md                         # Project documentation
+├── pyproject.toml                    # UV metadata, dependencies & tool configs
+├── .env.example                      # Environment variables reference
+├── .agents/                          # Antigravity agent rules, skills & workflows
+├── data/                             # Mock products and store policies
+├── eval/                             # Evaluation dataset (Vietnamese customer queries)
+├── logs/                             # Research telemetry logs (JSONL, git-ignored)
+├── tests/                            # Automated test suite
+├── _legacy/                          # Archived pre-scaffolding code
+└── src/customer_shop_assistant/
+    ├── __init__.py                   # Package exports
+    ├── config.py                     # Pydantic settings & get_settings()
+    ├── main.py                       # FastAPI application & GET /health
+    ├── api/                          # Route handlers
+    ├── services/                     # Business logic
+    ├── schemas/                      # Pydantic schemas
+    ├── loaders/                      # Catalog and policy loaders
+    └── llm/
         ├── __init__.py
-        ├── main.py
-        ├── api/
-        │   ├── __init__.py
-        │   └── routes.py
-        ├── core/
-        │   ├── __init__.py
-        │   └── config.py
-        └── services/
-            ├── __init__.py
-            └── chat_service.py
+        └── factory.py                # LLM model factory
 ```
 
 ---
 
-## Yêu cầu môi trường
+## Getting Started
 
-- **Python**: `>= 3.14`
-- **uv**: Trình quản lý package & môi trường ảo
-- **Ollama**: Đã cài đặt và đang chạy mô hình (mặc định: `qwen3.5:4b`)
-
----
-
-## Hướng dẫn cài đặt & khởi chạy
-
-### 1. Cài đặt môi trường ảo và thư viện
-
+### 1. Install & Sync Dependencies
 ```powershell
 uv sync
 ```
 
-### 2. Thiết lập biến môi trường
-
-Tạo file `.env` từ file mẫu `.env.example`:
-
+### 2. Configure Environment
+Copy `.env.example` to `.env` (if not already created):
 ```powershell
 Copy-Item .env.example .env
 ```
 
-Nội dung `.env` mẫu:
+### 3. Switch LLM Provider
+Set `LLM_PROVIDER` in your `.env` file or environment:
+- **LM Studio (Default)**:
+  ```dotenv
+  LLM_PROVIDER="lmstudio"
+  LMSTUDIO_BASE_URL="http://127.0.0.1:1235/v1"
+  LMSTUDIO_MODEL="google/gemma-4-e2b"
+  LMSTUDIO_API_KEY="lm-studio"
+  ```
+- **Ollama**:
+  ```dotenv
+  LLM_PROVIDER="ollama"
+  OLLAMA_BASE_URL="http://localhost:11434"
+  OLLAMA_MODEL="llama3.2"
+  ```
 
-```dotenv
-APP_NAME="Customer Shop Assistant"
-APP_ENV="development"
-HOST="0.0.0.0"
-PORT=8000
-DEBUG=True
-
-OLLAMA_BASE_URL="http://localhost:11434"
-OLLAMA_MODEL="qwen3.5:4b"
-```
-
-### 3. Tải mô hình Ollama (nếu chưa có)
-
+### 4. Run the Application
+Start the development server with Uvicorn:
 ```powershell
-ollama run qwen3.5:4b
+uv run uvicorn customer_shop_assistant.main:app --reload --host 127.0.0.1 --port 8000
 ```
-
-### 4. Khởi chạy ứng dụng
-
-Chạy bằng script đã cấu hình trong `pyproject.toml`:
-
+Or use the registered script:
 ```powershell
 uv run customer-shop-assistant
 ```
 
-Hoặc chạy trực tiếp với uvicorn:
-
+### 5. Check Health Status
 ```powershell
-uv run uvicorn customer_shop_assistant.main:app --reload --host 0.0.0.0 --port 8000
+Invoke-RestMethod -Uri http://127.0.0.1:8000/health -Method Get
+```
+Expected response:
+```json
+{
+  "status": "healthy",
+  "app_name": "Customer Shop Assistant",
+  "provider": "lmstudio",
+  "model": "google/gemma-4-e2b"
+}
 ```
 
 ---
 
-## API Documentation
+## Development & Testing Commands
+```powershell
+# Run unit tests
+uv run pytest
 
-- **Swagger UI**: [http://localhost:8000/docs](http://localhost:8000/docs)
-- **ReDoc**: [http://localhost:8000/redoc](http://localhost:8000/redoc)
+# Check code formatting and linting
+uv run ruff check .
 
-### Các Endpoint chính
-
-| Phương thức | Đường dẫn | Mô tả |
-| :--- | :--- | :--- |
-| `GET` | `/` | Kiểm tra trạng thái root |
-| `GET` | `/api/v1/health` | Healthcheck ứng dụng & cấu hình mô hình |
-| `POST` | `/api/v1/chat` | Gửi tin nhắn và nhận phản hồi từ trợ lý |
-| `POST` | `/api/v1/chat/stream` | Nhận phản hồi dạng streaming |
-
-#### Ví dụ gọi `/api/v1/chat`:
-
-```json
-POST /api/v1/chat
-Content-Type: application/json
-
-{
-  "message": "Xin chào! Bạn có thể tư vấn sản phẩm cho tôi không?",
-  "history": []
-}
+# Automatically format code
+uv run ruff format .
 ```
