@@ -6,11 +6,14 @@ from typing import Annotated
 
 import anyio
 import uvicorn
-from fastapi import Depends, FastAPI, Request, Response
+from fastapi import APIRouter, Depends, FastAPI, Request, Response
+from fastapi.middleware.cors import CORSMiddleware
 
+from customer_shop_assistant.api.routes import chat, chat_stream
 from customer_shop_assistant.api.routes import router as api_router
 from customer_shop_assistant.cli import run_cli
 from customer_shop_assistant.config import Settings, get_settings
+from customer_shop_assistant.schemas.chat import ChatResponse
 
 logger = logging.getLogger("customer_shop_assistant.api")
 
@@ -19,7 +22,24 @@ app = FastAPI(
     description="Research prototype chatbot for clothing customer shop assistant",
     version="0.1.0",
 )
+
+settings = get_settings()
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 app.include_router(api_router)
+
+# Compatibility alias router (/api/chat and /api/chat/stream)
+compat_router = APIRouter(prefix="/api", tags=["Assistant Compat"])
+compat_router.add_api_route(
+    "/chat", chat, methods=["POST"], response_model=ChatResponse
+)
+compat_router.add_api_route("/chat/stream", chat_stream, methods=["POST"])
+app.include_router(compat_router)
 
 
 @app.middleware("http")

@@ -15,6 +15,14 @@ class Settings(BaseSettings):
     PORT: int = 8000
     DEBUG: bool = True
 
+    CORS_ORIGINS: list[str] = [
+        "http://localhost:5000",
+        "http://127.0.0.1:5000",
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:8080",
+    ]
+
     LLM_PROVIDER: Literal["ollama", "lmstudio"] = "lmstudio"
     TEMPERATURE: float = 0.0
     SEED: int | None = None

@@ -1,3 +1,4 @@
+import json
 from collections.abc import AsyncIterator
 from typing import Annotated
 
@@ -63,15 +64,20 @@ async def chat_stream(
         async def token_generator() -> AsyncIterator[str]:
             try:
                 async for chunk in agent.chat_stream(request):
-                    c_type = chunk.get("type")
-                    if c_type in ("token", "clarification"):
-                        yield str(chunk.get("content", ""))
-                    elif c_type == "error":
-                        yield f"\n[Error: {chunk.get('content')}]"
+                    yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
             except Exception as stream_exc:
-                yield f"\n[Error: {stream_exc}]"
+                err_data = {"type": "error", "content": str(stream_exc)}
+                yield f"data: {json.dumps(err_data, ensure_ascii=False)}\n\n"
 
-        return StreamingResponse(token_generator(), media_type="text/plain")
+        return StreamingResponse(
+            token_generator(),
+            media_type="text/event-stream",
+            headers={
+                "Cache-Control": "no-cache",
+                "Connection": "keep-alive",
+                "X-Accel-Buffering": "no",
+            },
+        )
     except Exception as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

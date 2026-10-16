@@ -1,4 +1,5 @@
 import logging
+import re
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated, Any, Literal, TypedDict
@@ -17,6 +18,7 @@ from langgraph.prebuilt import ToolNode
 from customer_shop_assistant.config import Settings, get_settings
 from customer_shop_assistant.llm.factory import get_chat_model
 from customer_shop_assistant.schemas.chat import (
+    ChatRecommendedProduct,
     ChatRequest,
     ChatResponse,
     ClarificationMode,
@@ -26,8 +28,81 @@ from customer_shop_assistant.services.clarification_engine import (
     ClarificationEngine,
 )
 from customer_shop_assistant.tools import ALL_TOOLS
+from customer_shop_assistant.tools.catalog_tool import PRODUCT_REGISTRY
 
 logger = logging.getLogger(__name__)
+
+
+def extract_recommended_products(
+    messages: list[BaseMessage], reply_text: str
+) -> list[ChatRecommendedProduct]:
+    """Extract product IDs referenced in tool or assistant messages."""
+    found_ids: list[int] = []
+
+    # Check messages (tool outputs and assistant texts)
+    for msg in messages:
+        content = str(msg.content)
+        for match in re.findall(r"\[(\d+)\]", content):
+            try:
+                pid = int(match)
+                if pid not in found_ids and pid in PRODUCT_REGISTRY:
+                    found_ids.append(pid)
+            except ValueError:
+                pass
+
+    # Also check final reply text
+    for match in re.findall(r"\[(\d+)\]", reply_text):
+        try:
+            pid = int(match)
+            if pid not in found_ids and pid in PRODUCT_REGISTRY:
+                found_ids.append(pid)
+        except ValueError:
+            pass
+
+    results = [PRODUCT_REGISTRY[pid] for pid in found_ids[:5]]
+
+    # If products found directly in registry but IDs not formatted in reply,
+    # pull recent items from PRODUCT_REGISTRY
+    if not results and PRODUCT_REGISTRY:
+        recent_ids = list(PRODUCT_REGISTRY.keys())[-4:]
+        results = [PRODUCT_REGISTRY[pid] for pid in recent_ids]
+
+    return results
+
+
+def generate_quick_replies(intent: str | None, clarification_asked: bool) -> list[str]:
+    """Generate contextual quick reply chips for frontend widget."""
+    if clarification_asked:
+        return [
+            "Mình cao 1m70, nặng 65kg",
+            "Tư vấn đồ đi làm công sở",
+            "Tư vấn đồ đi tiệc cuối tuần",
+        ]
+    if intent == "SIZE_ADVICE":
+        return [
+            "Chính sách đổi trả nếu không vừa 🔄",
+            "Gợi ý áo sơ mi hoặc polo phối cùng 👔",
+            "Xem bảng size chi tiết 📏",
+        ]
+    if intent in ("CATALOG_SEARCH", "PRODUCT_ADVICE"):
+        return [
+            "Tư vấn chọn size chuẩn 📏",
+            "Có mẫu màu đen hoặc trắng không?",
+            "Chính sách vận chuyển & đổi hàng 🚚",
+        ]
+    if intent == "POLICY_INQUIRY":
+        return [
+            "Phí vận chuyển và thời gian giao hàng",
+            "Quy định đổi trả hàng trong bao lâu?",
+            "Phương thức thanh toán VietQR / COD",
+        ]
+    return [
+        "Gợi ý đồ đi tiệc cuối tuần 🥂",
+        "Tìm áo sơ mi công sở 👔",
+        "Săn sale hot giảm 50% 🔥",
+        "Bảng tư vấn size 📏",
+    ]
+
 
 SYSTEM_PROMPT = """Bạn là trợ lý AI bán hàng thông minh của Fashion Shop.
 Phong cách giao tiếp:
@@ -383,12 +458,21 @@ class ShopAssistantAgent:
                 if last_msg.content
                 else "Mình có thể hỗ trợ gì thêm cho bạn không?"
             )
+            intent = final_state.get("intent")
+            clarification_asked = final_state.get("clarification_asked", False)
+            products = extract_recommended_products(
+                final_state.get("messages", []), reply
+            )
+            quick_replies = generate_quick_replies(intent, clarification_asked)
+
             return ChatResponse(
                 reply=reply,
                 session_id=session_id,
-                intent=final_state.get("intent"),
-                clarification_asked=final_state.get("clarification_asked", False),
+                intent=intent,
+                clarification_asked=clarification_asked,
                 tools_used=final_state.get("tools_used", []),
+                products=products,
+                quick_replies=quick_replies,
             )
         except Exception as e:
             logger.error("Error running agent graph: %s", e, exc_info=True)
@@ -488,12 +572,21 @@ class ShopAssistantAgent:
                         }
 
             full_reply = "".join(full_reply_parts)
+            suggested_products = extract_recommended_products([], full_reply)
+            is_clarification = (
+                any(p.strip().endswith("?") for p in full_reply_parts)
+                and len(tools_used) == 0
+            )
+            quick_replies = generate_quick_replies(detected_intent, is_clarification)
+
             yield {
                 "type": "done",
                 "reply": full_reply,
                 "session_id": session_id,
                 "intent": detected_intent,
                 "tools_used": tools_used,
+                "products": [p.model_dump() for p in suggested_products],
+                "quick_replies": quick_replies,
             }
         except Exception as e:
             logger.error("Error in chat_stream: %s", e, exc_info=True)

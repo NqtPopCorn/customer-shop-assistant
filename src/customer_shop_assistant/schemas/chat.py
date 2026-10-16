@@ -1,7 +1,7 @@
 from enum import StrEnum
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 
 from customer_shop_assistant.schemas.shop import GenderTarget
 
@@ -36,6 +36,24 @@ class UserProfile(BaseModel):
     )
 
 
+class ChatRecommendedProduct(BaseModel):
+    """Structured product preview for chat carousel rendering."""
+
+    id: int
+    name: str
+    slug: str | None = Field(default=None, description="Product URL slug")
+    price: float = Field(..., description="Current selling price or discounted price")
+    original_price: float | None = Field(
+        default=None, description="Original list price before discount"
+    )
+    discount_percent: int | None = Field(
+        default=None, description="Discount percentage"
+    )
+    image_url: str | None = Field(default=None, description="Primary product image URL")
+    category: str | None = Field(default=None, description="Category name")
+    brand: str | None = Field(default=None, description="Brand name")
+
+
 class ChatMessage(BaseModel):
     """Single turn message in chat history."""
 
@@ -50,7 +68,11 @@ class ChatRequest(BaseModel):
 
     message: str = Field(..., min_length=1, description="Customer inquiry message")
     session_id: str | None = Field(
-        default=None, description="Session identifier for multi-turn chat"
+        default=None,
+        validation_alias=AliasChoices(
+            "session_id", "conversation_id", "conversationId"
+        ),
+        description="Session identifier for multi-turn chat",
     )
     user_profile: UserProfile | None = Field(
         default=None, description="Known customer body profile"
@@ -75,4 +97,10 @@ class ChatResponse(BaseModel):
     )
     tools_used: list[str] = Field(
         default_factory=list, description="Names of tools invoked during turn"
+    )
+    products: list[ChatRecommendedProduct] = Field(
+        default_factory=list, description="Recommended products matching inquiry"
+    )
+    quick_replies: list[str] = Field(
+        default_factory=list, description="Contextual quick reply suggestions"
     )

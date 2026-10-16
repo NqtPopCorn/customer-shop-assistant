@@ -1,7 +1,48 @@
 from langchain_core.tools import tool
 
-from customer_shop_assistant.schemas.shop import GenderTarget, ProductFilterParams
+from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+from customer_shop_assistant.schemas.shop import (
+    GenderTarget,
+    ProductFilterParams,
+    ProductSchema,
+)
 from customer_shop_assistant.services.shop_client import ShopClient
+
+# In-memory registry of recent structured products returned by tools
+PRODUCT_REGISTRY: dict[int, ChatRecommendedProduct] = {}
+
+
+def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
+    """Map live ProductSchema to frontend ChatRecommendedProduct."""
+    prices = [
+        v.final_price if v.final_price is not None else v.selling_price
+        for v in p.variants
+    ]
+    min_price = min(prices) if prices else 0.0
+    list_prices = [v.list_price for v in p.variants if v.list_price]
+    max_list_price = max(list_prices) if list_prices else min_price
+    discount_pct = (
+        round(((max_list_price - min_price) / max_list_price) * 100)
+        if max_list_price > min_price
+        else None
+    )
+    img = (
+        p.images[0].url
+        if p.images
+        else (p.variants[0].image_url if p.variants else None)
+    )
+
+    return ChatRecommendedProduct(
+        id=p.id,
+        name=p.name,
+        slug=p.slug,
+        price=min_price,
+        original_price=max_list_price if max_list_price > min_price else None,
+        discount_percent=discount_pct,
+        image_url=img,
+        category=p.category.name if p.category else None,
+        brand=p.brand.name if p.brand else None,
+    )
 
 
 @tool
@@ -33,6 +74,10 @@ async def search_products(
     products = await client.get_products(params)
     if not products:
         return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+
+    # Cache structured products for frontend carousel
+    for p in products:
+        PRODUCT_REGISTRY[p.id] = product_schema_to_recommended(p)
 
     items_text: list[str] = []
     for p in products:
@@ -68,6 +113,8 @@ async def get_product_detail(product_id: int | str) -> str:
     product = await client.get_product_by_id(pid)
     if not product:
         return f"Không tìm thấy sản phẩm với mã ID: {pid}"
+
+    PRODUCT_REGISTRY[product.id] = product_schema_to_recommended(product)
 
     reviews = await client.get_product_reviews(product.id)
 
