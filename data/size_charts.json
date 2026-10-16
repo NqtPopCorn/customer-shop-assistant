@@ -1,0 +1,299 @@
+{
+  "version": "1.0",
+  "updated_at": "2026-10-16",
+  "description": "Bảng quy chuẩn thông số kích cỡ (Size Chart) chuẩn cho shop thời trang theo danh mục và đối tượng",
+  "unit": {
+    "height": "cm",
+    "weight": "kg",
+    "circumference": "cm"
+  },
+  "charts": {
+    "tops": {
+      "name": "Áo (Áo thun, Polo, Sơ mi, Áo khoác, Hoodie)",
+      "genders": {
+        "men": {
+          "title": "Áo Nam",
+          "sizes": [
+            {
+              "size": "S",
+              "height_range": [155, 165],
+              "weight_range": [48, 55],
+              "chest_range": [84, 88],
+              "notes": "Phù hợp cho bạn nam dáng người nhỏ gọn, gầy"
+            },
+            {
+              "size": "M",
+              "height_range": [165, 172],
+              "weight_range": [56, 65],
+              "chest_range": [88, 92],
+              "notes": "Size chuẩn phổ biến nhất cho thể trạng người Việt"
+            },
+            {
+              "size": "L",
+              "height_range": [170, 178],
+              "weight_range": [66, 75],
+              "chest_range": [92, 96],
+              "notes": "Phù hợp thể trạng cân đối đến hơi đậm người"
+            },
+            {
+              "size": "XL",
+              "height_range": [175, 183],
+              "weight_range": [76, 84],
+              "chest_range": [96, 102],
+              "notes": "Phù hợp cho bạn nam cao lớn, có bụng hoặc cơ bắp"
+            },
+            {
+              "size": "XXL",
+              "height_range": [178, 190],
+              "weight_range": [85, 95],
+              "chest_range": [102, 110],
+              "notes": "Dành cho thể trạng to lớn hoặc thích mặc form rộng thoải mái"
+            }
+          ]
+        },
+        "women": {
+          "title": "Áo Nữ",
+          "sizes": [
+            {
+              "size": "S",
+              "height_range": [150, 158],
+              "weight_range": [40, 47],
+              "chest_range": [78, 82],
+              "notes": "Dành cho bạn nữ vóc dáng nhỏ nhắn"
+            },
+            {
+              "size": "M",
+              "height_range": [156, 164],
+              "weight_range": [48, 54],
+              "chest_range": [82, 86],
+              "notes": "Size thông dụng cho bạn nữ dáng cân đối"
+            },
+            {
+              "size": "L",
+              "height_range": [162, 170],
+              "weight_range": [55, 62],
+              "chest_range": [86, 92],
+              "notes": "Phù hợp vóc dáng cao hoặc đầy đặn"
+            },
+            {
+              "size": "XL",
+              "height_range": [165, 175],
+              "weight_range": [63, 72],
+              "chest_range": [92, 98],
+              "notes": "Dành cho bạn nữ thích mặc giấu dáng hoặc form rộng"
+            }
+          ]
+        },
+        "unisex": {
+          "title": "Áo Unisex (Form Rộng / Oversize)",
+          "sizes": [
+            {
+              "size": "S",
+              "height_range": [152, 162],
+              "weight_range": [45, 52],
+              "chest_range": [82, 88],
+              "notes": "Form thoải mái cho nữ hoặc nam vóc người nhỏ"
+            },
+            {
+              "size": "M",
+              "height_range": [163, 170],
+              "weight_range": [53, 63],
+              "chest_range": [88, 94],
+              "notes": "Vừa vặn cho nam, form rộng thời trang cho nữ"
+            },
+            {
+              "size": "L",
+              "height_range": [168, 176],
+              "weight_range": [64, 73],
+              "chest_range": [94, 100],
+              "notes": "Form rộng rãi, phong cách đường phố (streetwear)"
+            },
+            {
+              "size": "XL",
+              "height_range": [174, 185],
+              "weight_range": [74, 85],
+              "chest_range": [100, 108],
+              "notes": "Oversize cá tính hoặc người thể trạng to lớn"
+            }
+          ]
+        }
+      }
+    },
+    "bottoms": {
+      "name": "Quần (Quần jeans, Kaki, Quần âu, Quần short)",
+      "types": {
+        "men_numeric": {
+          "title": "Quần Dài Nam Size Số (Jeans, Kaki, Quần Âu)",
+          "sizes": [
+            {
+              "size": "29",
+              "waist_range": [73, 76],
+              "hip_range": [88, 91],
+              "height_range": [160, 168],
+              "weight_range": [50, 57],
+              "notes": "Dáng người thanh mảnh, eo nhỏ"
+            },
+            {
+              "size": "30",
+              "waist_range": [77, 79],
+              "hip_range": [92, 94],
+              "height_range": [165, 172],
+              "weight_range": [58, 64],
+              "notes": "Size chuẩn cho phần lớn người mặc"
+            },
+            {
+              "size": "31",
+              "waist_range": [80, 82],
+              "hip_range": [95, 97],
+              "height_range": [168, 175],
+              "weight_range": [65, 70],
+              "notes": "Thể trạng cân đối, đùi vừa"
+            },
+            {
+              "size": "32",
+              "waist_range": [83, 85],
+              "hip_range": [98, 101],
+              "height_range": [170, 178],
+              "weight_range": [71, 76],
+              "notes": "Vóc người đậm hoặc có mông, đùi to"
+            },
+            {
+              "size": "34",
+              "waist_range": [87, 91],
+              "hip_range": [103, 107],
+              "height_range": [175, 185],
+              "weight_range": [77, 86],
+              "notes": "Dành cho người cao lớn hoặc vòng bụng to"
+            }
+          ]
+        },
+        "men_short": {
+          "title": "Quần Short Nam Size Chữ",
+          "sizes": [
+            {
+              "size": "M",
+              "waist_range": [72, 78],
+              "height_range": [160, 170],
+              "weight_range": [52, 63]
+            },
+            {
+              "size": "L",
+              "waist_range": [78, 84],
+              "height_range": [168, 176],
+              "weight_range": [64, 73]
+            },
+            {
+              "size": "XL",
+              "waist_range": [84, 90],
+              "height_range": [174, 182],
+              "weight_range": [74, 83]
+            },
+            {
+              "size": "XXL",
+              "waist_range": [90, 98],
+              "height_range": [178, 188],
+              "weight_range": [84, 95]
+            }
+          ]
+        },
+        "women": {
+          "title": "Quần Nữ & Chân Váy",
+          "sizes": [
+            {
+              "size": "S",
+              "waist_range": [62, 66],
+              "hip_range": [84, 88],
+              "height_range": [150, 158],
+              "weight_range": [42, 47]
+            },
+            {
+              "size": "M",
+              "waist_range": [67, 71],
+              "hip_range": [89, 93],
+              "height_range": [156, 164],
+              "weight_range": [48, 54]
+            },
+            {
+              "size": "L",
+              "waist_range": [72, 76],
+              "hip_range": [94, 98],
+              "height_range": [162, 170],
+              "weight_range": [55, 62]
+            },
+            {
+              "size": "XL",
+              "waist_range": [77, 82],
+              "hip_range": [99, 104],
+              "height_range": [165, 175],
+              "weight_range": [63, 72]
+            }
+          ]
+        }
+      }
+    },
+    "dresses": {
+      "name": "Váy liền & Đầm dạ hội (Nữ)",
+      "sizes": [
+        {
+          "size": "S",
+          "bust_range": [78, 83],
+          "waist_range": [62, 66],
+          "hip_range": [84, 88],
+          "height_range": [152, 160],
+          "weight_range": [42, 47],
+          "notes": "Phù hợp vóc dáng thon gọn"
+        },
+        {
+          "size": "M",
+          "bust_range": [84, 88],
+          "waist_range": [67, 71],
+          "hip_range": [89, 93],
+          "height_range": [158, 165],
+          "weight_range": [48, 54],
+          "notes": "Dáng chuẩn, tôn eo"
+        },
+        {
+          "size": "L",
+          "bust_range": [89, 93],
+          "waist_range": [72, 76],
+          "hip_range": [94, 98],
+          "height_range": [162, 170],
+          "weight_range": [55, 62],
+          "notes": "Dáng đầy đặn, eo vừa"
+        },
+        {
+          "size": "XL",
+          "bust_range": [94, 99],
+          "waist_range": [77, 83],
+          "hip_range": [99, 105],
+          "height_range": [165, 173],
+          "weight_range": [63, 70],
+          "notes": "Form xòe giấu bụng hoặc vóc dáng cao lớn"
+        }
+      ]
+    }
+  },
+  "guidelines": {
+    "boundary_strategy": "Nếu chiều cao và cân nặng nằm giữa hai size kề cận (ví dụ 1m72, 65kg nằm giữa M và L), bot sẽ đề xuất cả hai size kèm tư vấn: chọn size nhỏ hơn nếu thích mặc ôm vừa người (Slim/Regular Fit), hoặc chọn size lớn hơn nếu thích mặc rộng rãi thoải mái (Loose/Oversize).",
+    "review_fit_adjustment": {
+      "min_reviews_threshold": 10,
+      "rules": [
+        {
+          "signal": "TIGHT",
+          "description": "Đa số khách hàng đánh giá form nhỏ/chật hơn bình thường",
+          "action": "Khuyến nghị khách hàng cân nhắc tăng 1 size so với bảng quy chuẩn nếu thích mặc thoải mái"
+        },
+        {
+          "signal": "LOOSE",
+          "description": "Đa số khách hàng đánh giá form rộng/to hơn bình thường",
+          "action": "Khuyến nghị khách hàng cân nhắc giảm 1 size nếu thích mặc vừa vặn cơ thể"
+        },
+        {
+          "signal": "TRUE_TO_SIZE",
+          "description": "Form dáng chuẩn theo bảng size",
+          "action": "Khuyến nghị khách hàng chọn đúng size theo bảng quy chuẩn"
+        }
+      ]
+    }
+  }
+}

@@ -12,12 +12,14 @@ dependencies = [
     "langchain>=1.4.3",
     "langchain-ollama>=1.1.0",
     "langchain-openai>=1.7.0",
+    "langgraph>=1.2.14",
     "pydantic-settings>=2.15.0",
     "uvicorn>=0.54.0",
 ]
 
 [project.scripts]
 customer-shop-assistant = "customer_shop_assistant:main"
+assistant-cli = "customer_shop_assistant.cli:main"
 
 [build-system]
 requires = ["uv_build>=0.12.23,<0.13.0"]

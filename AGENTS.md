@@ -5,7 +5,8 @@ Single source of truth for coding agents working on `customer-shop-assistant`.
 ## 1. Project Overview & Research Goal
 - **Project**: `customer-shop-assistant`, a research prototype chatbot for an e-commerce clothing store.
 - **Reference Catalog Source**: `H:\Code\PET\e-commerce-clothes` (clothing store domain reference).
-- **Research Goal**: Study how an AI chatbot answers clothing store customer questions (sizes, recommendations, inventory, store policies).
+- **Product Requirements Document**: [docs/plans/prd.md](file:///h:/Code/PET/customer-shop-assistant/docs/plans/prd.md) (PRD v1.0 specifications & decisions).
+- **Research Goal**: Study how an AI chatbot answers clothing store customer questions (sizes, recommendations, inventory, store policies, clarification modes).
 - **Core Philosophy**: Speed, clarity, and rapid experimentation matter more than production polish. Do NOT over-engineer.
 
 ## 2. Tech Stack & Commands
@@ -13,6 +14,7 @@ Single source of truth for coding agents working on `customer-shop-assistant`.
 - **Core Frameworks**: FastAPI, Uvicorn, LangChain (`langchain`, `langchain-ollama`, `langchain-openai`), `pydantic-settings`.
 - **Tooling**: Ruff (linting/formatting), Pytest (testing), HTTPX (testing client).
 - **LLM Providers**: Ollama (`llama3.2`) and LM Studio (`google/gemma-4-e2b`, OpenAI-compatible).
+- **Embedding Providers**: Ollama (`nomic-embed-text`).
 
 ### Exact Terminal Commands
 ```powershell
@@ -30,6 +32,11 @@ customer-shop-assistant/
 ├── README.md                         # Human-facing guide & setup
 ├── pyproject.toml                    # Project metadata, dependencies, tool configs
 ├── .env.example                      # Template for environment variables
+├── docs/                             # Documentation, plans & requirements
+│   ├── plans/
+│   │   ├── prd.md                    # PRD v1.0 (Product Requirements Document)
+│   │   └── macro.md                  # Macro roadmap & phase dependencies
+│   └── requirements/                 # Business requirements
 ├── .agents/                          # Antigravity Workspace Customizations
 │   ├── rules/                        # python-style, llm-provider, research-logging
 │   ├── skills/                       # add-fastapi-endpoint, llm-provider-factory, etc.

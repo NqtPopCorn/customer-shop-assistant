@@ -24,6 +24,7 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
             model=s.OLLAMA_MODEL,
             temperature=s.TEMPERATURE,
             timeout=s.TIMEOUT,
+            streaming=True,
             **extra_kwargs,
         )
 
@@ -33,5 +34,6 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         model=s.LMSTUDIO_MODEL,
         temperature=s.TEMPERATURE,
         timeout=s.TIMEOUT,
+        streaming=True,
         **extra_kwargs,
     )

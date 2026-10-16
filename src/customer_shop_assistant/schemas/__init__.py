@@ -1,1 +1,41 @@
-"""Pydantic schemas and DTOs."""
+from customer_shop_assistant.schemas.chat import (
+    ChatMessage,
+    ChatRequest,
+    ChatResponse,
+    ClarificationMode,
+    UserProfile,
+)
+from customer_shop_assistant.schemas.shop import (
+    BrandSchema,
+    CategorySchema,
+    DiscountItemSchema,
+    GenderTarget,
+    ProductFilterParams,
+    ProductFit,
+    ProductImageSchema,
+    ProductReviewSummary,
+    ProductSchema,
+    ProductVariantSchema,
+    ReviewItemSchema,
+    VoucherCheckResult,
+)
+
+__all__ = [
+    "BrandSchema",
+    "CategorySchema",
+    "ChatMessage",
+    "ChatRequest",
+    "ChatResponse",
+    "ClarificationMode",
+    "DiscountItemSchema",
+    "GenderTarget",
+    "ProductFilterParams",
+    "ProductFit",
+    "ProductImageSchema",
+    "ProductReviewSummary",
+    "ProductSchema",
+    "ProductVariantSchema",
+    "ReviewItemSchema",
+    "UserProfile",
+    "VoucherCheckResult",
+]
