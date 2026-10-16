@@ -252,11 +252,31 @@ async def run_cli() -> None:
 
 
 def main() -> None:
-    """CLI script entrypoint."""
-    try:
-        anyio.run(run_cli)
-    except KeyboardInterrupt:
-        sys.exit(0)
+    """CLI script entrypoint supporting interactive chat, eval, and experiments."""
+    args = sys.argv[1:]
+    if args and args[0] in ("eval", "benchmark"):
+        # Shift arguments and invoke eval runner
+        sys.argv = [sys.argv[0]] + args[1:]
+        from customer_shop_assistant.eval.runner import async_main
+
+        try:
+            anyio.run(async_main)
+        except KeyboardInterrupt:
+            sys.exit(0)
+    elif args and args[0] in ("experiment", "exp"):
+        # Shift arguments and invoke experiment runner
+        sys.argv = [sys.argv[0]] + args[1:]
+        from customer_shop_assistant.eval.experiments import async_main as exp_main
+
+        try:
+            anyio.run(exp_main)
+        except KeyboardInterrupt:
+            sys.exit(0)
+    else:
+        try:
+            anyio.run(run_cli)
+        except KeyboardInterrupt:
+            sys.exit(0)
 
 
 if __name__ == "__main__":

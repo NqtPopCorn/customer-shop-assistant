@@ -58,32 +58,63 @@ class AgentState(TypedDict):
 
 
 def classify_intent(query: str) -> str:
-    """Classify user utterance into one of 5 core business intents."""
+    """Classify user utterance into one of 6 core business intents."""
     lower = query.lower()
+
+    # 1. Out of Scope: personal account, external tech, direct order manipulation
     if any(
         k in lower
         for k in [
-            "size",
-            "mặc vừa",
-            "chiều cao",
-            "cân nặng",
-            "1m",
-            "kg",
-            "rộng chật",
-            "bảng size",
-            "bó sát",
-            "ôm body",
-            "vòng eo",
-            "vòng ngực",
+            "đơn hàng #",
+            "tình trạng đơn",
+            "hủy đơn",
+            "huỷ đơn",
+            "hủy giùm",
+            "huỷ giùm",
+            "chuyển tiền hoàn",
+            "số tài khoản",
+            "stk",
+            "quên mật khẩu",
+            "đổi mật khẩu",
+            "mã code python",
+            "viết code",
+            "thời tiết hôm nay",
+            "thời tiết ở",
+            "dự báo thời tiết",
         ]
     ):
-        return "SIZE_ADVICE"
+        return "OUT_OF_SCOPE"
+
+    # 2. Stock & Inventory Check (priority over size to catch 'size L còn hàng không')
+    if any(
+        k in lower
+        for k in [
+            "còn hàng không",
+            "còn hàng ko",
+            "còn ko",
+            "còn không",
+            "còn mẫu",
+            "còn màu",
+            "còn những size",
+            "còn size nào",
+            "còn size",
+            "hết hàng",
+            "hết rồi",
+            "tạm hết",
+            "bao giờ có hàng",
+            "đợt hàng mới",
+            "tồn kho",
+        ]
+    ):
+        return "CATALOG_SEARCH"
+
+    # 3. Policy & FAQ inquiry
     if any(
         k in lower
         for k in [
             "đổi trả",
             "hoàn tiền",
-            "ship",
+            "phí ship",
             "vận chuyển",
             "freeship",
             "thanh toán",
@@ -92,9 +123,73 @@ def classify_intent(query: str) -> str:
             "bảo quản",
             "giặt",
             "chính sách",
+            "địa chỉ shop",
+            "áp thêm voucher",
+            "kết hợp voucher",
         ]
     ):
         return "POLICY_INQUIRY"
+
+    # 4. Size & Fit recommendation
+    if any(
+        k in lower
+        for k in [
+            "size",
+            "mặc vừa",
+            "bảng size",
+            "chọn size",
+            "lấy size",
+            "tăng 1 size",
+            "lùi 1 size",
+            "giảm 1 size",
+            "rộng chật",
+            "vòng eo",
+            "vòng ngực",
+            "vòng bụng",
+        ]
+    ):
+        return "SIZE_ADVICE"
+
+    # 5. Product Suitability & Occasion & Body Form Advisory
+    if any(
+        k in lower
+        for k in [
+            "tư vấn",
+            "phù hợp",
+            "phối đồ",
+            "phối với",
+            "mix",
+            "dịp",
+            "đi làm",
+            "công sở",
+            "đi tiệc",
+            "đám cưới",
+            "dự tiệc",
+            "đi chơi",
+            "dạo phố",
+            "du lịch",
+            "đi biển",
+            "form gì",
+            "dáng gì",
+            "che bụng",
+            "đỡ gầy",
+            "hack chiều cao",
+            "chất liệu",
+            "chất vải",
+            "vải gì",
+            "mùa hè",
+            "mùa đông",
+            "thoáng mát",
+            "giữ ấm",
+            "chống nhăn",
+            "gợi ý",
+            "phong cách",
+            "set đồ",
+        ]
+    ):
+        return "PRODUCT_ADVICE"
+
+    # 6. Catalog Search & Voucher & Stock
     if any(
         k in lower
         for k in [
@@ -102,30 +197,36 @@ def classify_intent(query: str) -> str:
             "mã giảm",
             "coupon",
             "khuyến mãi",
+            "sale",
+            "áp dụng được mã",
+            "áp được mã",
             "tìm áo",
             "tìm quần",
             "tìm váy",
+            "mẫu áo",
+            "mẫu váy",
+            "mẫu đầm",
+            "mẫu quần",
             "giá bao nhiêu",
+            "giá dưới",
             "còn hàng",
             "hết hàng",
+            "tồn kho",
+            "shop có",
+            "áo thun",
+            "áo khoác",
+            "áo sơ mi",
+            "áo polo",
+            "quần jean",
+            "quần kaki",
+            "quần short",
+            "quần tây",
+            "đầm",
+            "váy",
         ]
     ):
         return "CATALOG_SEARCH"
-    if any(
-        k in lower
-        for k in [
-            "tư vấn",
-            "phù hợp",
-            "phối đồ",
-            "dịp",
-            "đi làm",
-            "đi tiệc",
-            "gợi ý",
-            "chất liệu",
-            "phong cách",
-        ]
-    ):
-        return "PRODUCT_ADVICE"
+
     return "GENERAL_CHAT"
 
 

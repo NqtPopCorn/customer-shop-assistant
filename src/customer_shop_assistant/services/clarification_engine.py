@@ -61,9 +61,12 @@ class ClarificationEngine:
                 if 30 <= val <= 180:
                     weight = val
 
-        # Waist extraction (e.g. eo 72, vòng 2 72)
+        # Waist extraction (e.g. eo 72, vòng 2 72, vòng bụng 78cm, vòng bụng mình 78)
         waist: float | None = None
-        m_waist = re.search(r"(?:eo|vòng 2)\s*[:=]?\s*(\d{2,3})", lower)
+        m_waist = re.search(
+            r"(?:eo|vòng 2|vòng bụng|bụng)(?:\s+\w+){0,2}\s*[:=]?\s*(\d{2,3})",
+            lower,
+        )
         if m_waist:
             waist = float(m_waist.group(1))
 
@@ -117,6 +120,7 @@ class ClarificationEngine:
     ) -> ClarificationDecision:
         """Evaluate if clarification is required under the specified mode."""
         extracted = self.extract_entities(query)
+        lower = query.lower()
 
         h = extracted.height_cm or (profile.height_cm if profile else None)
         w = extracted.weight_kg or (profile.weight_kg if profile else None)
@@ -132,7 +136,8 @@ class ClarificationEngine:
             )
 
         # Policy inquiry & general chat never need clarification
-        if intent in ("POLICY_INQUIRY", "GENERAL_CHAT"):
+        # Policy inquiry, out of scope & general chat never need clarification
+        if intent in ("POLICY_INQUIRY", "GENERAL_CHAT", "OUT_OF_SCOPE"):
             return ClarificationDecision(
                 needs_clarification=False,
                 clarification_question=None,
@@ -142,8 +147,8 @@ class ClarificationEngine:
         # Mode 2: MINIMAL_CLARIFICATION (Default)
         if mode == ClarificationMode.MINIMAL_CLARIFICATION:
             if intent == "SIZE_ADVICE":
-                # Critical info missing: height and weight
-                if h is None and w is None:
+                # Critical info missing: height, weight, AND waist
+                if h is None and w is None and extracted.waist_cm is None:
                     cat_hint = (
                         f" cho {extracted.category}" if extracted.category else ""
                     )
@@ -156,14 +161,41 @@ class ClarificationEngine:
                         extracted=extracted,
                     )
             elif intent == "PRODUCT_ADVICE":
-                # Only clarify if query is very vague (<=3 words, no category)
-                words = query.strip().split()
-                if len(words) <= 3 and not extracted.category:
+                has_category = bool(extracted.category)
+                has_occasion = any(
+                    k in lower
+                    for k in [
+                        "đi làm",
+                        "công sở",
+                        "đi tiệc",
+                        "dự tiệc",
+                        "đi chơi",
+                        "dạo phố",
+                        "du lịch",
+                        "đi biển",
+                        "đám cưới",
+                    ]
+                )
+                has_spec = any(
+                    k in lower
+                    for k in [
+                        "gầy",
+                        "bụng",
+                        "nấm lùn",
+                        "thoáng mát",
+                        "giữ ấm",
+                        "chống nhăn",
+                        "phối với",
+                        "mát",
+                        "ấm",
+                    ]
+                )
+                if not has_category and not has_occasion and not has_spec:
                     return ClarificationDecision(
                         needs_clarification=True,
                         clarification_question=(
                             "Bạn đang tìm trang phục cho dịp nào (đi làm, đi chơi, "
-                            "hay dự tiệc) và dành cho nam hay nữ ạ?"
+                            "hay dự tiệc) hoặc phong cách yêu thích của bạn là gì ạ?"
                         ),
                         extracted=extracted,
                     )
@@ -177,7 +209,7 @@ class ClarificationEngine:
         # Mode 3: ALWAYS_CLARIFY
         if mode == ClarificationMode.ALWAYS_CLARIFY:
             if intent == "SIZE_ADVICE":
-                if h is None or w is None:
+                if (h is None or w is None) and extracted.waist_cm is None:
                     return ClarificationDecision(
                         needs_clarification=True,
                         clarification_question=(
@@ -195,12 +227,30 @@ class ClarificationEngine:
                         ),
                         extracted=extracted,
                     )
-            elif intent == "PRODUCT_ADVICE":
-                if g is None:
+            elif intent in ("PRODUCT_ADVICE", "CATALOG_SEARCH"):
+                if g is None and not extracted.category:
                     return ClarificationDecision(
                         needs_clarification=True,
                         clarification_question=(
                             "Bạn muốn tìm sản phẩm cho Nam hay Nữ ạ?"
+                        ),
+                        extracted=extracted,
+                    )
+                if h is None or w is None:
+                    return ClarificationDecision(
+                        needs_clarification=True,
+                        clarification_question=(
+                            "Bạn hãy cung cấp chiều cao (cm) và cân nặng (kg) "
+                            "để mình tư vấn chuẩn xác vóc dáng nhé!"
+                        ),
+                        extracted=extracted,
+                    )
+                if fit is None:
+                    return ClarificationDecision(
+                        needs_clarification=True,
+                        clarification_question=(
+                            "Bạn thích mặc form ôm dáng (Slim), vừa vặn (Regular) "
+                            "hay rộng rãi thoải mái (Oversize)?"
                         ),
                         extracted=extracted,
                     )

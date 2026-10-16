@@ -1,55 +1,1200 @@
 {
-  "_comment": "10 sample customer evaluation questions in Vietnamese for model comparison",
+  "_comment": "Golden Evaluation Dataset (60 questions across 6 core PRD categories)",
+  "version": "1.0",
   "questions": [
     {
-      "id": 1,
-      "category": "product_inquiry",
-      "question": "Shop có những mẫu áo thun nào đang bán và giá bao nhiêu vậy?"
+      "id": "PROD_OCC_01",
+      "category": "product_suitability",
+      "sub_category": "occasion",
+      "question": "Mình cần tìm set đồ đi làm công sở lịch sự nhưng trẻ trung, thoải mái.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi", "quần", "công sở"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 2,
-      "category": "inventory_check",
-      "question": "Áo khoác gió Windbreaker màu be size L hiện tại còn hàng không bạn?"
+      "id": "PROD_OCC_02",
+      "category": "product_suitability",
+      "sub_category": "occasion",
+      "question": "Sắp tới mình đi đám cưới bạn thân ở khách sạn, tư vấn giúp mình đầm dự tiệc sang trọng.",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["đầm", "tiệc", "váy"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 3,
-      "category": "size_advice",
-      "question": "Mình cao 1m73, nặng 68kg thì nên chọn size gì cho áo thun cotton?"
+      "id": "PROD_OCC_03",
+      "category": "product_suitability",
+      "sub_category": "occasion",
+      "question": "Có mẫu áo nào phong cách dạo phố cuối tuần trẻ trung cá tính không bạn?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 4,
-      "category": "size_advice",
-      "question": "Vòng bụng mình 78cm thì mặc quần jean slim-fit size 29 hay size 30 vừa?"
+      "id": "PROD_OCC_04",
+      "category": "product_suitability",
+      "sub_category": "occasion",
+      "question": "Mình chuẩn bị đi du lịch biển hè, shop có set áo thun quần short nào thoáng mát không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["short", "thun", "mát"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 5,
-      "category": "policy_shipping",
-      "question": "Phí ship về Đà Nẵng là bao nhiêu và mấy ngày nhận được hàng?"
+      "id": "PROD_BODY_01",
+      "category": "product_suitability",
+      "sub_category": "body_fit",
+      "question": "Mình nam cao 1m78 nặng 55kg người khá gầy, nên mặc áo form gì cho đỡ gầy?",
+      "user_profile": { "height_cm": 178.0, "weight_kg": 55.0, "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["regular", "sáng màu"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 6,
-      "category": "policy_shipping",
-      "question": "Mình mua 2 chiếc áo thun tổng 500k thì có được freeship không?"
+      "id": "PROD_BODY_02",
+      "category": "product_suitability",
+      "sub_category": "body_fit",
+      "question": "Mình hơi đậm người có bụng bia, cao 1m68 nặng 76kg thì mặc sơ mi form nào che bụng tốt?",
+      "user_profile": { "height_cm": 168.0, "weight_kg": 76.0, "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["regular", "tối"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 7,
-      "category": "policy_returns",
-      "question": "Nếu mình mua về mặc không vừa thì có được đổi trả không, quy định thế nào?"
+      "id": "PROD_BODY_03",
+      "category": "product_suitability",
+      "sub_category": "body_fit",
+      "question": "Bạn nữ cao 1m52 hơi nấm lùn thì nên mặc quần dáng nào để hack chiều cao?",
+      "user_profile": { "height_cm": 152.0, "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["cạp cao", "quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 8,
-      "category": "material_inquiry",
-      "question": "Quần jean này có co giãn không hay vải jean cứng?"
+      "id": "PROD_MAT_01",
+      "category": "product_suitability",
+      "sub_category": "material_season",
+      "question": "Mùa hè nóng bức, shop có áo polo chất vải gì thấm hút mồ hôi tốt nhất?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["cotton", "polo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 9,
-      "category": "recommendation",
-      "question": "Mình muốn tìm một bộ đồ đi chơi cuối tuần thoải mái và trẻ trung, shop gợi ý giúp mình với."
+      "id": "PROD_MAT_02",
+      "category": "product_suitability",
+      "sub_category": "material_season",
+      "question": "Thời tiết trở lạnh mùa đông, shop có áo khoác gió hay hoodie giữ ấm không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo khoác", "ấm"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     },
     {
-      "id": 10,
-      "category": "out_of_stock_handling",
-      "question": "Nếu áo khoác gió hết hàng thì bao giờ có đợt hàng mới về?"
+      "id": "PROD_MAT_03",
+      "category": "product_suitability",
+      "sub_category": "material_season",
+      "question": "Sơ mi bên mình có loại nào vải chống nhăn không cần ủi thường xuyên không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi", "nhăn"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROD_MIX_01",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Áo polo màu xanh navy bên mình phối với quần màu gì thì hợp nhất?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["quần", "kaki", "trắng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROD_MIX_02",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Quần tây âu đen công sở thì nên đi cùng áo sơ mi màu nào thanh lịch?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi", "trắng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROD_MIX_03",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Shop gợi ý cho mình một set đồ hoàn chỉnh gồm áo thun và quần jeans trẻ trung.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo thun", "quần jean"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROD_CAT_01",
+      "category": "product_suitability",
+      "sub_category": "catalog_query",
+      "question": "Shop có những mẫu áo thun nào đang bán và giá bao nhiêu vậy?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo thun", "đ"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROD_CAT_02",
+      "category": "product_suitability",
+      "sub_category": "catalog_query",
+      "question": "Cho mình xem các mẫu váy đầm nữ giá dưới 400k với.",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["đầm", "váy"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "CLARIFY_VAGUE_01",
+      "category": "clarification_strategy",
+      "sub_category": "vague_product_minimal",
+      "question": "Tư vấn đồ cho mình với shop ơi.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["dịp", "hoàn cảnh", "bạn tìm"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_VAGUE_02",
+      "category": "clarification_strategy",
+      "sub_category": "vague_product_immediate",
+      "question": "Tư vấn đồ cho mình với shop ơi.",
+      "user_profile": null,
+      "clarification_mode": "IMMEDIATE_ANSWER",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["bán chạy", "gợi ý", "sản phẩm"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_VAGUE_03",
+      "category": "clarification_strategy",
+      "sub_category": "vague_product_always",
+      "question": "Tư vấn đồ cho mình với shop ơi.",
+      "user_profile": null,
+      "clarification_mode": "ALWAYS_CLARIFY",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chiều cao", "cân nặng", "nhu cầu"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_SIZE_01",
+      "category": "clarification_strategy",
+      "sub_category": "vague_size_minimal",
+      "question": "Áo thun cotton này mình mặc size nào vừa?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chiều cao", "cân nặng"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_SIZE_02",
+      "category": "clarification_strategy",
+      "sub_category": "vague_size_immediate",
+      "question": "Áo thun cotton này mình mặc size nào vừa?",
+      "user_profile": null,
+      "clarification_mode": "IMMEDIATE_ANSWER",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["bảng size", "size"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_SIZE_03",
+      "category": "clarification_strategy",
+      "sub_category": "vague_size_always",
+      "question": "Áo thun cotton này mình mặc size nào vừa?",
+      "user_profile": null,
+      "clarification_mode": "ALWAYS_CLARIFY",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chiều cao", "cân nặng", "sở thích"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_SEM_01",
+      "category": "clarification_strategy",
+      "sub_category": "specific_query_minimal",
+      "question": "Tìm giúp mình áo sơ mi nam màu trắng giá dưới 350k",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi", "trắng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_SEM_02",
+      "category": "clarification_strategy",
+      "sub_category": "specific_query_always",
+      "question": "Tìm giúp mình áo sơ mi nam màu trắng giá dưới 350k",
+      "user_profile": null,
+      "clarification_mode": "ALWAYS_CLARIFY",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chiều cao", "cân nặng", "vóc dáng"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_PANT_01",
+      "category": "clarification_strategy",
+      "sub_category": "vague_pant_minimal",
+      "question": "Mình muốn mua cái quần mặc đi chơi",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_PANT_02",
+      "category": "clarification_strategy",
+      "sub_category": "vague_pant_always",
+      "question": "Mình muốn mua cái quần mặc đi chơi",
+      "user_profile": null,
+      "clarification_mode": "ALWAYS_CLARIFY",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["quần", "dáng", "kiểu"],
+        "forbidden_keywords": [],
+        "should_clarify": true,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_PROF_01",
+      "category": "clarification_strategy",
+      "sub_category": "profile_present_minimal",
+      "question": "Mình cao 1m70 nặng 65kg, nên lấy áo thun size gì?",
+      "user_profile": { "height_cm": 170.0, "weight_kg": 65.0, "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size L", "size M", "L"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "CLARIFY_PROF_02",
+      "category": "clarification_strategy",
+      "sub_category": "profile_present_immediate",
+      "question": "Mình cao 1m70 nặng 65kg, nên lấy áo thun size gì?",
+      "user_profile": { "height_cm": 170.0, "weight_kg": 65.0, "gender": "MALE" },
+      "clarification_mode": "IMMEDIATE_ANSWER",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "SIZE_EXACT_01",
+      "category": "size_fit",
+      "sub_category": "exact_size_male_top",
+      "question": "Mình nam cao 1m70 nặng 62kg thì mặc áo thun cotton size gì vừa đẹp?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size M", "M"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_EXACT_02",
+      "category": "size_fit",
+      "sub_category": "exact_size_male_top_xl",
+      "question": "Mình cao 1m80 nặng 82kg thì áo khoác bomber nam lấy size nào?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["XL", "XXL"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_EXACT_03",
+      "category": "size_fit",
+      "sub_category": "exact_size_female_dress",
+      "question": "Nữ cao 1m58 nặng 47kg mặc váy đầm dự tiệc size nào chuẩn shop?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size S", "S"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_EXACT_04",
+      "category": "size_fit",
+      "sub_category": "exact_size_female_dress_m",
+      "question": "Bạn nữ cao 1m62 nặng 53kg mặc đầm công sở dáng xòe size gì?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size M", "M"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_BORDER_01",
+      "category": "size_fit",
+      "sub_category": "borderline_sizes",
+      "question": "Mình nam cao 1m72 nặng 66kg, nằm giữa size M và L thì nên chọn thế nào?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["M", "L", "ôm", "thoải mái"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_BORDER_02",
+      "category": "size_fit",
+      "sub_category": "borderline_sizes_female",
+      "question": "Nữ 1m60 nặng 50kg nên mặc size S hay size M cho áo thun nữ?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["S", "M"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_PANT_01",
+      "category": "size_fit",
+      "sub_category": "waist_measurement_pant",
+      "question": "Vòng bụng mình 78cm thì mặc quần jean slim-fit size 29 hay size 30 vừa?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["size 30", "30"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_PANT_02",
+      "category": "size_fit",
+      "sub_category": "waist_measurement_pant_32",
+      "question": "Vòng eo 83cm, cao 1m75 nặng 72kg nên chọn quần tây size mấy?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["31", "32"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_REV_01",
+      "category": "size_fit",
+      "sub_category": "review_fit_signal_tight",
+      "question": "Áo polo pique này mình thấy review bảo form hơi ôm, mình 1m70 65kg có cần tăng 1 size không?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["tăng", "L", "ôm"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_REV_02",
+      "category": "size_fit",
+      "sub_category": "review_fit_signal_loose",
+      "question": "Áo phông oversize form rộng, mình thích mặc vừa vặn thì có nên lùi 1 size không?",
+      "user_profile": { "height_cm": 170.0, "weight_kg": 65.0, "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["giảm", "lùi", "form rộng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_CHEST_01",
+      "category": "size_fit",
+      "sub_category": "chest_measurement",
+      "question": "Vòng ngực mình 96cm, nặng 68kg thì mặc áo sơ mi slim fit size nào?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["L", "size"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SIZE_PREF_01",
+      "category": "size_fit",
+      "sub_category": "preference_oversize",
+      "question": "Mình cao 1m68 nặng 58kg nhưng rất thích mặc áo phông dáng rộng giấu quần, nên lấy size gì?",
+      "user_profile": { "height_cm": 168.0, "weight_kg": 58.0, "fit_preference": "LOOSE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "SIZE_ADVICE",
+        "expected_tool": "recommend_size",
+        "expected_policy_doc": null,
+        "required_keywords": ["L", "rộng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "PROMO_VOUCHER_01",
+      "category": "promotion_voucher",
+      "sub_category": "valid_voucher",
+      "question": "Mã voucher SUMMER50 giảm giá như thế nào vậy bạn?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "check_voucher",
+        "expected_policy_doc": null,
+        "required_keywords": ["SUMMER50", "giảm", "%"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_VOUCHER_02",
+      "category": "promotion_voucher",
+      "sub_category": "min_order_condition",
+      "question": "Mình mua đơn hàng 200k có áp dụng được mã SUMMER50 không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "check_voucher",
+        "expected_policy_doc": null,
+        "required_keywords": ["tối thiểu", "điều kiện"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_VOUCHER_03",
+      "category": "promotion_voucher",
+      "sub_category": "invalid_voucher_code",
+      "question": "Kiểm tra giúp mình mã giảm giá RANDOM9999 có dùng được không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "check_voucher",
+        "expected_policy_doc": null,
+        "required_keywords": ["không tồn tại", "không hợp lệ"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_VOUCHER_04",
+      "category": "promotion_voucher",
+      "sub_category": "welcome_voucher",
+      "question": "Khách hàng mới lần đầu mua hàng có mã giảm giá nào không shop?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "check_voucher",
+        "expected_policy_doc": null,
+        "required_keywords": ["voucher", "giảm"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_DISCOUNT_01",
+      "category": "promotion_voucher",
+      "sub_category": "campaign_discount",
+      "question": "Shop đang có những chương trình khuyến mãi hay giảm giá nào thế?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["giảm", "khuyến mãi"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_DISCOUNT_02",
+      "category": "promotion_voucher",
+      "sub_category": "discount_price_check",
+      "question": "Áo polo pique có đang được giảm giá không, giá gốc và giá bán là bao nhiêu?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["đ", "giá"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "PROMO_COMBINE_01",
+      "category": "promotion_voucher",
+      "sub_category": "combine_promotions",
+      "question": "Sản phẩm đang sale có được áp thêm voucher giảm giá không shop?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "payment.md",
+        "required_keywords": ["voucher", "áp dụng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "STOCK_CHECK_01",
+      "category": "out_of_stock",
+      "sub_category": "specific_item_stock",
+      "question": "Áo khoác gió Windbreaker màu be size L hiện tại còn hàng không bạn?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["còn", "hàng", "size"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "STOCK_OUT_01",
+      "category": "out_of_stock",
+      "sub_category": "out_of_stock_alternative",
+      "question": "Mẫu áo sơ mi màu tím than size XXL còn không shop?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["hết", "thay thế", "gợi ý"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": true
+      }
+    },
+    {
+      "id": "STOCK_OUT_02",
+      "category": "out_of_stock",
+      "sub_category": "restock_inquiry",
+      "question": "Nếu áo khoác gió hết hàng thì bao giờ có đợt hàng mới về?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["hàng", "shop"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": true
+      }
+    },
+    {
+      "id": "STOCK_VAR_01",
+      "category": "out_of_stock",
+      "sub_category": "variant_color_stock",
+      "question": "Quần jeans slim-fit còn màu đen size 31 không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["size 31", "hàng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "STOCK_WARN_01",
+      "category": "out_of_stock",
+      "sub_category": "low_stock_warning",
+      "question": "Đầm dạ hội ren thêu hoa còn nhiều chiếc không để mình rủ bạn cùng mua?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["tồn kho", "chiếc", "còn"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "STOCK_REP_01",
+      "category": "out_of_stock",
+      "sub_category": "substitute_recommendation",
+      "question": "Mình tìm áo polo màu vàng mù tạt size M nhưng hình như hết rồi, có mẫu nào tương tự không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["gợi ý", "polo", "còn hàng"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": true
+      }
+    },
+    {
+      "id": "STOCK_NOTIF_01",
+      "category": "out_of_stock",
+      "sub_category": "stock_status_all_sizes",
+      "question": "Áo thun cotton Compact bên mình hiện tại còn những size nào?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "CATALOG_SEARCH",
+        "expected_tool": "search_products",
+        "expected_policy_doc": null,
+        "required_keywords": ["size", "còn"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "POLICY_SHIP_01",
+      "category": "policy_faq",
+      "sub_category": "shipping_fee_time",
+      "question": "Phí ship về Đà Nẵng là bao nhiêu và mấy ngày nhận được hàng?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "shipping.md",
+        "required_keywords": ["[shipping.md", "Đà Nẵng", "ngày"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "POLICY_SHIP_02",
+      "category": "policy_faq",
+      "sub_category": "freeship_threshold",
+      "question": "Mình mua đơn hàng trên 500k thì có được freeship không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "shipping.md",
+        "required_keywords": ["[shipping.md", "miễn phí", "500"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "POLICY_RET_01",
+      "category": "policy_faq",
+      "sub_category": "return_conditions",
+      "question": "Nếu mình mua về mặc không vừa thì có được đổi trả không, quy định thế nào?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "returns.md",
+        "required_keywords": ["[returns.md", "đổi", "ngày", "nguyên tem"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "POLICY_RET_02",
+      "category": "policy_faq",
+      "sub_category": "return_fee",
+      "question": "Đổi size áo thì ai chịu phí vận chuyển vậy shop?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "returns.md",
+        "required_keywords": ["[returns.md", "phí ship", "đổi"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "POLICY_PAY_01",
+      "category": "policy_faq",
+      "sub_category": "payment_methods",
+      "question": "Shop có nhận thanh toán khi nhận hàng COD hay chuyển khoản VietQR không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "payment.md",
+        "required_keywords": ["[payment.md", "COD", "VietQR"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "POLICY_CARE_01",
+      "category": "policy_faq",
+      "sub_category": "garment_care",
+      "question": "Áo sơ mi lụa tơ tằm thì giặt máy hay giặt tay để không bị co rút?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": "care_guide.md",
+        "required_keywords": ["[care_guide.md", "giặt"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "SCOPE_ORDER_01",
+      "category": "out_of_scope",
+      "sub_category": "order_tracking",
+      "question": "Kiểm tra giùm mình tình trạng đơn hàng #ORD-98213 đặt hôm qua với.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chưa hỗ trợ", "liên hệ nhân viên"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_CANCEL_01",
+      "category": "out_of_scope",
+      "sub_category": "cancel_order",
+      "question": "Hủy giùm mình đơn hàng vừa bấm mua nhầm địa chỉ đi shop.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chưa hỗ trợ", "nhân viên"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_REFUND_01",
+      "category": "out_of_scope",
+      "sub_category": "refund_account",
+      "question": "Chuyển tiền hoàn lại vào số tài khoản Vietcombank 0123456789 của mình đi.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chưa hỗ trợ", "nhân viên"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_TECH_01",
+      "category": "out_of_scope",
+      "sub_category": "off_topic_tech",
+      "question": "Viết giúp mình một đoạn mã code Python giải bài toán sắp xếp mảng.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["thời trang", "chuyên"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_WEATHER_01",
+      "category": "out_of_scope",
+      "sub_category": "off_topic_general",
+      "question": "Thời tiết hôm nay ở New York thế nào có mưa không?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["thời trang"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_ACCOUNT_01",
+      "category": "out_of_scope",
+      "sub_category": "change_password",
+      "question": "Mình quên mật khẩu tài khoản đăng nhập web shop rồi, đổi giúp mình với.",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "OUT_OF_SCOPE",
+        "expected_tool": null,
+        "expected_policy_doc": null,
+        "required_keywords": ["chưa hỗ trợ", "nhân viên"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "SCOPE_LOCATION_01",
+      "category": "out_of_scope",
+      "sub_category": "physical_store_inquiry",
+      "question": "Địa chỉ shop mình ở đâu để mình qua thử trực tiếp?",
+      "user_profile": null,
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "POLICY_INQUIRY",
+        "expected_tool": "search_policy",
+        "expected_policy_doc": null,
+        "required_keywords": ["shop", "liên hệ"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
     }
   ]
 }

@@ -26,6 +26,7 @@ def test_classify_intents() -> None:
     assert classify_intent("Chính sách đổi trả hàng như thế nào?") == "POLICY_INQUIRY"
     assert classify_intent("Mã voucher SUMMER50 giảm bao nhiêu?") == "CATALOG_SEARCH"
     assert classify_intent("Tư vấn giúp mình đồ đi tiệc cho nữ") == "PRODUCT_ADVICE"
+    assert classify_intent("Kiểm tra tình trạng đơn hàng #1234") == "OUT_OF_SCOPE"
     assert classify_intent("Xin chào shop") == "GENERAL_CHAT"
 
 
