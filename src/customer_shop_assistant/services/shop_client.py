@@ -335,3 +335,42 @@ class ShopClient:
         except httpx.HTTPError as exc:
             logger.error("Failed to fetch categories from %s: %s", url, exc)
             return []
+
+    async def get_user_preferences(
+        self, user_id: int, token: str | None = None
+    ) -> dict[str, Any] | None:
+        """Fetch customer profile preferences (measurements, styles) from BE."""
+        client = await self._get_client()
+        url = f"{self.base_url}/preferences/{user_id}"
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        try:
+            logger.info("ShopClient -> GET %s", url)
+            response = await client.get(url, headers=headers)
+            logger.info("ShopClient <- GET %s [%d]", url, response.status_code)
+            if response.status_code == 404:
+                return None
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as exc:
+            logger.error("Failed to fetch preferences for user %s: %s", user_id, exc)
+            return None
+
+    async def update_user_preferences(
+        self,
+        user_id: int,
+        preferences: dict[str, Any],
+        token: str | None = None,
+    ) -> dict[str, Any] | None:
+        """Update customer profile preferences in Main BE."""
+        client = await self._get_client()
+        url = f"{self.base_url}/preferences/{user_id}"
+        headers = {"Authorization": f"Bearer {token}"} if token else {}
+        try:
+            logger.info("ShopClient -> PUT %s payload=%s", url, preferences)
+            response = await client.put(url, json=preferences, headers=headers)
+            logger.info("ShopClient <- PUT %s [%d]", url, response.status_code)
+            response.raise_for_status()
+            return response.json()
+        except httpx.HTTPError as exc:
+            logger.error("Failed to update preferences for user %s: %s", user_id, exc)
+            return None

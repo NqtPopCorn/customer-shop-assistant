@@ -24,13 +24,68 @@ from customer_shop_assistant.schemas.chat import (
     ClarificationMode,
     UserProfile,
 )
+from customer_shop_assistant.schemas.shop import GenderTarget
 from customer_shop_assistant.services.clarification_engine import (
     ClarificationEngine,
 )
+from customer_shop_assistant.services.session_manager import get_session_manager
+from customer_shop_assistant.services.shop_client import ShopClient
 from customer_shop_assistant.tools import ALL_TOOLS
 from customer_shop_assistant.tools.catalog_tool import PRODUCT_REGISTRY
 
 logger = logging.getLogger(__name__)
+
+
+def extract_measurements_from_text(text: str) -> dict[str, Any]:
+    """Extract spontaneous customer body measurements from conversation text."""
+    lower = text.lower()
+    res: dict[str, Any] = {}
+
+    h_match = re.search(
+        r"(?:cao\s*)?(?:(\d)m(\d{1,2})|(\d{3})\s*cm|cao\s*(\d{3}))", lower
+    )
+    if h_match:
+        if h_match.group(1) and h_match.group(2):
+            m = int(h_match.group(1))
+            cm = int(h_match.group(2))
+            cm_val = m * 100 + (cm * 10 if cm < 10 else cm)
+            if 100 <= cm_val <= 230:
+                res["height_cm"] = float(cm_val)
+        elif h_match.group(3):
+            val = float(h_match.group(3))
+            if 100 <= val <= 230:
+                res["height_cm"] = val
+        elif h_match.group(4):
+            val = float(h_match.group(4))
+            if 100 <= val <= 230:
+                res["height_cm"] = val
+
+    w_match = re.search(r"(?:nặng\s*(\d{2,3})|\b(\d{2,3})\s*(?:kg|ký))", lower)
+    if w_match:
+        val_str = w_match.group(1) or w_match.group(2)
+        if val_str:
+            val = float(val_str)
+            if 30 <= val <= 200:
+                res["weight_kg"] = val
+
+    if any(
+        k in lower
+        for k in ["bạn nam", "cho nam", "nam giới", "mình là nam", "con trai"]
+    ):
+        res["gender"] = GenderTarget.MALE
+    elif any(
+        k in lower for k in ["bạn nữ", "cho nữ", "nữ giới", "mình là nữ", "con gái"]
+    ):
+        res["gender"] = GenderTarget.FEMALE
+
+    if any(k in lower for k in ["mặc rộng", "form rộng", "oversize", "thoải mái"]):
+        res["fit_preference"] = "LOOSE"
+    elif any(k in lower for k in ["mặc ôm", "ôm sát", "body", "slim"]):
+        res["fit_preference"] = "TIGHT"
+    elif any(k in lower for k in ["vừa vặn", "vừa người", "regular"]):
+        res["fit_preference"] = "REGULAR"
+
+    return res
 
 
 def extract_recommended_products(
@@ -104,27 +159,49 @@ def generate_quick_replies(intent: str | None, clarification_asked: bool) -> lis
     ]
 
 
-SYSTEM_PROMPT = """Bạn là trợ lý AI bán hàng thông minh của Fashion Shop.
+SYSTEM_PROMPT = """Bạn là trợ lý thời trang thông minh của Fashion Shop, \
+chuyên tư vấn và gợi ý sản phẩm phù hợp nhất cho khách hàng.
+
 Phong cách giao tiếp:
-- Tinh gọn, trọng tâm, sự thật khách quan (fact-first), không văn vẻ.
-- Trả lời bằng tiếng Việt lịch sự, thân thiện và nhiệt tình.
+- Tinh gọn, trọng tâm, gu thẩm mỹ tốt, đúng sự thật khách quan (fact-first).
+- Trả lời bằng tiếng Việt lịch sự, thân thiện, nhiệt tình gợi ý phối đồ.
 
 Quy định bắt buộc:
-1. Tư vấn size: Dùng `recommend_size` để tính theo bảng size quy chuẩn.
-2. Tồn kho & Sản phẩm: Dùng `search_products` hoặc `get_product_detail`.
-   Tuyệt đối không tự bịa tên sản phẩm hay size còn hàng.
-3. Chính sách: Dùng `search_policy` khi hỏi về đổi trả, vận chuyển,
-   thanh toán VietQR/COD. Bắt buộc dẫn nguồn chuẩn xác dạng
-   `[tên_tệp: tiêu_đề_mục]` (ví dụ: `[shipping.md: Biểu phí vận chuyển]`).
+1. GỢI Ý SẢN PHẨM (TRỌNG TÂM HÀNG ĐẦU):
+   - Luôn sử dụng `search_products` hoặc `get_product_detail` để tìm kiếm
+     sản phẩm thực tế có sẵn, còn hàng trong cửa hàng.
+   - Ưu tiên gợi ý sản phẩm theo nhu cầu khách hàng: dịp mặc (đi làm, đi tiệc,
+     dạo phố, du lịch), phong cách (công sở, streetwear, tối giản, thanh lịch),
+     gu mặc (form rộng, ôm dáng), chất liệu, màu sắc hoặc vóc dáng.
+   - Khi gợi ý sản phẩm, hãy kèm mã định danh `[ID]` (ví dụ: `[1] Áo Oxford`)
+     và nêu bật lý do thiết kế, chất vải, màu sắc hoặc form dáng phù hợp với khách.
+   - Tuyệt đối không tự bịa đặt tên sản phẩm, mã hàng hay trạng thái tồn kho.
+2. Tư vấn size (Hỗ trợ kèm theo):
+   - Khi khách hàng hỏi size hoặc sau khi đã chọn được mẫu ưng ý,
+     hãy dùng `recommend_size` để tính toán size chuẩn theo bảng quy đổi.
+3. Chính sách bán hàng:
+   - Dùng `search_policy` khi khách hỏi về đổi trả, phí vận chuyển, freeship,
+     thanh toán VietQR/COD. Bắt buộc trích dẫn nguồn `[tên_tệp: tiêu_đề_mục]`.
 4. Mã giảm giá: Dùng `check_voucher` kiểm tra điều kiện trước khi báo.
+5. Hồ sơ & Lưu thông tin cá nhân:
+   - Trong suốt cuộc trò chuyện, toàn bộ số đo (chiều cao, cân nặng, số đo 3 vòng)
+     và sở thích của khách CHỈ ĐƯỢC LƯU TẠM THỜI trong phiên hiện tại để gợi ý đồ.
+     TUYỆT ĐỐI KHÔNG tự động lưu vĩnh viễn vào tài khoản khi khách chưa kết thúc.
+   - CHỈ gọi tool `update_customer_preference` khi:
+     (a) Khách hàng nói lời cảm ơn (ví dụ: 'cảm ơn shop', 'thanks', 'cảm ơn bạn nhé')
+         để chốt lưu lại các thông tin/số đo của phiên vào hồ sơ tài khoản cho khách.
+     HOẶC (b) Khách hàng chủ động yêu cầu lưu (ví dụ: 'lưu lại số đo này giúp mình',
+         'nhớ số đo này cho mình nhé', 'cập nhật vào hồ sơ').
+   - Đối với khách vãng lai (chưa có user_id): Không gọi tool lưu, phản hồi cảm ơn
+     lịch sự và gợi ý khách đăng nhập nếu muốn lưu hồ sơ lâu dài.
 """
-
 
 class AgentState(TypedDict):
     """LangGraph conversation state."""
 
     messages: Annotated[list[BaseMessage], add_messages]
     session_id: str
+    user_id: int | None
     user_profile: UserProfile | None
     clarification_mode: ClarificationMode
     intent: str
@@ -352,6 +429,29 @@ class ShopAssistantAgent:
         # Node 3: LLM generation
         async def node_agent(state: AgentState) -> dict[str, Any]:
             sys_content = SYSTEM_PROMPT
+            uid = state.get("user_id")
+            sid = state.get("session_id")
+            if uid:
+                sys_content += (
+                    f"\nKhách hàng hiện tại đã đăng nhập với User ID: #{uid}, "
+                    f"Session ID: '{sid}'.\n"
+                    "QUY ĐỊNH BỘ NHỚ LÂU DÀI:\n"
+                    "- Ưu tiên trọng tâm tư vấn và gợi ý các sản phẩm phù hợp.\n"
+                    "- Mọi thông tin số đo CHỈ lưu tạm trong phiên để gợi ý đồ, "
+                    "TUYỆT ĐỐI KHÔNG gọi tool lưu vĩnh viễn trong lúc tư vấn.\n"
+                    "- KHI KHÁCH NÓI CẢM ƠN (ví dụ: 'cảm ơn shop', 'thanks') "
+                    "HOẶC YÊU CẦU LƯU (ví dụ: 'lưu lại số đo giúp mình'):\n"
+                    f"  Hãy gọi tool `update_customer_preference(user_id={uid}, "
+                    f"session_id='{sid}')` để lưu số đo phiên vào tài khoản, "
+                    "và phản hồi lịch sự kèm thông báo đã lưu.\n"
+                )
+            else:
+                sys_content += (
+                    f"\nKhách hàng là khách vãng lai (Session ID: '{sid}').\n"
+                    "Tập trung tư vấn và gợi ý sản phẩm phù hợp. "
+                    "Mọi thông tin chỉ dùng tạm trong phiên này, "
+                    "không thể lưu lâu dài vào tài khoản.\n"
+                )
             prof = state.get("user_profile")
             if prof:
                 prof_notes = []
@@ -359,13 +459,20 @@ class ShopAssistantAgent:
                     prof_notes.append(f"Chiều cao: {prof.height_cm}cm")
                 if prof.weight_kg:
                     prof_notes.append(f"Cân nặng: {prof.weight_kg}kg")
+                if prof.waist_cm:
+                    prof_notes.append(f"Vòng eo: {prof.waist_cm}cm")
+                if prof.chest_cm:
+                    prof_notes.append(f"Vòng ngực: {prof.chest_cm}cm")
+                if prof.hip_cm:
+                    prof_notes.append(f"Vòng mông: {prof.hip_cm}cm")
                 if prof.gender:
                     prof_notes.append(f"Giới tính: {prof.gender.value}")
                 if prof.fit_preference:
                     prof_notes.append(f"Gu mặc: {prof.fit_preference}")
                 if prof_notes:
                     sys_content += (
-                        f"\nThông tin khách hàng đã biết: {', '.join(prof_notes)}"
+                        "\nThông tin khách hàng đã biết (áp dụng để gợi ý sản phẩm "
+                        f"& chọn size): {', '.join(prof_notes)}"
                     )
 
             prompt_messages = [
@@ -427,23 +534,77 @@ class ShopAssistantAgent:
 
         return workflow.compile()
 
-    async def chat(self, request: ChatRequest) -> ChatResponse:
+    async def chat(
+        self,
+        request: ChatRequest,
+        user_id: int | None = None,
+        auth_token: str | None = None,
+    ) -> ChatResponse:
         """Process customer request through conversation graph."""
         session_id = request.session_id or str(uuid.uuid4())
+        session_mgr = get_session_manager(
+            ttl_seconds=self.settings.SESSION_TTL_SECONDS,
+            default_max_turns=self.settings.MAX_SESSION_HISTORY_TURNS,
+        )
+        session = session_mgr.get_or_create_session(session_id, user_id=user_id)
 
-        history_msgs: list[BaseMessage] = []
-        for msg in request.history:
-            if msg.role == "assistant":
-                history_msgs.append(AIMessage(content=msg.content))
-            else:
-                history_msgs.append(HumanMessage(content=msg.content))
+        # 1. Load baseline shared profile from Backend DB if user_id is known
+        if user_id is not None and session.active_profile is None:
+            try:
+                async with ShopClient(settings=self.settings) as client:
+                    pref_data = await client.get_user_preferences(
+                        user_id=user_id, token=auth_token
+                    )
+                    if pref_data:
+                        h = pref_data.get("heightCm")
+                        w = pref_data.get("weightKg")
+                        waist = pref_data.get("waistCm")
+                        chest = pref_data.get("chestCm")
+                        hip = pref_data.get("hipCm")
+                        fit = pref_data.get("fitPreference")
+                        if any([h, w, waist, chest, hip, fit]):
+                            session.active_profile = UserProfile(
+                                height_cm=h,
+                                weight_kg=w,
+                                waist_cm=waist,
+                                chest_cm=chest,
+                                hip_cm=hip,
+                                fit_preference=fit,
+                            )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to fetch preferences for user #%s: %s", user_id, exc
+                )
 
+        # 2. If client passed explicit user_profile, apply it to session
+        if request.user_profile is not None:
+            session.update_active_profile(request.user_profile)
+
+        # 3. Detect any in-conversation measurements (session-level override)
+        spontaneous = extract_measurements_from_text(request.message)
+        if spontaneous:
+            session.update_active_profile(spontaneous)
+
+        # 4. Populate session history if session is empty and client provided history
+        if not session.messages and request.history:
+            for item in request.history:
+                if item.role == "assistant":
+                    session.messages.append(AIMessage(content=item.content))
+                else:
+                    session.messages.append(HumanMessage(content=item.content))
+
+        # 5. Build prompt messages using sliding window from SessionManager
+        history_msgs = session_mgr.get_messages(
+            session_id, max_turns=self.settings.MAX_SESSION_HISTORY_TURNS
+        )
         history_msgs.append(HumanMessage(content=request.message))
+        session_mgr.add_user_message(session_id, request.message)
 
         initial_state: AgentState = {
             "messages": history_msgs,
             "session_id": session_id,
-            "user_profile": request.user_profile,
+            "user_id": user_id,
+            "user_profile": session.active_profile,
             "clarification_mode": request.clarification_mode,
             "intent": "GENERAL_CHAT",
             "clarification_asked": False,
@@ -464,6 +625,10 @@ class ShopAssistantAgent:
                 final_state.get("messages", []), reply
             )
             quick_replies = generate_quick_replies(intent, clarification_asked)
+
+            session_mgr.add_assistant_message(
+                session_id, reply, product_ids=[p.id for p in products]
+            )
 
             return ChatResponse(
                 reply=reply,
@@ -487,23 +652,77 @@ class ShopAssistantAgent:
                 tools_used=[],
             )
 
-    async def chat_stream(self, request: ChatRequest) -> AsyncIterator[dict[str, Any]]:
+    async def chat_stream(
+        self,
+        request: ChatRequest,
+        user_id: int | None = None,
+        auth_token: str | None = None,
+    ) -> AsyncIterator[dict[str, Any]]:
         """Stream assistant response tokens and events in real time."""
         session_id = request.session_id or str(uuid.uuid4())
+        session_mgr = get_session_manager(
+            ttl_seconds=self.settings.SESSION_TTL_SECONDS,
+            default_max_turns=self.settings.MAX_SESSION_HISTORY_TURNS,
+        )
+        session = session_mgr.get_or_create_session(session_id, user_id=user_id)
 
-        history_msgs: list[BaseMessage] = []
-        for msg in request.history:
-            if msg.role == "assistant":
-                history_msgs.append(AIMessage(content=msg.content))
-            else:
-                history_msgs.append(HumanMessage(content=msg.content))
+        # 1. Load baseline shared profile from Backend DB if user_id is known
+        if user_id is not None and session.active_profile is None:
+            try:
+                async with ShopClient(settings=self.settings) as client:
+                    pref_data = await client.get_user_preferences(
+                        user_id=user_id, token=auth_token
+                    )
+                    if pref_data:
+                        h = pref_data.get("heightCm")
+                        w = pref_data.get("weightKg")
+                        waist = pref_data.get("waistCm")
+                        chest = pref_data.get("chestCm")
+                        hip = pref_data.get("hipCm")
+                        fit = pref_data.get("fitPreference")
+                        if any([h, w, waist, chest, hip, fit]):
+                            session.active_profile = UserProfile(
+                                height_cm=h,
+                                weight_kg=w,
+                                waist_cm=waist,
+                                chest_cm=chest,
+                                hip_cm=hip,
+                                fit_preference=fit,
+                            )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to fetch preferences for user #%s: %s", user_id, exc
+                )
 
+        # 2. If client passed explicit user_profile, apply it to session
+        if request.user_profile is not None:
+            session.update_active_profile(request.user_profile)
+
+        # 3. Detect any in-conversation measurements (session-level override)
+        spontaneous = extract_measurements_from_text(request.message)
+        if spontaneous:
+            session.update_active_profile(spontaneous)
+
+        # 4. Populate session history if session is empty and client provided history
+        if not session.messages and request.history:
+            for item in request.history:
+                if item.role == "assistant":
+                    session.messages.append(AIMessage(content=item.content))
+                else:
+                    session.messages.append(HumanMessage(content=item.content))
+
+        # 5. Build prompt messages using sliding window from SessionManager
+        history_msgs = session_mgr.get_messages(
+            session_id, max_turns=self.settings.MAX_SESSION_HISTORY_TURNS
+        )
         history_msgs.append(HumanMessage(content=request.message))
+        session_mgr.add_user_message(session_id, request.message)
 
         initial_state: AgentState = {
             "messages": history_msgs,
             "session_id": session_id,
-            "user_profile": request.user_profile,
+            "user_id": user_id,
+            "user_profile": session.active_profile,
             "clarification_mode": request.clarification_mode,
             "intent": "GENERAL_CHAT",
             "clarification_asked": False,
@@ -578,6 +797,12 @@ class ShopAssistantAgent:
                 and len(tools_used) == 0
             )
             quick_replies = generate_quick_replies(detected_intent, is_clarification)
+
+            session_mgr.add_assistant_message(
+                session_id,
+                full_reply,
+                product_ids=[p.id for p in suggested_products],
+            )
 
             yield {
                 "type": "done",

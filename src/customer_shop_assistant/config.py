@@ -62,6 +62,20 @@ class Settings(BaseSettings):
         description="HTTP timeout in seconds when calling the backend API",
     )
 
+    # JWT Authentication & Session Memory Settings
+    JWT_SECRET: str = Field(
+        default="change-me",
+        description="JWT secret key for user auth tokens from fashion-shop-be",
+    )
+    SESSION_TTL_SECONDS: int = Field(
+        default=3600,
+        description="In-memory chat session expiration in seconds (default 60m)",
+    )
+    MAX_SESSION_HISTORY_TURNS: int = Field(
+        default=8,
+        description="Sliding window conversation turns for prompt context",
+    )
+
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
 
     model_config = SettingsConfigDict(

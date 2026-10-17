@@ -197,3 +197,44 @@ async def test_get_product_reviews_and_fit_recommendation(
         assert summary.dominant_fit == ProductFit.TIGHT
         assert summary.fit_recommendation is not None
         assert "tăng 1 size" in summary.fit_recommendation
+
+
+@pytest.mark.anyio
+async def test_get_and_update_user_preferences(test_settings: Settings) -> None:
+    stored_prefs = {
+        "userId": 5,
+        "heightCm": 170.0,
+        "weightKg": 65.0,
+        "fitPreference": "REGULAR",
+    }
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path == "/api/preferences/5":
+            if request.method == "GET":
+                return httpx.Response(200, json=stored_prefs)
+            elif request.method == "PUT":
+                data = request.read().decode()
+                import json
+
+                payload = json.loads(data)
+                stored_prefs.update(payload)
+                return httpx.Response(200, json=stored_prefs)
+        return httpx.Response(404, json={"message": "Not found"})
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as mock_http:
+        client = ShopClient(settings=test_settings, client=mock_http)
+
+        # GET
+        pref = await client.get_user_preferences(5)
+        assert pref is not None
+        assert pref["heightCm"] == 170.0
+        assert pref["weightKg"] == 65.0
+
+        # PUT
+        updated = await client.update_user_preferences(
+            5, {"weightKg": 68.0, "fitPreference": "LOOSE"}
+        )
+        assert updated is not None
+        assert updated["weightKg"] == 68.0
+        assert updated["fitPreference"] == "LOOSE"
