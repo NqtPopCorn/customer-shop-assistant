@@ -14,7 +14,7 @@ from customer_shop_assistant.tools.voucher_tool import check_voucher
 async def test_recommend_size_tool() -> None:
     result = await recommend_size.ainvoke(
         {
-            "category": "ao-thun",
+            "category": "tops",
             "height_cm": 172.0,
             "weight_kg": 64.0,
             "gender": "male",

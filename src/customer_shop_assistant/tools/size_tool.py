@@ -1,3 +1,5 @@
+from typing import Literal
+
 from langchain_core.tools import tool
 
 from customer_shop_assistant.schemas.shop import GenderTarget
@@ -6,7 +8,7 @@ from customer_shop_assistant.services.size_recommender import SizeRecommender
 
 @tool
 async def recommend_size(
-    category: str = "tops",
+    category: Literal["tops", "bottoms", "dresses"] = "tops",
     height_cm: float | None = None,
     weight_kg: float | None = None,
     waist_cm: float | None = None,
@@ -22,8 +24,12 @@ async def recommend_size(
     target_gender = GenderTarget.UNISEX
     if gender:
         g_norm = gender.strip().upper()
-        if g_norm in GenderTarget._value2member_map_:
-            target_gender = GenderTarget(g_norm)
+        if g_norm in GenderTarget.__members__:
+            target_gender = GenderTarget[g_norm]
+        elif g_norm in ("NAM", "MEN", "MAN"):
+            target_gender = GenderTarget.MALE
+        elif g_norm in ("NỮ", "NU", "WOMEN", "WOMAN"):
+            target_gender = GenderTarget.FEMALE
 
     recommender = SizeRecommender()
     rec = await recommender.recommend_size(
@@ -37,6 +43,16 @@ async def recommend_size(
         fit_preference=fit_preference,
         product_id=product_id,
     )
+
+    if rec.status == "insufficient_data":
+        missing_str = ", ".join(rec.missing_fields)
+        return (
+            f"Chưa đủ thông số để tư vấn size chuẩn xác. "
+            f"Vui lòng hỏi lại khách hàng các thông tin còn thiếu: {missing_str}."
+        )
+
+    if rec.status == "no_size_chart":
+        return f"Hiện tại cửa hàng chưa có bảng size chuẩn cho danh mục '{category}'."
 
     alt_str = (
         f" (hoặc chọn {rec.secondary_size} nếu muốn mặc rộng hơn)"

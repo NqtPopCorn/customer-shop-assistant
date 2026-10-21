@@ -19,6 +19,9 @@ class ProductFit(StrEnum):
     LOOSE = "LOOSE"
 
 
+MIN_REVIEWS_FOR_FIT_INSIGHT: int = 10
+
+
 class BrandSchema(BaseModel):
     """Brand information for a fashion product."""
 

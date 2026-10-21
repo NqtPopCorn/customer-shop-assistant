@@ -10,6 +10,7 @@ from customer_shop_assistant.services.shop_client import ShopClient
 
 # In-memory registry of recent structured products returned by tools
 PRODUCT_REGISTRY: dict[int, ChatRecommendedProduct] = {}
+LATEST_SEARCHED_PRODUCT_IDS: list[int] = []
 
 
 def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
@@ -48,24 +49,37 @@ def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
 @tool
 async def search_products(
     keyword: str | None = None,
-    category_id: int | None = None,
-    min_price: float | None = None,
-    max_price: float | None = None,
+    category_id: int | str | None = None,
+    category: str | None = None,
+    min_price: float | int | None = None,
+    max_price: float | int | None = None,
     target_gender: str | None = None,
     limit: int = 5,
 ) -> str:
-    """Tìm kiếm danh sách sản phẩm thời trang trong kho theo từ khóa, giá, giới tính."""
+    """Tìm kiếm sản phẩm thời trang trong kho theo từ khóa, danh mục, giá, giới tính."""
     gender_enum = None
     if target_gender:
         norm_gender = target_gender.strip().upper()
         if norm_gender in GenderTarget._value2member_map_:
             gender_enum = GenderTarget(norm_gender)
 
+    parsed_category_id: int | None = None
+    category_name: str | None = category
+
+    if category_id is not None:
+        try:
+            parsed_category_id = int(category_id)
+        except (ValueError, TypeError):
+            # Model passed string like 'dresses', 'áo', 'quần' into category_id
+            if not category_name:
+                category_name = str(category_id)
+
     params = ProductFilterParams(
         search=keyword,
-        category_id=category_id,
-        min_price=min_price,
-        max_price=max_price,
+        category_id=parsed_category_id,
+        category=category_name,
+        min_price=float(min_price) if min_price is not None else None,
+        max_price=float(max_price) if max_price is not None else None,
         target_gender=gender_enum,
         limit=limit,
     )
@@ -76,8 +90,10 @@ async def search_products(
         return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
 
     # Cache structured products for frontend carousel
+    LATEST_SEARCHED_PRODUCT_IDS.clear()
     for p in products:
         PRODUCT_REGISTRY[p.id] = product_schema_to_recommended(p)
+        LATEST_SEARCHED_PRODUCT_IDS.append(p.id)
 
     items_text: list[str] = []
     for p in products:
@@ -128,7 +144,10 @@ async def get_product_detail(product_id: int | str) -> str:
         f"Sản phẩm: {product.name} (ID: {product.id})",
         f"Giá: {price_val:,.0f}đ",
         f"Chất liệu: {product.material or 'N/A'}",
-        f"Phù hợp: {product.target_gender.value if product.target_gender else 'N/A'}",
+        (
+            f"Giới tính phù hợp: "
+            f"{product.target_gender.value if product.target_gender else 'N/A'}"
+        ),
         f"Mô tả: {product.description or 'Không có mô tả'}",
         "Biến thể & Tồn kho:",
     ]

@@ -110,3 +110,40 @@ async def test_review_fit_adjustment() -> None:
         assert "ôm" in result.review_insight
         # Upgraded to larger size due to TIGHT reviews
         assert result.primary_size == "L"
+
+
+@pytest.mark.anyio
+async def test_insufficient_data(recommender: SizeRecommender) -> None:
+    result = await recommender.recommend_size(
+        category="tops",
+        gender=GenderTarget.MALE,
+    )
+    assert result.status == "insufficient_data"
+    assert result.primary_size is None
+    assert "height_cm" in result.missing_fields
+    assert "weight_kg" in result.missing_fields
+
+
+@pytest.mark.anyio
+async def test_chest_and_hip_measurements(recommender: SizeRecommender) -> None:
+    # Large chest (105cm) for men's top should push to XXL even if height/weight are M
+    result = await recommender.recommend_size(
+        height_cm=168,
+        weight_kg=60,
+        chest_cm=105,
+        category="tops",
+        gender=GenderTarget.MALE,
+    )
+    assert result.status == "ok"
+    assert result.primary_size == "XXL"
+
+    # Hip measurement (105cm) for female dress should push to XL
+    dress_result = await recommender.recommend_size(
+        height_cm=155,
+        weight_kg=45,
+        hip_cm=102,
+        category="dresses",
+        gender=GenderTarget.FEMALE,
+    )
+    assert dress_result.status == "ok"
+    assert dress_result.primary_size == "XL"

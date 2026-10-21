@@ -81,6 +81,8 @@ class ShopClient:
                 params["maxPrice"] = filters.max_price
             if filters.mode:
                 params["mode"] = filters.mode
+            if filters.in_stock_only:
+                params["inStock"] = "true"
             if filters.page is not None:
                 params["page"] = filters.page
             if filters.limit is not None:
@@ -101,18 +103,7 @@ class ShopClient:
             else:
                 items = []
 
-            products = [ProductSchema.model_validate(item) for item in items]
-
-            # In-stock filtering if requested
-            if filters and filters.in_stock_only:
-                products = [
-                    p
-                    for p in products
-                    if any(v.stock > 0 for v in p.variants)
-                    or not p.variants  # If no variants defined, keep by default
-                ]
-
-            return products
+            return [ProductSchema.model_validate(item) for item in items]
         except httpx.HTTPError as exc:
             logger.error("Failed to fetch products from %s: %s", url, exc)
             return []
@@ -194,30 +185,16 @@ class ShopClient:
                     ),
                 )
 
-            # Calculate discount value
+            # Use discount parameters directly from backend
             disc_type = voucher_data.get("discountType")
             disc_val = float(voucher_data.get("discountValue", 0))
-            max_disc = voucher_data.get("maxDiscountValue")
-            max_disc_float = float(max_disc) if max_disc is not None else None
-
-            calculated_discount = 0.0
-            if order_amount > 0:
-                if disc_type == "PERCENT":
-                    discount_raw = order_amount * (disc_val / 100.0)
-                    calculated_discount = (
-                        min(discount_raw, max_disc_float)
-                        if max_disc_float is not None
-                        else discount_raw
-                    )
-                else:  # FIXED
-                    calculated_discount = min(disc_val, order_amount)
 
             return VoucherCheckResult(
                 is_valid=True,
                 code=normalized_code,
                 name=voucher_data.get("name"),
                 discount_type=disc_type,
-                discount_amount=calculated_discount,
+                discount_amount=disc_val,
                 min_order_amount=min_order_float,
                 message=f"Áp dụng thành công mã giảm giá '{normalized_code}'.",
             )
@@ -235,7 +212,7 @@ class ShopClient:
         self,
         product_id: int,
     ) -> ProductReviewSummary:
-        """Fetch customer reviews and compute fit statistics for size advice."""
+        """Fetch customer reviews and return raw fit distribution counts."""
         client = await self._get_client()
         url = f"{self.base_url}/products/{product_id}/reviews"
 
@@ -277,43 +254,11 @@ class ShopClient:
                 ProductFit.LOOSE.value: loose_count,
             }
 
-            # Determine dominant fit
-            dominant_fit: ProductFit | None = None
-            max_count = max(tight_count, true_count, loose_count)
-            if max_count > 0:
-                if max_count == tight_count:
-                    dominant_fit = ProductFit.TIGHT
-                elif max_count == loose_count:
-                    dominant_fit = ProductFit.LOOSE
-                else:
-                    dominant_fit = ProductFit.TRUE_TO_SIZE
-
-            # Generate recommendation when threshold (10 reviews) is met
-            recommendation: str | None = None
-            if total_reviews >= 10 and dominant_fit:
-                if dominant_fit == ProductFit.TIGHT:
-                    recommendation = (
-                        "Đa số khách hàng đánh giá mẫu này form hơi ôm (tight), "
-                        "bạn nên cân nhắc tăng 1 size nếu thích mặc thoải mái."
-                    )
-                elif dominant_fit == ProductFit.LOOSE:
-                    recommendation = (
-                        "Đa số khách hàng đánh giá mẫu này form rộng rãi (loose), "
-                        "bạn có thể cân nhắc giảm 1 size nếu muốn mặc vừa vặn."
-                    )
-                else:
-                    recommendation = (
-                        "Mẫu này được đánh giá chuẩn size (true to size), "
-                        "bạn có thể yên tâm chọn đúng theo bảng quy chuẩn."
-                    )
-
             return ProductReviewSummary(
                 product_id=product_id,
                 total_reviews=total_reviews,
                 average_rating=avg_rating,
-                dominant_fit=dominant_fit,
                 fit_counts=fit_counts,
-                fit_recommendation=recommendation,
                 recent_reviews=review_items,
             )
         except httpx.HTTPError as exc:

@@ -11,15 +11,13 @@ from langchain_core.messages import AIMessage
 
 from customer_shop_assistant.config import Settings, get_settings
 from customer_shop_assistant.eval.dataset import EvaluationCase, load_golden_set
+from customer_shop_assistant.eval.heuristics import classify_intent
 from customer_shop_assistant.eval.metrics import (
     EvaluationMetricResult,
     evaluate_response,
 )
 from customer_shop_assistant.schemas.chat import ChatRequest, ClarificationMode
-from customer_shop_assistant.services.agent_service import (
-    ShopAssistantAgent,
-    classify_intent,
-)
+from customer_shop_assistant.services.agent_service import ShopAssistantAgent
 
 # Ensure terminal colors and UTF-8 output
 if sys.platform == "win32":
@@ -51,6 +49,11 @@ def create_dry_run_agent(case: EvaluationCase) -> ShopAssistantAgent:
         content = (
             "Hiện tại mình chưa hỗ trợ tác vụ cá nhân hoặc tra cứu ngoài phạm vi. "
             "Bạn vui lòng liên hệ nhân viên shop để được hỗ trợ nhé."
+        )
+    elif gt.should_clarify:
+        content = (
+            f"Bạn có thể chia sẻ thêm thông tin về {kw} để shop tư vấn "
+            "chuẩn xác nhất được không ạ?"
         )
     elif gt.expected_policy_doc:
         content = (

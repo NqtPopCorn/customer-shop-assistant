@@ -7,7 +7,6 @@ from customer_shop_assistant.config import Settings
 from customer_shop_assistant.schemas.shop import (
     GenderTarget,
     ProductFilterParams,
-    ProductFit,
 )
 from customer_shop_assistant.services.shop_client import ShopClient
 
@@ -70,7 +69,8 @@ async def test_get_products_with_filter(test_settings: Settings) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert request.url.path == "/api/products"
         assert request.url.params.get("targetGender") == "MALE"
-        return httpx.Response(200, json=mock_products)
+        assert request.url.params.get("inStock") == "true"
+        return httpx.Response(200, json=[mock_products[0]])
 
     transport = httpx.MockTransport(handler)
     async with httpx.AsyncClient(transport=transport) as mock_http:
@@ -150,11 +150,10 @@ async def test_check_voucher_success_and_failures(
         assert res1.is_valid is False
         assert "tối thiểu" in (res1.message or "")
 
-        # Case 2: Above minimum order amount with cap
+        # Case 2: Above minimum order amount, returns backend discount value
         res2 = await client.check_voucher("SUMMER2026", order_amount=600000)
         assert res2.is_valid is True
-        # 10% of 600k = 60k, but maxDiscountValue is 50k
-        assert res2.discount_amount == 50000
+        assert res2.discount_amount == 10
 
         # Case 3: Invalid code
         res3 = await client.check_voucher("EXPIREDCODE")
@@ -194,9 +193,8 @@ async def test_get_product_reviews_and_fit_recommendation(
 
         assert summary.total_reviews == 12
         assert summary.average_rating == 4.9
-        assert summary.dominant_fit == ProductFit.TIGHT
-        assert summary.fit_recommendation is not None
-        assert "tăng 1 size" in summary.fit_recommendation
+        assert summary.fit_counts["TIGHT"] == 10
+        assert summary.fit_counts["TRUE_TO_SIZE"] == 2
 
 
 @pytest.mark.anyio

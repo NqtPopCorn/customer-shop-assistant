@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import math
 import re
@@ -11,7 +12,7 @@ from customer_shop_assistant.config import Settings, get_settings
 
 logger = logging.getLogger(__name__)
 
-# Module-level cache to avoid redundant embedding calls to Ollama
+# Module-level cache to avoid redundant embedding calls
 _INDEX_CACHE: dict[str, dict[str, Any]] = {}
 
 
@@ -40,46 +41,11 @@ def cosine_similarity(vec_a: list[float], vec_b: list[float]) -> float:
     return dot_product / (norm_a * norm_b)
 
 
-VIETNAMESE_STOP_WORDS = {
-    "là",
-    "và",
-    "của",
-    "cho",
-    "các",
-    "có",
-    "được",
-    "bao",
-    "nhiêu",
-    "này",
-    "khi",
-    "trong",
-    "với",
-    "như",
-    "thế",
-    "nào",
-    "gì",
-    "sao",
-    "đến",
-    "từ",
-    "ra",
-    "vào",
-    "lại",
-    "đã",
-    "sẽ",
-    "đang",
-    "mình",
-    "bạn",
-    "shop",
-    "hỏi",
-    "giúp",
-}
-
-
 class PolicyRetriever:
     """RAG retriever indexing and fetching store policy markdown documents.
 
-    Uses dense semantic embeddings (nomic-embed-text via Ollama) with seamless
-    fallback to sublinear TF-IDF vectorization.
+    Uses dense semantic embeddings (nomic-embed-text via Ollama) and
+    standard Okapi BM25, fused with Reciprocal Rank Fusion (RRF).
     """
 
     def __init__(
@@ -91,25 +57,48 @@ class PolicyRetriever:
         self.policies_dir = policies_dir or (self.settings.DATA_DIR / "policies")
         self.chunks: list[PolicyChunk] = []
         self._dense_embeddings: list[list[float]] = []
-        self._tfidf_embeddings: list[list[float]] = []
-        self._vocabulary: list[str] = []
-        self._idf: dict[str, float] = {}
         self._indexed = False
         self._using_dense = False
         self._embeddings_model: OllamaEmbeddings | None = None
 
+        # BM25 index structures
+        self._doc_token_counts: list[dict[str, int]] = []
+        self._doc_lengths: list[int] = []
+        self._avg_doc_len: float = 0.0
+        self._idf: dict[str, float] = {}
+
+    def _compute_policies_hash(self) -> str:
+        """Compute MD5 hash across file modification times and sizes in policies_dir."""
+        if not self.policies_dir.exists():
+            return "empty"
+        file_stats: list[str] = []
+        for md_file in sorted(self.policies_dir.glob("*.md")):
+            stat = md_file.stat()
+            file_stats.append(f"{md_file.name}:{stat.st_mtime}:{stat.st_size}")
+        return hashlib.md5("".join(file_stats).encode()).hexdigest()
+
     def index_documents(self) -> int:
         """Parse markdown files in policies directory into chunks and index them."""
-        cache_key = f"{self.policies_dir}:{self.settings.EMBEDDING_PROVIDER}"
+        model_name = (
+            self.settings.OLLAMA_EMBEDDING_MODEL
+            if self.settings.EMBEDDING_PROVIDER == "ollama"
+            else "none"
+        )
+        cache_key = (
+            f"{self.policies_dir}:{self._compute_policies_hash()}:"
+            f"{self.settings.EMBEDDING_PROVIDER}:{model_name}"
+        )
+
         if cache_key in _INDEX_CACHE:
             cached = _INDEX_CACHE[cache_key]
             self.chunks = cached["chunks"]
             self._dense_embeddings = cached["dense"]
             self._using_dense = cached["using_dense"]
             self._embeddings_model = cached["model"]
-            self._vocabulary = cached["vocab"]
+            self._doc_token_counts = cached["doc_token_counts"]
+            self._doc_lengths = cached["doc_lengths"]
+            self._avg_doc_len = cached["avg_doc_len"]
             self._idf = cached["idf"]
-            self._tfidf_embeddings = cached["tfidf"]
             self._indexed = True
             return len(self.chunks)
 
@@ -157,7 +146,7 @@ class PolicyRetriever:
                     content=clean_sec,
                 )
                 self.chunks.append(chunk)
-                search_text = f"{doc_title} {sec_title} {clean_sec}"
+                search_text = f"{doc_title}\n{sec_title}\n{sec_title}\n{clean_sec}"
                 all_texts.append(search_text)
 
         total_docs = len(all_texts)
@@ -165,7 +154,7 @@ class PolicyRetriever:
             self._indexed = True
             return 0
 
-        # 1. Try Dense Semantic Embeddings via Ollama (nomic-embed-text)
+        # 1. Dense Semantic Embeddings via Ollama (nomic-embed-text)
         if self.settings.EMBEDDING_PROVIDER == "ollama":
             try:
                 self._embeddings_model = OllamaEmbeddings(
@@ -183,158 +172,125 @@ class PolicyRetriever:
                 )
             except Exception as exc:
                 logger.warning(
-                    "Could not generate Ollama embeddings (%s): %s. "
-                    "Using TF-IDF fallback.",
+                    "Could not generate Ollama embeddings (%s): %s. Using BM25.",
                     self.settings.OLLAMA_EMBEDDING_MODEL,
                     exc,
                 )
                 self._using_dense = False
 
-        # 2. Build TF-IDF vectors as robust fallback
+        # 2. Standard Okapi BM25 Indexing
+        self._doc_token_counts = []
+        self._doc_lengths = []
         doc_freq: dict[str, int] = {}
-        for text in all_texts:
-            tokens = set(re.findall(r"\w+", text.lower()))
-            for t in tokens:
-                doc_freq[t] = doc_freq.get(t, 0) + 1
 
-        self._vocabulary = sorted(doc_freq.keys())
-        self._idf = {
-            w: math.log(1.0 + (total_docs / float(freq)))
-            for w, freq in doc_freq.items()
-        }
-
-        self._tfidf_embeddings = []
         for text in all_texts:
             tokens = re.findall(r"\w+", text.lower())
+            self._doc_lengths.append(len(tokens))
             tf: dict[str, int] = {}
             for t in tokens:
                 tf[t] = tf.get(t, 0) + 1
+            self._doc_token_counts.append(tf)
 
-            vec = [
-                (1.0 + math.log(tf[w])) * self._idf.get(w, 1.0) if w in tf else 0.0
-                for w in self._vocabulary
-            ]
-            self._tfidf_embeddings.append(vec)
+            for unique_token in tf.keys():
+                doc_freq[unique_token] = doc_freq.get(unique_token, 0) + 1
+
+        self._avg_doc_len = sum(self._doc_lengths) / float(total_docs)
+        self._idf = {
+            w: math.log((total_docs - freq + 0.5) / (freq + 0.5) + 1.0)
+            for w, freq in doc_freq.items()
+        }
 
         self._indexed = True
 
-        # Cache in memory
         _INDEX_CACHE[cache_key] = {
             "chunks": self.chunks,
             "dense": self._dense_embeddings,
             "using_dense": self._using_dense,
             "model": self._embeddings_model,
-            "vocab": self._vocabulary,
+            "doc_token_counts": self._doc_token_counts,
+            "doc_lengths": self._doc_lengths,
+            "avg_doc_len": self._avg_doc_len,
             "idf": self._idf,
-            "tfidf": self._tfidf_embeddings,
         }
 
         return len(self.chunks)
 
     def retrieve(self, query: str, k: int = 3) -> list[PolicyChunk]:
-        """Retrieve top-k relevant policy chunks with source citations."""
+        """Retrieve top-k relevant policy chunks using dense + BM25 RRF fusion."""
         if not self._indexed:
             self.index_documents()
 
         if not self.chunks:
             return []
 
+        # 1. BM25 Scores
         q_tokens = re.findall(r"\w+", query.lower())
-        unique_q_words = {
-            w for w in q_tokens if len(w) >= 3 and w not in VIETNAMESE_STOP_WORDS
-        }
+        k1 = 1.5
+        b = 0.75
 
-        # A. Try Dense Semantic Search using nomic-embed-text
+        bm25_scores: list[float] = []
+        unique_q_tokens = set(q_tokens)
+        for _i, (tf_map, doc_len) in enumerate(
+            zip(self._doc_token_counts, self._doc_lengths, strict=False)
+        ):
+            score = 0.0
+            for t in unique_q_tokens:
+                if t in tf_map:
+                    freq = tf_map[t]
+                    idf_val = self._idf.get(t, 0.0)
+                    denom = freq + k1 * (1.0 - b + b * (doc_len / self._avg_doc_len))
+                    score += idf_val * (freq * (k1 + 1.0)) / denom
+            bm25_scores.append(score)
+
+        # Ranked by BM25
+        bm25_ranked = sorted(
+            range(len(self.chunks)), key=lambda idx: bm25_scores[idx], reverse=True
+        )
+
+        # 2. Dense Semantic Search (if available)
+        dense_ranked: list[int] = []
+        dense_sims: list[float] = [0.0] * len(self.chunks)
+
         if self._using_dense and self._embeddings_model is not None:
             try:
                 dense_q_vec = self._embeddings_model.embed_query(query)
-                scored_dense: list[tuple[float, PolicyChunk]] = []
-
-                for chunk, vec in zip(
-                    self.chunks, self._dense_embeddings, strict=False
-                ):
-                    sim = cosine_similarity(dense_q_vec, vec)
-
-                    sec_lower = chunk.section_title.lower()
-                    doc_lower = f"{chunk.doc_name} {chunk.doc_title}".lower()
-                    content_lower = chunk.content.lower()
-
-                    sec_matches = [w for w in unique_q_words if w in sec_lower]
-                    doc_matches = [w for w in unique_q_words if w in doc_lower]
-                    content_matches = [w for w in unique_q_words if w in content_lower]
-
-                    coverage_boost = (
-                        (len(content_matches) / len(unique_q_words)) * 0.4
-                        if unique_q_words
-                        else 0.0
-                    )
-                    content_boost = 0.06 * len(content_matches)
-
-                    sim += 0.08 * len(sec_matches)
-                    sim += 0.05 * len(doc_matches)
-                    sim += coverage_boost + content_boost
-
-                    scored_dense.append((sim, chunk))
-
-                scored_dense.sort(key=lambda x: x[0], reverse=True)
-                results: list[PolicyChunk] = []
-                for score, chunk in scored_dense[:k]:
-                    res_chunk = chunk.model_copy()
-                    res_chunk.score = round(score, 4)
-                    results.append(res_chunk)
-                return results
-            except Exception as exc:
-                logger.warning(
-                    "Dense query embedding failed (%s), falling back to TF-IDF",
-                    exc,
+                for idx, vec in enumerate(self._dense_embeddings):
+                    dense_sims[idx] = cosine_similarity(dense_q_vec, vec)
+                dense_ranked = sorted(
+                    range(len(self.chunks)),
+                    key=lambda idx: dense_sims[idx],
+                    reverse=True,
                 )
+            except Exception as exc:
+                logger.warning("Dense query embedding failed: %s", exc)
+                dense_ranked = []
 
-        # B. Fallback: TF-IDF Retrieval
-        if not self._vocabulary:
-            return []
+        # 3. Reciprocal Rank Fusion (RRF)
+        rrf_scores: list[float] = [0.0] * len(self.chunks)
+        c = 60.0
 
-        q_tf: dict[str, int] = {}
-        for t in q_tokens:
-            q_tf[t] = q_tf.get(t, 0) + 1
+        for rank, chunk_idx in enumerate(bm25_ranked):
+            if bm25_scores[chunk_idx] > 0.0:
+                rrf_scores[chunk_idx] += 1.0 / (c + rank + 1)
 
-        query_vec = [
-            (1.0 + math.log(q_tf[w])) * self._idf.get(w, 1.0) if w in q_tf else 0.0
-            for w in self._vocabulary
-        ]
+        if dense_ranked:
+            for rank, chunk_idx in enumerate(dense_ranked):
+                if dense_sims[chunk_idx] > 0.0:
+                    rrf_scores[chunk_idx] += 1.0 / (c + rank + 1)
 
-        scored: list[tuple[float, PolicyChunk]] = []
-        for chunk, vec in zip(self.chunks, self._tfidf_embeddings, strict=False):
-            sim = cosine_similarity(query_vec, vec)
+        final_ranked = sorted(
+            range(len(self.chunks)), key=lambda idx: rrf_scores[idx], reverse=True
+        )
 
-            sec_lower = chunk.section_title.lower()
-            doc_lower = f"{chunk.doc_name} {chunk.doc_title}".lower()
-            content_lower = chunk.content.lower()
+        results: list[PolicyChunk] = []
+        for idx in final_ranked[:k]:
+            if rrf_scores[idx] <= 0.0 and bm25_scores[idx] <= 0.0:
+                continue
+            chunk = self.chunks[idx].model_copy()
+            chunk.score = round(rrf_scores[idx], 4)
+            results.append(chunk)
 
-            sec_matches = [w for w in unique_q_words if w in sec_lower]
-            doc_matches = [w for w in unique_q_words if w in doc_lower]
-            content_matches = [w for w in unique_q_words if w in content_lower]
-
-            coverage_boost = (
-                (len(content_matches) / len(unique_q_words)) * 0.3
-                if unique_q_words
-                else 0.0
-            )
-
-            sim += 0.15 * len(sec_matches)
-            sim += 0.05 * len(doc_matches)
-            sim += coverage_boost
-
-            scored.append((sim, chunk))
-
-        scored.sort(key=lambda x: x[0], reverse=True)
-
-        results_fallback: list[PolicyChunk] = []
-        for score, chunk in scored[:k]:
-            res_chunk = chunk.model_copy()
-            res_chunk.score = round(score, 4)
-            results_fallback.append(res_chunk)
-
-        return results_fallback
+        return results
 
     def format_citation(self, chunk: PolicyChunk) -> str:
         """Format a human-readable and standard citation string."""

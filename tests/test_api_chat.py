@@ -20,29 +20,57 @@ def test_api_v1_health() -> None:
 
 
 def test_api_v1_chat_clarification_minimal() -> None:
+    fake_model = GenericFakeChatModel(
+        messages=iter(
+            [
+                AIMessage(
+                    content=(
+                        "Dạ để tư vấn size chuẩn xác nhất, bạn vui lòng cho mình "
+                        "biết chiều cao và cân nặng của bạn nhé?"
+                    )
+                )
+            ]
+        )
+    )
     payload = {
         "message": "Tư vấn size áo giúp mình",
         "clarification_mode": "MINIMAL_CLARIFICATION",
     }
-    res = client.post("/api/v1/chat", json=payload)
+    with patch(
+        "customer_shop_assistant.services.agent_service.get_chat_model",
+        return_value=fake_model,
+    ):
+        res = client.post("/api/v1/chat", json=payload)
     assert res.status_code == 200
     data = res.json()
     assert data["clarification_asked"] is True
     assert "chiều cao" in data["reply"]
     assert "cân nặng" in data["reply"]
-    assert data["intent"] == "SIZE_ADVICE"
     assert "quick_replies" in data
     assert isinstance(data["quick_replies"], list)
     assert "products" in data
 
 
 def test_api_chat_alias_compatibility() -> None:
+    fake_model = GenericFakeChatModel(
+        messages=iter(
+            [
+                AIMessage(
+                    content="Dạ bạn vui lòng cho mình biết chiều cao và cân nặng nhé?"
+                )
+            ]
+        )
+    )
     payload = {
         "message": "Tư vấn size áo giúp mình",
         "conversation_id": "test-alias-123",
         "clarification_mode": "MINIMAL_CLARIFICATION",
     }
-    res = client.post("/api/chat", json=payload)
+    with patch(
+        "customer_shop_assistant.services.agent_service.get_chat_model",
+        return_value=fake_model,
+    ):
+        res = client.post("/api/chat", json=payload)
     assert res.status_code == 200
     data = res.json()
     assert data["session_id"] == "test-alias-123"
@@ -50,15 +78,30 @@ def test_api_chat_alias_compatibility() -> None:
 
 
 def test_api_v1_chat_stream_sse() -> None:
+    fake_model = GenericFakeChatModel(
+        messages=iter(
+            [
+                AIMessage(
+                    content="Dạ bạn vui lòng cho mình biết chiều cao và cân nặng nhé?"
+                )
+            ]
+        )
+    )
     payload = {
         "message": "Tư vấn size áo giúp mình",
         "clarification_mode": "MINIMAL_CLARIFICATION",
     }
-    with client.stream("POST", "/api/v1/chat/stream", json=payload) as response:
-        assert response.status_code == 200
-        assert "text/event-stream" in response.headers["content-type"]
-        chunks = [line for line in response.iter_lines() if line.startswith("data: ")]
-        assert len(chunks) > 0
+    with patch(
+        "customer_shop_assistant.services.agent_service.get_chat_model",
+        return_value=fake_model,
+    ):
+        with client.stream("POST", "/api/v1/chat/stream", json=payload) as response:
+            assert response.status_code == 200
+            assert "text/event-stream" in response.headers["content-type"]
+            chunks = [
+                line for line in response.iter_lines() if line.startswith("data: ")
+            ]
+            assert len(chunks) > 0
 
 
 def test_api_chat_session_continuity_and_jwt() -> None:
@@ -91,6 +134,10 @@ def test_api_chat_session_continuity_and_jwt() -> None:
             json={
                 "session_id": session_id,
                 "message": "Mình cao 1m72 nặng 68kg, tư vấn áo sơ mi công sở",
+                "user_profile": {
+                    "height_cm": 172.0,
+                    "weight_kg": 68.0,
+                },
             },
         )
         assert res1.status_code == 200

@@ -1,14 +1,35 @@
+from customer_shop_assistant.eval.heuristics import (
+    ClarificationEngine,
+    classify_intent,
+    extract_measurements_from_text,
+)
 from customer_shop_assistant.schemas.chat import (
     ClarificationMode,
     UserProfile,
 )
 from customer_shop_assistant.schemas.shop import GenderTarget
-from customer_shop_assistant.services.clarification_engine import (
-    ClarificationEngine,
-)
 
 
-def test_extract_measurements() -> None:
+def test_classify_intents() -> None:
+    assert classify_intent("Cao 1m72 nặng 65kg mặc size gì?") == "SIZE_ADVICE"
+    assert classify_intent("Chính sách đổi trả hàng như thế nào?") == "POLICY_INQUIRY"
+    assert classify_intent("Mã voucher SUMMER50 giảm bao nhiêu?") == "CATALOG_SEARCH"
+    assert classify_intent("Tư vấn giúp mình đồ đi tiệc cho nữ") == "PRODUCT_ADVICE"
+    assert classify_intent("Kiểm tra tình trạng đơn hàng #1234") == "OUT_OF_SCOPE"
+    assert classify_intent("Xin chào shop") == "GENERAL_CHAT"
+
+
+def test_extract_measurements_from_text() -> None:
+    extracted = extract_measurements_from_text(
+        "Mình là nam cao 1m75 nặng 68kg cần tìm áo polo form rộng"
+    )
+    assert extracted["height_cm"] == 175.0
+    assert extracted["weight_kg"] == 68.0
+    assert extracted["gender"] == GenderTarget.MALE
+    assert extracted["fit_preference"] == "LOOSE"
+
+
+def test_clarification_engine_extract_entities() -> None:
     engine = ClarificationEngine()
     extracted = engine.extract_entities(
         "Mình là nam cao 1m75 nặng 68kg cần tìm áo polo form rộng"
@@ -41,6 +62,7 @@ def test_minimal_clarification_blocks_when_measurements_missing() -> None:
         profile=None,
     )
     assert decision.needs_clarification
+    assert decision.clarification_question is not None
     assert "chiều cao" in decision.clarification_question
 
 

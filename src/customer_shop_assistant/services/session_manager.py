@@ -1,14 +1,21 @@
 import logging
 import time
 from dataclasses import dataclass, field
+from enum import StrEnum
 from typing import Any
 
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage
 
 from customer_shop_assistant.schemas.chat import UserProfile
-from customer_shop_assistant.schemas.shop import GenderTarget
 
 logger = logging.getLogger(__name__)
+
+
+class ClarifyPhase(StrEnum):
+    """Phases for multi-turn clarification state machine."""
+
+    INTERVIEW = "INTERVIEW"
+    OPEN = "OPEN"
 
 
 @dataclass
@@ -19,11 +26,18 @@ class SessionState:
     user_id: int | None = None
     messages: list[BaseMessage] = field(default_factory=list)
     active_profile: UserProfile | None = None
-    active_product_id: int | None = None
-    active_category: str | None = None
-    active_filters: dict[str, Any] = field(default_factory=dict)
     created_at: float = field(default_factory=time.time)
     last_accessed: float = field(default_factory=time.time)
+    # Clarification state machine tracking
+    clarification_mode: str | None = None
+    clarify_phase: ClarifyPhase = ClarifyPhase.INTERVIEW
+    gated_turns: int = 0
+
+    def reset_clarification(self, mode: str | None) -> None:
+        """Reset clarification state machine when switching mode."""
+        self.clarification_mode = mode
+        self.clarify_phase = ClarifyPhase.INTERVIEW
+        self.gated_turns = 0
 
     def touch(self) -> None:
         """Update last accessed timestamp."""
@@ -39,12 +53,6 @@ class SessionState:
             update_dict = profile_update.model_dump(exclude_unset=True)
         else:
             update_dict = {k: v for k, v in profile_update.items() if v is not None}
-
-        # Normalize gender if string
-        if "gender" in update_dict and isinstance(update_dict["gender"], str):
-            g_str = update_dict["gender"].strip().upper()
-            if g_str in GenderTarget._value2member_map_:
-                update_dict["gender"] = GenderTarget(g_str)
 
         curr.update(update_dict)
         self.active_profile = UserProfile(**curr)
@@ -101,13 +109,10 @@ class SessionManager:
         self,
         session_id: str,
         content: str,
-        product_ids: list[int] | None = None,
     ) -> None:
-        """Append assistant reply and track referenced product IDs."""
+        """Append assistant reply to session message history."""
         session = self.get_or_create_session(session_id)
         session.messages.append(AIMessage(content=content))
-        if product_ids:
-            session.active_product_id = product_ids[0]
         session.touch()
 
     def update_active_profile(
@@ -118,32 +123,6 @@ class SessionManager:
         """Update active profile in session memory (session override)."""
         session = self.get_or_create_session(session_id)
         return session.update_active_profile(profile_update)
-
-    def set_active_entity(
-        self,
-        session_id: str,
-        product_id: int | None = None,
-        category: str | None = None,
-        filters: dict[str, Any] | None = None,
-    ) -> None:
-        """Update active context entities (focused product, category, filters)."""
-        session = self.get_or_create_session(session_id)
-        if product_id is not None:
-            session.active_product_id = product_id
-        if category is not None:
-            session.active_category = category
-        if filters:
-            session.active_filters.update(filters)
-        session.touch()
-
-    def get_active_entity(self, session_id: str) -> dict[str, Any]:
-        """Get currently active entity tracking state."""
-        session = self.get_or_create_session(session_id)
-        return {
-            "active_product_id": session.active_product_id,
-            "active_category": session.active_category,
-            "active_filters": dict(session.active_filters),
-        }
 
     def cleanup_expired(self) -> int:
         """Evict sessions that have exceeded TTL."""

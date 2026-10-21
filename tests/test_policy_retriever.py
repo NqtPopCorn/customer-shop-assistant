@@ -64,3 +64,9 @@ def test_dense_embedding_nomic_embed_text() -> None:
     if retriever._using_dense:
         assert len(retriever._dense_embeddings) == len(retriever.chunks)
         assert len(retriever._dense_embeddings[0]) == 768
+
+
+def test_cache_key_hash_and_model() -> None:
+    retriever = PolicyRetriever()
+    hash1 = retriever._compute_policies_hash()
+    assert len(hash1) == 32  # Valid MD5 hex digest

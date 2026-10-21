@@ -221,7 +221,7 @@ flowchart TD
     POLICY_TOOL --> POLICIES
 ```
 
-- **Điều phối (Orchestration)**: LangGraph state graph quản lý các trạng thái: `classify_intent` -> `check_clarification_mode` -> `execute_tools` -> `generate_fact_first_response`.
+- **Điều phối (Orchestration)**: Vòng lặp ReAct / Tool-calling async Python thuần túy qua `BaseChatModel.bind_tools(ALL_TOOLS)`. Toàn bộ luồng suy luận, hỏi lại (clarification mode) và gọi công cụ được điều khiển tự nhiên bởi LLM và System Prompt, không sử dụng các khối heuristic cứng và LangGraph cồng kềnh. Các thuật toán heuristic (`classify_intent`, `ClarificationEngine`) được cô lập riêng trong `customer_shop_assistant.eval.heuristics` để phục vụ benchmark tự động.
 - **Ràng buộc an toàn**: Giới hạn tối đa 5 bước suy luận (steps limit) mỗi turn, timeout kết nối API 3.0s.
 
 ---

@@ -58,14 +58,21 @@ def test_update_active_profile(session_mgr: SessionManager) -> None:
     assert session.active_profile.fit_preference == "LOOSE"
 
 
-def test_entity_tracking(session_mgr: SessionManager) -> None:
-    session_mgr.set_active_entity(
-        "sess_ent", product_id=101, category="ao-so-mi", filters={"color": "white"}
+def test_gender_normalization_in_profile(session_mgr: SessionManager) -> None:
+    session_mgr.update_active_profile(
+        "sess_gender",
+        {"gender": "nam"},
     )
-    entity = session_mgr.get_active_entity("sess_ent")
-    assert entity["active_product_id"] == 101
-    assert entity["active_category"] == "ao-so-mi"
-    assert entity["active_filters"]["color"] == "white"
+    session = session_mgr.get_session("sess_gender")
+    assert session is not None
+    assert session.active_profile is not None
+    assert session.active_profile.gender == GenderTarget.MALE
+
+    session_mgr.update_active_profile(
+        "sess_gender",
+        {"gender": "nữ"},
+    )
+    assert session.active_profile.gender == GenderTarget.FEMALE
 
 
 def test_cleanup_expired() -> None:

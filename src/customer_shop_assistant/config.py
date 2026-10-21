@@ -75,6 +75,14 @@ class Settings(BaseSettings):
         default=8,
         description="Sliding window conversation turns for prompt context",
     )
+    DEFAULT_CLARIFICATION_MODE: str = Field(
+        default="CONDITIONAL_CLARIFICATION",
+        description="Default clarification strategy when not provided by client",
+    )
+    DEBUG_CHAT_META: bool = Field(
+        default=False,
+        description="Include debug metadata (mode, phase, tools) in ChatResponse",
+    )
 
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
 
