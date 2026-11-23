@@ -235,4 +235,3 @@ class LangChainDebugCallbackHandler(AsyncCallbackHandler):
             output_tokens=total_out,
             total_tokens=total_in + total_out,
         )
-

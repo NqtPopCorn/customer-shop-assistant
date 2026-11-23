@@ -36,6 +36,7 @@ from customer_shop_assistant.schemas.chat import (
     TurnDebugMeta,
     UserProfile,
 )
+from customer_shop_assistant.schemas.shop import GenderTarget
 from customer_shop_assistant.services.clarification_planner import (
     align_reply_with_clarification_form as planner_align_reply,
 )
@@ -70,7 +71,10 @@ from customer_shop_assistant.services.slot_tracker import (
 from customer_shop_assistant.services.telemetry_logger import log_chat_turn
 from customer_shop_assistant.tools import ALL_TOOLS
 from customer_shop_assistant.tools.catalog_tool import (
+    FEMALE_ONLY_CATEGORIES,
+    balanced_gender_search_context,
     get_cached_product,
+    get_cached_product_gender,
     get_latest_searched_product_ids,
     product_schema_to_recommended,
     product_turn_context,
@@ -78,6 +82,13 @@ from customer_shop_assistant.tools.catalog_tool import (
 )
 
 logger = logging.getLogger(__name__)
+
+_GENDERED_KEYWORD_PATTERN = re.compile(
+    r"(?:đầm|váy|chân váy|\bdress(?:es)?\b|\bskirt(?:s)?\b|\bgown\b"
+    r"|\bnữ\b|\bnu\b|\bnam\b|\bfemale\b|\bmale\b|\bwomen\b|\bwoman\b"
+    r"|\bmen\b|\bman\b)",
+    re.IGNORECASE,
+)
 
 SYSTEM_PROMPT = """Bạn là trợ lý thời trang thông minh của Fashion Shop, \
 chuyên tư vấn và gợi ý sản phẩm phù hợp nhất cho khách hàng.
@@ -332,6 +343,14 @@ class ShopAssistantAgent:
                 else {t.name for t in ALL_TOOLS}
             )
 
+            mode_a_slots: ConversationSlots | None = None
+            if mode == ClarificationMode.IMMEDIATE_ANSWER and any(
+                tc.get("name") == "search_products" for tc in tool_calls
+            ):
+                mode_a_slots, _ = extract_conversation_slots(
+                    state["messages"], state.get("user_profile")
+                )
+
             for tc in tool_calls:
                 t_name = tc["name"]
                 t_args = tc.get("args", {})
@@ -353,7 +372,22 @@ class ShopAssistantAgent:
                     tool = self.tools_by_name.get(t_name)
                     if tool:
                         try:
-                            t_result = await tool.ainvoke(t_args, config=config)
+                            if (
+                                t_name == "search_products"
+                                and mode_a_slots is not None
+                                and not mode_a_slots.has("target_gender")
+                            ):
+                                effective_args = self._sanitize_mode_a_balanced_args(
+                                    t_args, mode_a_slots, state["messages"]
+                                )
+                                with balanced_gender_search_context(
+                                    occasion=mode_a_slots.value_of("occasion")
+                                ):
+                                    t_result = await tool.ainvoke(
+                                        effective_args, config=config
+                                    )
+                            else:
+                                t_result = await tool.ainvoke(t_args, config=config)
                         except Exception as t_err:
                             logger.error("Error executing tool %s: %s", t_name, t_err)
                             t_result = f"Error executing tool {t_name}: {t_err}"
@@ -460,9 +494,17 @@ class ShopAssistantAgent:
                             slots, state["messages"]
                         )
                         try:
-                            tool_res = await search_tool.ainvoke(
-                                fallback_args, config=config
-                            )
+                            if not slots.has("target_gender"):
+                                with balanced_gender_search_context(
+                                    occasion=slots.value_of("occasion")
+                                ):
+                                    tool_res = await search_tool.ainvoke(
+                                        fallback_args, config=config
+                                    )
+                            else:
+                                tool_res = await search_tool.ainvoke(
+                                    fallback_args, config=config
+                                )
                             if "search_products" not in tools_used:
                                 tools_used.append("search_products")
                             products = await self._resolve_products(
@@ -680,10 +722,10 @@ class ShopAssistantAgent:
         return session_id, session_mgr, session, mode, policy, slots, intent
 
     @staticmethod
-    def _build_immediate_search_args(
+    def _build_neutral_keyword(
         slots: ConversationSlots, messages: list[BaseMessage]
-    ) -> dict[str, Any]:
-        """Build search_products tool arguments for IMMEDIATE_ANSWER fallback."""
+    ) -> str:
+        """Build a clean gender-neutral Vietnamese semantic search keyword."""
         cat_kw_map = {
             "shirt": "áo sơ mi",
             "polo": "áo polo",
@@ -706,25 +748,64 @@ class ShopAssistantAgent:
         }
         kw_parts: list[str] = []
         cat_val = slots.value_of("category")
+        occ_val = slots.value_of("occasion")
         if cat_val in cat_kw_map:
             kw_parts.append(cat_kw_map[cat_val])
-        occ_val = slots.value_of("occasion")
         if occ_val in occ_kw_map:
-            kw_parts.append(occ_kw_map[occ_val])
+            if cat_val is None and occ_val == "party":
+                kw_parts.append("trang phục dự tiệc lịch sự")
+            elif cat_val is None and occ_val == "office":
+                kw_parts.append("trang phục công sở lịch sự")
+            else:
+                kw_parts.append(occ_kw_map[occ_val])
         if slots.has("color"):
             kw_parts.append(str(slots.value_of("color")).lower())
 
         if kw_parts:
-            keyword = " ".join(kw_parts)
-        else:
-            latest_text = ""
-            for m in reversed(messages):
-                if isinstance(m, HumanMessage):
-                    latest_text = str(m.content or "").strip()
-                    break
-            keyword = latest_text or "thời trang"
+            return " ".join(kw_parts)
 
-        args: dict[str, Any] = {"keyword": keyword, "limit": 4}
+        latest_text = ""
+        for m in reversed(messages):
+            if isinstance(m, HumanMessage):
+                latest_text = str(m.content or "").strip()
+                break
+        cleaned_text = re.sub(r"[^\w\s,.-]", " ", latest_text)
+        cleaned_text = re.sub(r"\s+", " ", cleaned_text).strip()
+        return cleaned_text or "trang phục thời trang"
+
+    @staticmethod
+    def _sanitize_mode_a_balanced_args(
+        t_args: dict[str, Any],
+        slots: ConversationSlots,
+        messages: list[BaseMessage],
+    ) -> dict[str, Any]:
+        """Strip LLM-hallucinated gender/category biases for Mode A balanced search."""
+        sanitized = dict(t_args)
+        sanitized.pop("target_gender", None)
+
+        raw_cat = sanitized.get("category")
+        if (
+            isinstance(raw_cat, str)
+            and raw_cat.strip().lower() in FEMALE_ONLY_CATEGORIES
+        ):
+            sanitized.pop("category", None)
+
+        raw_kw = str(sanitized.get("keyword") or "").strip()
+        if not raw_kw or _GENDERED_KEYWORD_PATTERN.search(raw_kw):
+            sanitized["keyword"] = ShopAssistantAgent._build_neutral_keyword(
+                slots, messages
+            )
+
+        return sanitized
+
+    @staticmethod
+    def _build_immediate_search_args(
+        slots: ConversationSlots, messages: list[BaseMessage]
+    ) -> dict[str, Any]:
+        """Build search_products tool arguments for IMMEDIATE_ANSWER fallback."""
+        keyword = ShopAssistantAgent._build_neutral_keyword(slots, messages)
+        limit = 5 if not slots.has("target_gender") else 4
+        args: dict[str, Any] = {"keyword": keyword, "limit": limit}
         if slots.has("target_gender"):
             args["target_gender"] = slots.value_of("target_gender")
         budget_val = slots.value_of("budget")
@@ -742,7 +823,38 @@ class ShopAssistantAgent:
         products: list[ChatRecommendedProduct], slots: ConversationSlots
     ) -> str:
         """Format a direct fact-first recommendation list with clear assumption."""
+        top_products = products[:5]
         if not slots.has("target_gender"):
+            buckets: dict[GenderTarget, list[ChatRecommendedProduct]] = {
+                GenderTarget.FEMALE: [],
+                GenderTarget.MALE: [],
+                GenderTarget.UNISEX: [],
+            }
+            for p in top_products:
+                g = get_cached_product_gender(p.id)
+                if g in buckets:
+                    buckets[g].append(p)
+
+            if any(buckets.values()):
+                lines = [
+                    "Vì bạn chưa nêu rõ giới tính nên mình gợi ý ngay các mẫu "
+                    "tiêu biểu cho cả Nữ, Nam và Unisex (nếu có):"
+                ]
+                group_labels = (
+                    (GenderTarget.FEMALE, "**Gợi ý cho Nữ:**"),
+                    (GenderTarget.MALE, "**Gợi ý cho Nam:**"),
+                    (GenderTarget.UNISEX, "**Gợi ý Unisex:**"),
+                )
+                for g_key, label in group_labels:
+                    items = buckets[g_key]
+                    if not items:
+                        continue
+                    lines.append(f"\n{label}")
+                    for p in items:
+                        price_txt = f"{p.price:,.0f}đ" if p.price > 0 else "Liên hệ"
+                        lines.append(f"- [{p.id}] **{p.name}** — Giá: {price_txt}")
+                return "\n".join(lines)
+
             intro = (
                 "Vì bạn chưa nêu cụ thể đối tượng mặc nên mình gợi ý ngay "
                 "các mẫu tiêu biểu phù hợp nhất hiện có tại cửa hàng:"
@@ -750,7 +862,7 @@ class ShopAssistantAgent:
         else:
             intro = "Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:"
         lines = [intro]
-        for p in products[:4]:
+        for p in top_products:
             price_txt = f"{p.price:,.0f}đ" if p.price > 0 else "Liên hệ"
             lines.append(f"- [{p.id}] **{p.name}** — Giá: {price_txt}")
         return "\n".join(lines)
@@ -935,7 +1047,7 @@ class ShopAssistantAgent:
                 candidate_ids.append(match)
 
         if not candidate_ids and fallback_product_ids:
-            candidate_ids = [str(pid) for pid in fallback_product_ids[:4]]
+            candidate_ids = [str(pid) for pid in fallback_product_ids[:5]]
 
         resolved: list[ChatRecommendedProduct] = []
         seen_ids: set[int] = set()

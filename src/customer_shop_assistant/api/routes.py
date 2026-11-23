@@ -179,9 +179,7 @@ async def get_session_state(
         clarify_phase=session.clarify_phase.value,
         gated_turns=session.gated_turns,
         active_profile=(
-            session.active_profile.model_dump()
-            if session.active_profile
-            else None
+            session.active_profile.model_dump() if session.active_profile else None
         ),
         history_turns=len(session.messages) // 2,
         context_messages_count=len(session.messages),

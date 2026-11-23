@@ -1,3 +1,4 @@
+import asyncio
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -21,10 +22,25 @@ class TurnProductContext:
 
     registry: dict[int, ChatRecommendedProduct] = field(default_factory=dict)
     searched_ids: list[int] = field(default_factory=list)
+    gender_by_id: dict[int, GenderTarget] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class BalancedGenderSearchConfig:
+    """Per-call config activating balanced FEMALE/MALE/UNISEX retrieval."""
+
+    occasion: str | None = None
+    female_limit: int = 2
+    male_limit: int = 2
+    unisex_limit: int = 1
 
 
 _TURN_PRODUCT_CTX: ContextVar[TurnProductContext | None] = ContextVar(
     "turn_product_context", default=None
+)
+
+_BALANCED_SEARCH_CTX: ContextVar[BalancedGenderSearchConfig | None] = ContextVar(
+    "balanced_gender_search_context", default=None
 )
 
 
@@ -42,7 +58,34 @@ def product_turn_context() -> Iterator[TurnProductContext]:
             _TURN_PRODUCT_CTX.set(None)
 
 
-def record_searched_products(products: list[ChatRecommendedProduct]) -> None:
+@contextmanager
+def balanced_gender_search_context(
+    occasion: str | None = None,
+    female_limit: int = 2,
+    male_limit: int = 2,
+    unisex_limit: int = 1,
+) -> Iterator[BalancedGenderSearchConfig]:
+    """Activate balanced multi-gender search inside a single search_products call."""
+    cfg = BalancedGenderSearchConfig(
+        occasion=occasion,
+        female_limit=female_limit,
+        male_limit=male_limit,
+        unisex_limit=unisex_limit,
+    )
+    token = _BALANCED_SEARCH_CTX.set(cfg)
+    try:
+        yield cfg
+    finally:
+        try:
+            _BALANCED_SEARCH_CTX.reset(token)
+        except ValueError:
+            _BALANCED_SEARCH_CTX.set(None)
+
+
+def record_searched_products(
+    products: list[ChatRecommendedProduct],
+    gender_map: dict[int, GenderTarget] | None = None,
+) -> None:
     """Record searched products into the active turn context."""
     ctx = _TURN_PRODUCT_CTX.get()
     if ctx is None:
@@ -51,6 +94,8 @@ def record_searched_products(products: list[ChatRecommendedProduct]) -> None:
     for p in products:
         ctx.registry[p.id] = p
         ctx.searched_ids.append(p.id)
+        if gender_map and p.id in gender_map:
+            ctx.gender_by_id[p.id] = gender_map[p.id]
 
 
 def record_product(product: ChatRecommendedProduct) -> None:
@@ -69,12 +114,36 @@ def get_cached_product(product_id: int) -> ChatRecommendedProduct | None:
     return ctx.registry.get(product_id)
 
 
+def get_cached_product_gender(product_id: int) -> GenderTarget | None:
+    """Lookup the target gender cached for a searched product in the active turn."""
+    ctx = _TURN_PRODUCT_CTX.get()
+    if ctx is None:
+        return None
+    return ctx.gender_by_id.get(product_id)
+
+
 def get_latest_searched_product_ids() -> list[int]:
     """Return a copy of product IDs found by search_products in the active turn."""
     ctx = _TURN_PRODUCT_CTX.get()
     if ctx is None:
         return []
     return list(ctx.searched_ids)
+
+
+FEMALE_ONLY_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "đầm dạ hội",
+        "váy liền",
+        "chân váy",
+        "dress",
+        "dresses",
+        "skirt",
+        "skirts",
+        "party dress",
+        "evening dress",
+        "gown",
+    }
+)
 
 
 VALID_CATALOG_CATEGORIES: dict[str, str] = {
@@ -247,6 +316,119 @@ def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
     )
 
 
+def _format_product_line(p: ProductSchema) -> str:
+    """Format a single product line for LLM tool output."""
+    in_stock_sizes = sorted({v.size for v in p.variants if v.size and v.stock > 0})
+    size_str = ", ".join(in_stock_sizes) if in_stock_sizes else "Hết hàng"
+
+    prices = [
+        v.final_price if v.final_price is not None else v.selling_price
+        for v in p.variants
+    ]
+    price_val = min(prices) if prices else 0.0
+    price_str = f"{price_val:,.0f}đ" if price_val > 0 else "Liên hệ"
+
+    material_str = f" | Chất liệu: {p.material}" if p.material else ""
+    gender_str = f" | Phù hợp: {p.target_gender.value}" if p.target_gender else ""
+    return (
+        f"- [{p.id}] {p.name} | Giá từ: {price_str} | Size: {size_str}"
+        f"{material_str}{gender_str}"
+    )
+
+
+def _build_balanced_branch_keywords(
+    base_kw: str, resolved_cat: str | None, occasion: str | None
+) -> dict[GenderTarget, str]:
+    """Build branch-specific semantic keywords when target category is open."""
+    if resolved_cat is None and occasion == "party":
+        return {
+            GenderTarget.FEMALE: f"{base_kw} đầm váy dự tiệc nữ",
+            GenderTarget.MALE: f"{base_kw} áo sơ mi áo khoác quần âu nam dự tiệc",
+            GenderTarget.UNISEX: f"{base_kw} áo sơ mi áo khoác unisex lịch sự",
+        }
+    return {
+        GenderTarget.FEMALE: base_kw,
+        GenderTarget.MALE: base_kw,
+        GenderTarget.UNISEX: base_kw,
+    }
+
+
+async def _search_products_balanced(
+    resolved_kw: str,
+    resolved_cat: str | None,
+    min_price: float | int | None,
+    max_price: float | int | None,
+    cfg: BalancedGenderSearchConfig,
+) -> str:
+    """Fetch balanced FEMALE, MALE, and UNISEX recommendations concurrently."""
+    branch_keywords = _build_balanced_branch_keywords(
+        resolved_kw, resolved_cat, cfg.occasion
+    )
+    branches: list[tuple[GenderTarget, int, str]] = [
+        (GenderTarget.FEMALE, cfg.female_limit, "=== GỢI Ý CHO NỮ ==="),
+        (GenderTarget.MALE, cfg.male_limit, "=== GỢI Ý CHO NAM ==="),
+        (GenderTarget.UNISEX, cfg.unisex_limit, "=== GỢI Ý UNISEX ==="),
+    ]
+    min_p = float(min_price) if min_price is not None else None
+    max_p = float(max_price) if max_price is not None else None
+
+    async with ShopClient() as client:
+        tasks = [
+            client.get_products(
+                ProductFilterParams(
+                    search=branch_keywords[branch_gender],
+                    mode="semantic",
+                    category=resolved_cat,
+                    min_price=min_p,
+                    max_price=max_p,
+                    target_gender=branch_gender,
+                    limit=branch_limit,
+                )
+            )
+            for branch_gender, branch_limit, _ in branches
+        ]
+        results = await asyncio.gather(*tasks)
+
+    seen_ids: set[int] = set()
+    bucket_products: list[tuple[GenderTarget, str, list[ProductSchema]]] = []
+    all_selected: list[ProductSchema] = []
+    gender_map: dict[int, GenderTarget] = {}
+
+    for (branch_gender, branch_limit, header), fetched in zip(
+        branches, results, strict=True
+    ):
+        chosen: list[ProductSchema] = []
+        for p in fetched:
+            if p.id in seen_ids:
+                continue
+            seen_ids.add(p.id)
+            chosen.append(p)
+            all_selected.append(p)
+            gender_map[p.id] = p.target_gender or branch_gender
+            if len(chosen) >= branch_limit:
+                break
+        if chosen:
+            bucket_products.append((branch_gender, header, chosen))
+
+    if not all_selected:
+        record_searched_products([])
+        return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+
+    record_searched_products(
+        [product_schema_to_recommended(p) for p in all_selected],
+        gender_map=gender_map,
+    )
+
+    section_blocks = [
+        "\n".join([header, *(_format_product_line(p) for p in chosen)])
+        for _, header, chosen in bucket_products
+    ]
+    return (
+        "[LƯU Ý: Khách chưa nêu giới tính nên hệ thống đã tìm cân bằng theo "
+        "Nữ, Nam và Unisex]\n" + "\n\n".join(section_blocks)
+    )
+
+
 @tool(args_schema=SearchProductsInput)
 async def search_products(
     keyword: str,
@@ -259,6 +441,16 @@ async def search_products(
     """Tìm kiếm ngữ nghĩa (semantic) sản phẩm thời trang theo mô tả, giá, giới tính."""
     gender_enum = _normalize_gender(target_gender)
     resolved_kw, resolved_cat = _normalize_search_terms(keyword, category)
+
+    balanced_cfg = _BALANCED_SEARCH_CTX.get()
+    if balanced_cfg is not None and gender_enum is None:
+        return await _search_products_balanced(
+            resolved_kw=resolved_kw,
+            resolved_cat=resolved_cat,
+            min_price=min_price,
+            max_price=max_price,
+            cfg=balanced_cfg,
+        )
 
     params = ProductFilterParams(
         search=resolved_kw,
@@ -277,28 +469,15 @@ async def search_products(
         return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
 
     # Cache structured products into the active per-turn context
-    record_searched_products([product_schema_to_recommended(p) for p in products])
+    gender_map = {
+        p.id: p.target_gender for p in products if p.target_gender is not None
+    }
+    record_searched_products(
+        [product_schema_to_recommended(p) for p in products],
+        gender_map=gender_map,
+    )
 
-    items_text: list[str] = []
-    for p in products:
-        in_stock_sizes = sorted({v.size for v in p.variants if v.size and v.stock > 0})
-        size_str = ", ".join(in_stock_sizes) if in_stock_sizes else "Hết hàng"
-
-        prices = [
-            v.final_price if v.final_price is not None else v.selling_price
-            for v in p.variants
-        ]
-        price_val = min(prices) if prices else 0.0
-        price_str = f"{price_val:,.0f}đ" if price_val > 0 else "Liên hệ"
-
-        material_str = f" | Chất liệu: {p.material}" if p.material else ""
-        gender_str = f" | Phù hợp: {p.target_gender.value}" if p.target_gender else ""
-        items_text.append(
-            f"- [{p.id}] {p.name} | Giá từ: {price_str} | Size: {size_str}"
-            f"{material_str}{gender_str}"
-        )
-
-    return "\n".join(items_text)
+    return "\n".join(_format_product_line(p) for p in products)
 
 
 @tool

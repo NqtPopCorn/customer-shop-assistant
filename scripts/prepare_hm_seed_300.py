@@ -1,4 +1,4 @@
-"""Extract and enrich 270 stratified products from H&M Parquet for 300-product DB seed.
+"""Extract and enrich 300 stratified products from H&M Parquet for 300-product DB seed.
 
 Uses real local product photos from C:\\Users\\Administrator\\Downloads\\archive\\images
 (matched by category, gender, and color via styles.csv) and copies them to
@@ -32,22 +32,22 @@ BE_UPLOADS_DIR = Path(
 )
 BE_BASE_URL = os.environ.get("MAIN_BE_APP_URL", "http://localhost:8080").rstrip("/")
 
-# Target H&M product counts per subcategory (270 total + 30 anchor = 300 total)
+# Target H&M product counts per subcategory (300 total)
 CATEGORY_QUOTAS: dict[str, int] = {
-    "Áo thun": 27,
-    "Áo polo": 20,
-    "Áo sơ mi": 27,
-    "Áo khoác": 25,
-    "Quần jeans": 22,
-    "Quần kaki": 20,
-    "Quần short": 18,
-    "Quần âu": 21,
-    "Váy liền": 25,
-    "Chân váy": 20,
-    "Đầm dạ hội": 19,
-    "Mũ nón": 8,
-    "Thắt lưng": 9,
-    "Túi xách": 9,
+    "Áo thun": 30,
+    "Áo polo": 22,
+    "Áo sơ mi": 30,
+    "Áo khoác": 28,
+    "Quần jeans": 24,
+    "Quần kaki": 22,
+    "Quần short": 20,
+    "Quần âu": 23,
+    "Váy liền": 28,
+    "Chân váy": 22,
+    "Đầm dạ hội": 21,
+    "Mũ nón": 9,
+    "Thắt lưng": 10,
+    "Túi xách": 11,
 }
 
 COLOR_MAP: dict[str, tuple[str, str]] = {
@@ -857,6 +857,178 @@ def build_vietnamese_name(
     return f"{category_name} {gender_label} {profile_style} {pattern_vi} {first_word}"
 
 
+def _find_anchor_product(
+    products: list[dict[str, Any]],
+    category_name: str,
+    name_substr: str,
+    target_gender: str | None = None,
+) -> dict[str, Any]:
+    """Locate the first generated product matching the eval anchor criteria."""
+    for prod in products:
+        if prod["categoryName"] != category_name:
+            continue
+        if target_gender is not None and prod["targetGender"] != target_gender:
+            continue
+        if name_substr in prod["name"]:
+            return prod
+    raise ValueError(
+        f"Could not find anchor product for category={category_name!r}, "
+        f"gender={target_gender!r}, substr={name_substr!r}"
+    )
+
+
+def _ensure_color_variants(
+    product: dict[str, Any],
+    matcher: LocalArchiveImageMatcher,
+    color: str,
+    color_hex: str,
+    size_stocks: dict[str, int],
+    variant_seq_state: list[int],
+    default_other_stock: int = 25,
+) -> None:
+    """Ensure a product has a color entry with a local image and target sizes."""
+    existing_variants = [v for v in product["variants"] if v["color"] == color]
+    base_variant = product["variants"][0]
+    list_price = int(base_variant["listPrice"])
+    selling_price = int(base_variant["sellingPrice"])
+    weight = int(base_variant["weight"])
+
+    if existing_variants:
+        image_url = str(existing_variants[0]["imageUrl"])
+        for variant in existing_variants:
+            if variant["size"] in size_stocks:
+                variant["stock"] = size_stocks[variant["size"]]
+            elif int(variant["stock"]) <= 0:
+                variant["stock"] = default_other_stock
+        existing_sizes = {v["size"] for v in existing_variants}
+        missing_sizes = [s for s in size_stocks if s not in existing_sizes]
+    else:
+        image_url = matcher.pick_and_copy_image(
+            product["categoryName"], product["targetGender"], color
+        )
+        product["images"].append(
+            {
+                "url": image_url,
+                "altText": (
+                    f"{product['name']} - Màu {color} ({len(product['images']) + 1})"
+                ),
+                "sortOrder": len(product["images"]),
+            }
+        )
+        all_sizes = get_sizes_for_product(
+            product["categoryName"], product["targetGender"]
+        )
+        missing_sizes = list(dict.fromkeys([*all_sizes, *size_stocks.keys()]))
+
+    for size_label in missing_sizes:
+        seq = variant_seq_state[0]
+        variant_seq_state[0] += 1
+        stock = size_stocks.get(size_label, default_other_stock)
+        product["variants"].append(
+            {
+                "sku": f"HM{product['hmProductCode']}-E{seq}-{size_label}",
+                "barcode": f"8936{seq:09d}",
+                "size": size_label,
+                "color": color,
+                "colorHex": color_hex,
+                "imageUrl": image_url,
+                "listPrice": list_price,
+                "sellingPrice": selling_price,
+                "stock": stock,
+                "weight": weight,
+            }
+        )
+
+
+def ensure_eval_anchor_invariants(
+    products: list[dict[str, Any]],
+    matcher: LocalArchiveImageMatcher,
+    start_variant_seq: int,
+) -> None:
+    """Guarantee Golden Eval (`eval/questions.json`) invariants on real products."""
+    seq_state = [start_variant_seq]
+
+    # 1. Windbreaker (STOCK_CHECK_01): Màu Be sữa, size L còn hàng
+    windbreaker = _find_anchor_product(products, "Áo khoác", "Windbreaker")
+    _ensure_color_variants(
+        windbreaker,
+        matcher,
+        color="Be sữa",
+        color_hex="#F3EDE2",
+        size_stocks={"L": 35},
+        variant_seq_state=seq_state,
+    )
+
+    # 2. Sơ mi Oxford nam (CLARIFY_SEM_01 & STOCK_OUT_01):
+    # Giá < 350k, Trắng M còn hàng, Tím than XXL hết hàng
+    oxford = _find_anchor_product(products, "Áo sơ mi", "Oxford", target_gender="MALE")
+    for variant in oxford["variants"]:
+        variant["listPrice"] = 350000
+        variant["sellingPrice"] = 299000
+    _ensure_color_variants(
+        oxford,
+        matcher,
+        color="Trắng",
+        color_hex="#FFFFFF",
+        size_stocks={"M": 45},
+        variant_seq_state=seq_state,
+    )
+    _ensure_color_variants(
+        oxford,
+        matcher,
+        color="Tím than",
+        color_hex="#311B92",
+        size_stocks={"XXL": 0},
+        variant_seq_state=seq_state,
+    )
+
+    # 3. Áo polo Pique nam (PROD_MIX_01 & STOCK_REP_01):
+    # Xanh navy L còn hàng, Vàng mù tạt M hết hàng
+    polo = _find_anchor_product(products, "Áo polo", "Pique", target_gender="MALE")
+    _ensure_color_variants(
+        polo,
+        matcher,
+        color="Xanh navy",
+        color_hex="#1B2A4A",
+        size_stocks={"L": 50},
+        variant_seq_state=seq_state,
+    )
+    _ensure_color_variants(
+        polo,
+        matcher,
+        color="Vàng mù tạt",
+        color_hex="#D4AF37",
+        size_stocks={"M": 0},
+        variant_seq_state=seq_state,
+    )
+
+    # 4. Quần jeans nam Slim Fit (STOCK_VAR_01 & SIZE_PANT_01):
+    # Màu Đen đủ size 29, 30, 31, 32, 34 còn hàng
+    jeans = _find_anchor_product(
+        products, "Quần jeans", "Slim Fit", target_gender="MALE"
+    )
+    _ensure_color_variants(
+        jeans,
+        matcher,
+        color="Đen",
+        color_hex="#1A1A1A",
+        size_stocks={"29": 40, "30": 40, "31": 40, "32": 40, "34": 40},
+        variant_seq_state=seq_state,
+    )
+
+    # 5. Đầm dạ hội ren thêu hoa (STOCK_WARN_01): Tồn kho thấp (3-4 chiếc/biến thể)
+    gown = _find_anchor_product(
+        products, "Đầm dạ hội", "Ren Thêu Hoa", target_gender="FEMALE"
+    )
+    has_in_stock = False
+    for idx, variant in enumerate(gown["variants"]):
+        if int(variant["stock"]) > 0:
+            variant["stock"] = 3 if idx % 2 == 0 else 4
+            has_in_stock = True
+    if not has_in_stock and gown["variants"]:
+        gown["variants"][0]["stock"] = 3
+
+
 def main() -> None:
     rng = random.Random(20261121)
     matcher = LocalArchiveImageMatcher()
@@ -1070,6 +1242,8 @@ def main() -> None:
                     "variants": variants,
                 }
             )
+
+    ensure_eval_anchor_invariants(selected_products, matcher, variant_seq)
 
     OUTPUT_JSON_PATH.write_text(
         json.dumps(selected_products, ensure_ascii=False, indent=2),

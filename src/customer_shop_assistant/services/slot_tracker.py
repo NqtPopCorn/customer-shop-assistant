@@ -998,10 +998,7 @@ def format_slots_for_prompt(
 
     known_str = "; ".join(known_items) if known_items else "Chưa có"
     if not include_missing:
-        return (
-            f"TÓM TẮT NGỮ CẢNH ({intent.value}):\n"
-            f"- Đã biết: {known_str}"
-        )
+        return f"TÓM TẮT NGỮ CẢNH ({intent.value}):\n- Đã biết: {known_str}"
 
     missing = get_missing_priority_slots(intent, slots)
     missing_items = [

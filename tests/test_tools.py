@@ -274,3 +274,196 @@ async def test_empty_search_clears_searched_ids_and_context_resets_after_turn(
     # After exiting context, nothing leaks globally
     assert get_latest_searched_product_ids() == []
     assert get_cached_product(57) is None
+
+
+@pytest.mark.anyio
+async def test_search_products_balanced_gender_returns_2_female_2_male_1_unisex(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.schemas.shop import GenderTarget
+    from customer_shop_assistant.tools.catalog_tool import (
+        balanced_gender_search_context,
+        get_cached_product_gender,
+        get_latest_searched_product_ids,
+        product_turn_context,
+    )
+
+    captured_calls: list[dict[str, object]] = []
+
+    def _item(pid: int, name: str, gender: str) -> dict[str, object]:
+        return {
+            "id": pid,
+            "name": name,
+            "slug": f"prod-{pid}",
+            "material": "Cotton",
+            "targetGender": gender,
+            "variants": [
+                {
+                    "id": pid * 10,
+                    "sku": f"SKU-{pid}",
+                    "size": "M",
+                    "color": "Đen",
+                    "listPrice": 500000,
+                    "sellingPrice": 450000,
+                    "finalPrice": 450000,
+                    "stock": 5,
+                }
+            ],
+        }
+
+    items_by_gender = {
+        "FEMALE": [
+            _item(101, "Đầm Dự Tiệc Nữ Esme", "FEMALE"),
+            _item(102, "Váy Liền Dự Tiệc Nữ Dora", "FEMALE"),
+            _item(103, "Chân Váy Xếp Ly Nữ", "FEMALE"),
+        ],
+        "MALE": [
+            _item(201, "Áo Sơ Mi Nam Dự Tiệc Oxford", "MALE"),
+            _item(202, "Quần Âu Nam Lịch Lãm", "MALE"),
+        ],
+        "UNISEX": [
+            _item(301, "Áo Khoác Blazer Unisex Minimal", "UNISEX"),
+        ],
+    }
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        call_params = dict(params or {})
+        captured_calls.append(call_params)
+        gender = str(call_params.get("targetGender", ""))
+        limit = int(call_params.get("limit", 5))
+        return httpx.Response(
+            status_code=200,
+            json={"items": items_by_gender.get(gender, [])[:limit]},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    with product_turn_context(), balanced_gender_search_context(occasion="party"):
+        result = await search_products.ainvoke(
+            {"keyword": "trang phục dự tiệc lịch sự"}
+        )
+        searched_ids = get_latest_searched_product_ids()
+        gender_map = {pid: get_cached_product_gender(pid) for pid in searched_ids}
+
+    assert len(captured_calls) == 3
+    by_gender = {c["targetGender"]: c for c in captured_calls}
+    assert by_gender["FEMALE"]["limit"] == 2
+    assert by_gender["MALE"]["limit"] == 2
+    assert by_gender["UNISEX"]["limit"] == 1
+    male_kw = str(by_gender["MALE"]["search"]).lower()
+    assert "áo sơ mi" in male_kw or "quần âu" in male_kw
+
+    assert "=== GỢI Ý CHO NỮ ===" in result
+    assert "=== GỢI Ý CHO NAM ===" in result
+    assert "=== GỢI Ý UNISEX ===" in result
+    assert searched_ids == [101, 102, 201, 202, 301]
+    assert gender_map == {
+        101: GenderTarget.FEMALE,
+        102: GenderTarget.FEMALE,
+        201: GenderTarget.MALE,
+        202: GenderTarget.MALE,
+        301: GenderTarget.UNISEX,
+    }
+
+
+@pytest.mark.anyio
+async def test_search_products_balanced_omits_empty_unisex_without_padding_female(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.tools.catalog_tool import (
+        balanced_gender_search_context,
+        get_latest_searched_product_ids,
+        product_turn_context,
+    )
+
+    def _item(pid: int, name: str, gender: str) -> dict[str, object]:
+        return {
+            "id": pid,
+            "name": name,
+            "slug": f"prod-{pid}",
+            "targetGender": gender,
+            "variants": [
+                {
+                    "id": pid * 10,
+                    "sku": f"SKU-{pid}",
+                    "size": "M",
+                    "listPrice": 450000,
+                    "sellingPrice": 400000,
+                    "finalPrice": 400000,
+                    "stock": 5,
+                }
+            ],
+        }
+
+    items_by_gender = {
+        "FEMALE": [
+            _item(101, "Đầm Dạ Hội Nữ A", "FEMALE"),
+            _item(102, "Đầm Dạ Hội Nữ B", "FEMALE"),
+            _item(103, "Đầm Dạ Hội Nữ C", "FEMALE"),
+        ],
+        "MALE": [
+            _item(201, "Áo Sơ Mi Nam A", "MALE"),
+            _item(202, "Quần Âu Nam B", "MALE"),
+        ],
+        "UNISEX": [],
+    }
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        gender = str((params or {}).get("targetGender", ""))
+        return httpx.Response(
+            status_code=200,
+            json={"items": items_by_gender.get(gender, [])},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    with product_turn_context(), balanced_gender_search_context(occasion="party"):
+        result = await search_products.ainvoke(
+            {"keyword": "trang phục dự tiệc lịch sự"}
+        )
+        searched_ids = get_latest_searched_product_ids()
+
+    assert "=== GỢI Ý CHO NỮ ===" in result
+    assert "=== GỢI Ý CHO NAM ===" in result
+    assert "=== GỢI Ý UNISEX ===" not in result
+    assert searched_ids == [101, 102, 201, 202]
+    assert 103 not in searched_ids
+
+
+@pytest.mark.anyio
+async def test_search_products_balanced_skipped_when_explicit_gender_given(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.tools.catalog_tool import (
+        balanced_gender_search_context,
+        product_turn_context,
+    )
+
+    captured_calls: list[dict[str, object]] = []
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(params or {}))
+        return httpx.Response(
+            status_code=200,
+            json={"items": []},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    with product_turn_context(), balanced_gender_search_context():
+        await search_products.ainvoke(
+            {"keyword": "áo sơ mi công sở", "target_gender": "MALE"}
+        )
+
+    assert len(captured_calls) == 1
+    assert captured_calls[0].get("targetGender") == "MALE"
+
+    captured_calls.clear()
+    with product_turn_context():
+        await search_products.ainvoke({"keyword": "áo sơ mi công sở"})
+
+    assert len(captured_calls) == 1
+    assert "targetGender" not in captured_calls[0]

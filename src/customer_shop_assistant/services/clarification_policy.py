@@ -10,10 +10,13 @@ MAX_GATED_TURNS = 1
 PROMPT_A = """\
 CHẾ ĐỘ TRẢ LỜI NGAY (IMMEDIATE_ANSWER):
 - Khi khách hỏi tìm đồ hoặc gợi ý trang phục: BẮT BUỘC gọi ngay tool `search_products`
-  với thông tin hiện có và giới thiệu ngay 2-4 sản phẩm kèm mã [ID].
+  với thông tin hiện có và giới thiệu ngay 2-5 sản phẩm kèm mã [ID].
 - Nếu thiếu thông tin như giới tính, loại đồ hay ngân sách: TỰ ĐƯA RA GIẢ ĐỊNH HỢP LÝ
-  (ví dụ: gợi ý cả mẫu tiêu biểu/unisex hoặc phân tách rõ theo ngữ cảnh) và nêu ngắn
-  gọn giả định trong câu trả lời.
+  và nêu ngắn gọn giả định (1 câu ngắn) trong câu trả lời.
+- KHI KẾT QUẢ `search_products` CHIA NHÓM ĐA GIỚI TÍNH (`GỢI Ý CHO NỮ`,
+  `GỢI Ý CHO NAM`, `GỢI Ý UNISEX`): BẮT BUỘC nêu rõ bạn chưa chọn giới tính và
+  giới thiệu ĐẦY ĐỦ sản phẩm của TẤT CẢ các nhóm có trong kết quả (kèm `[ID]` và giá),
+  tuyệt đối không chỉ chọn riêng 1 giới tính.
 - TUYỆT ĐỐI KHÔNG đặt câu hỏi làm rõ về giới tính, dịp mặc, gu, màu sắc hay ngân sách.
 - Chỉ được hỏi lại khi khách hỏi trực tiếp về SIZE mà thiếu số đo bắt buộc cho tool
   `recommend_size`.

@@ -1,6 +1,7 @@
 from typing import Any
 from unittest.mock import AsyncMock
 
+import httpx
 import pytest
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
@@ -466,3 +467,256 @@ async def test_mode_a_never_clarifies_and_fallbacks_to_search_if_llm_asks() -> N
     assert res.products[0].id == 57
     assert "Đầm Dạ Hội Ren Hoa" in res.reply
     mock_search.ainvoke.assert_awaited_once()
+
+
+@pytest.mark.anyio
+async def test_mode_a_overrides_hallucinated_female_args_and_runs_balanced_search(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from langchain_core.messages import ToolMessage
+
+    captured_calls: list[dict[str, Any]] = []
+    captured_tool_messages: list[str] = []
+
+    def _item(pid: int, name: str, gender: str, cat: str) -> dict[str, Any]:
+        return {
+            "id": pid,
+            "name": name,
+            "slug": f"prod-{pid}",
+            "category": {"id": pid, "name": cat},
+            "targetGender": gender,
+            "variants": [
+                {
+                    "id": pid * 10,
+                    "sku": f"SKU-{pid}",
+                    "size": "M",
+                    "listPrice": 600000,
+                    "sellingPrice": 550000,
+                    "finalPrice": 550000,
+                    "stock": 4,
+                }
+            ],
+        }
+
+    items_by_gender = {
+        "FEMALE": [
+            _item(101, "Đầm Dạ Hội Nữ Esme", "FEMALE", "Đầm dạ hội"),
+            _item(102, "Váy Liền Nữ Dora", "FEMALE", "Váy liền"),
+        ],
+        "MALE": [
+            _item(201, "Áo Sơ Mi Nam Oxford", "MALE", "Áo sơ mi"),
+            _item(202, "Quần Âu Nam Slim", "MALE", "Quần âu"),
+        ],
+        "UNISEX": [
+            _item(301, "Áo Khoác Blazer Unisex", "UNISEX", "Áo khoác"),
+        ],
+    }
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        call_params = dict(params or {})
+        captured_calls.append(call_params)
+        gender = str(call_params.get("targetGender", ""))
+        limit = int(call_params.get("limit", 5))
+        return httpx.Response(
+            status_code=200,
+            json={"items": items_by_gender.get(gender, [])[:limit]},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    class MessageCapturingFakeModel(InspectableFakeChatModel):
+        async def ainvoke(
+            self, input: Any, config: Any = None, **kwargs: Any
+        ) -> AIMessage:
+            if isinstance(input, list):
+                for m in input:
+                    if isinstance(m, ToolMessage):
+                        captured_tool_messages.append(str(m.content))
+            return await super().ainvoke(input, config=config, **kwargs)
+
+    hallucinated_tool_call = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "search_products",
+                "args": {
+                    "keyword": "đầm dạ hội sang trọng",
+                    "category": "Đầm dạ hội",
+                    "target_gender": "female",
+                },
+                "id": "call_mode_a_biased",
+            }
+        ],
+    )
+    final_reply = AIMessage(
+        content=(
+            "Vì bạn chưa nêu giới tính, mình gợi ý Nữ [101], [102], "
+            "Nam [201], [202] và Unisex [301]."
+        )
+    )
+    fake_model = MessageCapturingFakeModel(
+        messages=iter([hallucinated_tool_call, final_reply])
+    )
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=SessionManager())
+    agent.structured_model = None
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Gợi ý đồ đi tiệc cuối tuần 🥂",
+            session_id="mode-a-balanced-party",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+
+    assert len(captured_calls) == 3
+    by_gender = {c["targetGender"]: c for c in captured_calls}
+    assert set(by_gender) == {"FEMALE", "MALE", "UNISEX"}
+    for call in captured_calls:
+        assert "category" not in call
+    assert "đầm" not in str(by_gender["MALE"]["search"]).lower()
+    assert "đầm" not in str(by_gender["UNISEX"]["search"]).lower()
+
+    assert captured_tool_messages
+    tool_out = captured_tool_messages[-1]
+    assert "=== GỢI Ý CHO NỮ ===" in tool_out
+    assert "=== GỢI Ý CHO NAM ===" in tool_out
+    assert "=== GỢI Ý UNISEX ===" in tool_out
+
+    assert res.clarification_asked is False
+    assert [p.id for p in res.products] == [101, 102, 201, 202, 301]
+
+
+@pytest.mark.anyio
+async def test_mode_a_respects_explicit_gender_without_balanced_override(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, Any]] = []
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(params or {}))
+        return httpx.Response(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "id": 201,
+                        "name": "Áo Sơ Mi Nam Công Sở",
+                        "slug": "ao-so-mi-nam",
+                        "targetGender": "MALE",
+                        "variants": [
+                            {
+                                "id": 2010,
+                                "sku": "SM-M",
+                                "size": "M",
+                                "listPrice": 480000,
+                                "sellingPrice": 420000,
+                                "finalPrice": 420000,
+                                "stock": 6,
+                            }
+                        ],
+                    }
+                ]
+            },
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    tool_call = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "search_products",
+                "args": {
+                    "keyword": "áo sơ mi công sở",
+                    "target_gender": "MALE",
+                },
+                "id": "call_mode_a_male",
+            }
+        ],
+    )
+    final_reply = AIMessage(content="Gợi ý cho bạn mẫu [201] Áo Sơ Mi Nam Công Sở.")
+    fake_model = InspectableFakeChatModel(messages=iter([tool_call, final_reply]))
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=SessionManager())
+    agent.structured_model = None
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Tìm áo sơ mi nam công sở",
+            session_id="mode-a-explicit-male",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+
+    assert len(captured_calls) == 1
+    assert captured_calls[0].get("targetGender") == "MALE"
+    assert [p.id for p in res.products] == [201]
+
+
+@pytest.mark.anyio
+async def test_mode_a_respects_female_inferred_garment_like_dress(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_calls: list[dict[str, Any]] = []
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(params or {}))
+        return httpx.Response(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "id": 105,
+                        "name": "Đầm Dạ Hội Ren",
+                        "slug": "dam-da-hoi-ren",
+                        "targetGender": "FEMALE",
+                        "variants": [
+                            {
+                                "id": 1050,
+                                "sku": "DD-S",
+                                "size": "S",
+                                "listPrice": 850000,
+                                "sellingPrice": 780000,
+                                "finalPrice": 780000,
+                                "stock": 3,
+                            }
+                        ],
+                    }
+                ]
+            },
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    tool_call = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "search_products",
+                "args": {
+                    "keyword": "đầm dự tiệc",
+                    "target_gender": "FEMALE",
+                },
+                "id": "call_mode_a_dress",
+            }
+        ],
+    )
+    final_reply = AIMessage(content="Shop gợi ý mẫu [105] Đầm Dạ Hội Ren.")
+    fake_model = InspectableFakeChatModel(messages=iter([tool_call, final_reply]))
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=SessionManager())
+    agent.structured_model = None
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Tìm đầm đi tiệc",
+            session_id="mode-a-inferred-dress",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+
+    assert len(captured_calls) == 1
+    assert captured_calls[0].get("targetGender") == "FEMALE"
+    assert "đầm" in str(captured_calls[0].get("search", "")).lower()
+    assert [p.id for p in res.products] == [105]
