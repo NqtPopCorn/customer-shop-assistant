@@ -131,7 +131,6 @@ async def test_agent_structured_output_reply() -> None:
         reply="Shop gợi ý 2 mẫu áo polo phù hợp dáng người bạn.",
         needs_clarification=False,
         product_ids=["101", "102"],
-        quick_replies=["Xem thêm màu khác", "Tư vấn chất liệu"],
     )
     agent.structured_model = mock_structured
 
@@ -143,7 +142,6 @@ async def test_agent_structured_output_reply() -> None:
 
     assert res.reply == "Shop gợi ý 2 mẫu áo polo phù hợp dáng người bạn."
     assert not res.clarification_asked
-    assert res.quick_replies == ["Xem thêm màu khác", "Tư vấn chất liệu"]
     mock_structured.ainvoke.assert_awaited_once()
 
 
@@ -152,8 +150,7 @@ async def test_agent_fallback_json_reply() -> None:
     json_payload = (
         '{"reply": "Bạn cần thêm thông tin gì?", '
         '"needs_clarification": true, '
-        '"product_ids": [], '
-        '"quick_replies": ["Tư vấn size", "Xem khuyến mãi"]}'
+        '"product_ids": []}'
     )
     fake_model = MockChatModel(messages=iter([AIMessage(content=json_payload)]))
     agent = ShopAssistantAgent(chat_model=fake_model)
@@ -168,4 +165,64 @@ async def test_agent_fallback_json_reply() -> None:
 
     assert res.reply == "Bạn cần thêm thông tin gì?"
     assert res.clarification_asked is True
-    assert res.quick_replies == ["Tư vấn size", "Xem khuyến mãi"]
+
+
+@pytest.mark.anyio
+async def test_agent_clarification_form_and_sanitization() -> None:
+    leaked_reply = (
+        "Để mình chọn mẫu trang phục phù hợp nhất, bạn cho mình biết thêm nhé:\n"
+        "1. Đi làm công sở\n"
+        "2. Đi chơi dạo phố\n"
+        "3. Ngân sách 300k - 600k"
+    )
+    fake_model = MockChatModel(messages=iter([AIMessage(content=leaked_reply)]))
+    agent = ShopAssistantAgent(chat_model=fake_model)
+    agent.structured_model = None
+
+    req = ChatRequest(
+        message="Tư vấn đồ đi chơi cho mình",
+        clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+    )
+    res = await agent.chat(req)
+
+    assert res.clarification_asked is True
+    # Verify inline numbered list was replaced by clean 1-sentence intro
+    assert "1. Đi làm công sở" not in res.reply
+    assert "đi chơi" in res.reply.lower()
+    # Verify clarification_form was built with P0 target_gender first
+    assert res.clarification_form is not None
+    assert len(res.clarification_form.questions) >= 2
+    assert res.clarification_form.questions[0].id == "target_gender"
+    types = [q.type for q in res.clarification_form.questions]
+    assert "single" in types
+
+
+@pytest.mark.anyio
+async def test_agent_clarification_aligns_reply_and_known_occasion() -> None:
+    mismatched_llm_reply = (
+        "Chào bạn! Để chọn mẫu trang phục phù hợp nhất cho buổi tiệc cuối tuần, "
+        "mình cần một chút thông tin nhỏ nhé: - Chiều cao (cm) - Cân nặng (kg) "
+        "- Số đo 3 vòng (dài, rộng, eo) Sau khi có số đo, shop sẽ tư vấn size "
+        "chuẩn và gợi ý vài mẫu trang phục đẹp mắt cho bạn!"
+    )
+    fake_model = MockChatModel(messages=iter([AIMessage(content=mismatched_llm_reply)]))
+    agent = ShopAssistantAgent(chat_model=fake_model)
+    agent.structured_model = None
+
+    req = ChatRequest(
+        message="Gợi ý đồ đi tiệc cuối tuần 🥂",
+        clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+    )
+    res = await agent.chat(req)
+
+    assert res.clarification_asked is True
+    # Conflicting 3-measurements demand must be removed from intro reply
+    assert "Số đo 3 vòng" not in res.reply
+    assert "Chiều cao (cm)" not in res.reply
+    assert "buổi tiệc" in res.reply
+
+    # Form must NOT re-ask "dịp nào?" since user already specified "tiệc cuối tuần"
+    assert res.clarification_form is not None
+    q_titles = [q.question.lower() for q in res.clarification_form.questions]
+    assert not any("dịp nào" in qt for qt in q_titles)
+    assert any("dự tiệc" in qt for qt in q_titles)

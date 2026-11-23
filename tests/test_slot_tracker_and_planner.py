@@ -1,0 +1,190 @@
+"""Unit tests for multi-turn P0-P3 slot tracker and dynamic clarification planner."""
+
+from langchain_core.messages import AIMessage, HumanMessage
+
+from customer_shop_assistant.schemas.chat import (
+    ClarificationForm,
+    ClarificationQuestion,
+    UserProfile,
+)
+from customer_shop_assistant.schemas.shop import GenderTarget
+from customer_shop_assistant.services.clarification_planner import (
+    build_clarification_form,
+    validate_or_repair_clarification_form,
+)
+from customer_shop_assistant.services.slot_tracker import (
+    TurnIntent,
+    extract_conversation_slots,
+    extract_session_profile_updates,
+    format_slots_for_prompt,
+)
+
+
+def test_gender_is_first_question_for_shared_categories_and_size() -> None:
+    queries = [
+        "Tìm quần đi làm",
+        "Tìm áo sơ mi",
+        "Tư vấn đồ đi chơi",
+        "Mình 1m70 65kg mặc áo size gì?",
+    ]
+    for query in queries:
+        slots, intent = extract_conversation_slots([query])
+        assert not slots.has("target_gender"), f"Should not assume gender for: {query}"
+        form = build_clarification_form(slots, intent, max_questions=3)
+        assert form.questions, f"Expected form questions for: {query}"
+        assert form.questions[0].id == "target_gender", (
+            f"Expected target_gender first for '{query}', got {form.questions[0].id}"
+        )
+        assert "Nam" in form.questions[0].options
+        assert "Nữ" in form.questions[0].options
+
+
+def test_dress_infers_female_gender_and_skips_gender_question() -> None:
+    slots, intent = extract_conversation_slots(["Tìm đầm dự tiệc"])
+    assert intent == TurnIntent.PRODUCT_SEARCH
+    assert slots.target_gender is not None
+    assert slots.target_gender.value == "FEMALE"
+    assert slots.target_gender.source == "inferred"
+    assert slots.value_of("occasion") == "party"
+    assert slots.value_of("category") == "dress"
+
+    form = build_clarification_form(slots, intent, max_questions=3)
+    q_ids = [q.id for q in form.questions]
+    assert "target_gender" not in q_ids
+    assert "occasion" not in q_ids
+    assert "measurements" not in q_ids
+
+
+def test_detailed_query_asks_refinement_and_never_measurements() -> None:
+    slots, intent = extract_conversation_slots(["Tìm áo sơ mi nam đi làm dưới 500k"])
+    assert intent == TurnIntent.PRODUCT_SEARCH
+    assert slots.value_of("target_gender") == "MALE"
+    assert slots.value_of("category") == "shirt"
+    assert slots.value_of("occasion") == "office"
+    assert slots.has("budget")
+    assert slots.value_of("budget").max_price == 500000.0
+
+    form = build_clarification_form(slots, intent, max_questions=3)
+    q_ids = [q.id for q in form.questions]
+    assert "measurements" not in q_ids
+    assert "target_gender" not in q_ids
+    assert "occasion" not in q_ids
+    assert "budget" not in q_ids
+    assert any(qid in q_ids for qid in ("fit", "color", "style"))
+    assert "style" in q_ids
+    style_q = next(q for q in form.questions if q.id == "style")
+    assert style_q.type == "multiple"
+
+
+def test_multi_turn_slot_accumulation_and_session_profile_sync() -> None:
+    history = [
+        HumanMessage(content="Tìm quần đi làm"),
+        AIMessage(content="Bạn giúp mình chọn thông tin bên dưới nhé:"),
+        HumanMessage(content="Nam\nQuần âu / Quần kaki lịch sự\n300.000đ – 600.000đ"),
+    ]
+    slots, intent = extract_conversation_slots(history, UserProfile())
+    assert intent == TurnIntent.PRODUCT_SEARCH
+    assert slots.value_of("target_gender") == "MALE"
+    assert slots.value_of("category") == "pants"
+    assert slots.value_of("occasion") == "office"
+    assert slots.has("budget")
+    assert slots.value_of("budget").min_price == 300000.0
+    assert slots.value_of("budget").max_price == 600000.0
+
+    updates = extract_session_profile_updates(slots)
+    assert updates["gender"] == GenderTarget.MALE
+
+
+def test_unisex_does_not_misclassify_as_male() -> None:
+    slots, _ = extract_conversation_slots(["Unisex (Nam nữ đều mặc được)"])
+    assert slots.value_of("target_gender") == "UNISEX"
+
+
+def test_catalog_aligned_options_and_context_adaptation() -> None:
+    # Casual jeans should not offer 'Dự tiệc'
+    slots_jeans, intent_jeans = extract_conversation_slots(["Tìm quần jeans nam"])
+    form_jeans = build_clarification_form(slots_jeans, intent_jeans, max_questions=3)
+    occ_q = next(q for q in form_jeans.questions if q.id == "occasion")
+    assert not any("Dự tiệc" in opt for opt in occ_q.options)
+
+    # Male shopper should not receive skirt/dress options in category question
+    slots_male, intent_male = extract_conversation_slots(["Tìm đồ đi chơi cho nam"])
+    form_male = build_clarification_form(slots_male, intent_male, max_questions=3)
+    cat_q = next(q for q in form_male.questions if q.id == "category")
+    assert not any("Đầm" in opt or "Chân váy" in opt for opt in cat_q.options)
+
+    # Budget options match catalog price distribution without mixing measurements
+    budget_q = next(q for q in form_male.questions if q.id == "budget")
+    assert any("300.000đ – 600.000đ" in opt for opt in budget_q.options)
+    assert budget_q.custom_placeholder is not None
+    assert "chiều cao" not in budget_q.custom_placeholder.lower()
+
+
+def test_validate_or_repair_form_respects_valid_llm_form_in_conditional() -> None:
+    slots, intent = extract_conversation_slots(["Tìm quần đi làm"])
+    valid_llm_form = ClarificationForm(
+        title="Chọn nhanh tiêu chí quần đi làm",
+        submit_label="Xem gợi ý",
+        questions=[
+            ClarificationQuestion(
+                id="target_gender",
+                question="1. Bạn tìm quần đi làm cho Nam hay Nữ?",
+                type="single",
+                options=["Quần công sở Nam", "Quần công sở Nữ"],
+            )
+        ],
+    )
+    res = validate_or_repair_clarification_form(
+        valid_llm_form, slots, intent, force_planner=False
+    )
+    assert res == valid_llm_form
+
+    # Reject if LLM asks known occasion or unsolicited measurements
+    bad_llm_form = ClarificationForm(
+        title="Thông tin thêm",
+        questions=[
+            ClarificationQuestion(
+                id="occasion",
+                question="1. Bạn mặc vào dịp nào?",
+                type="single",
+                options=["Đi làm", "Đi chơi"],
+            ),
+            ClarificationQuestion(
+                id="body_measurements",
+                question="2. Chiều cao và cân nặng của bạn?",
+                type="single",
+                options=["Size M", "Size L"],
+            ),
+        ],
+    )
+    repaired = validate_or_repair_clarification_form(
+        bad_llm_form, slots, intent, force_planner=False, max_fallback_questions=2
+    )
+    assert repaired != bad_llm_form
+    assert len(repaired.questions) <= 2
+    assert repaired.questions[0].id == "target_gender"
+    assert all(q.id != "measurements" for q in repaired.questions)
+
+
+def test_non_shopping_and_stock_intent_classification() -> None:
+    for q in (
+        "Phí ship của shop bao nhiêu?",
+        "Chính sách đổi trả thế nào?",
+        "Kiểm tra mã SUMMER50 cho đơn 600k",
+        "Chi tiết sản phẩm ID 57",
+        "Cảm ơn shop nhiều nhé",
+    ):
+        _, intent = extract_conversation_slots([q])
+        assert intent == TurnIntent.NON_SHOPPING, f"Expected NON_SHOPPING for: {q}"
+
+    _, stock_intent = extract_conversation_slots(
+        ["Mẫu áo khoác màu đen size L còn hàng không?"]
+    )
+    assert stock_intent == TurnIntent.PRODUCT_SEARCH
+
+
+def test_prompt_summary_excludes_p3_measurements_for_product_search() -> None:
+    slots, intent = extract_conversation_slots(["Tìm quần đi làm"])
+    summary = format_slots_for_prompt(slots, intent)
+    assert "Giới tính/Đối tượng [P0]" in summary
+    assert "Số đo cơ thể" not in summary

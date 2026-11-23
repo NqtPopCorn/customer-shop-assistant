@@ -57,6 +57,66 @@ class UserProfile(BaseModel):
         return None
 
 
+class ClarificationQuestion(BaseModel):
+    """Single question item inside an inline clarification form card."""
+
+    id: str = Field(
+        ...,
+        description=(
+            "Unique question identifier (e.g. 'occasion', 'style', 'budget', 'fit')"
+        ),
+    )
+    question: str = Field(
+        ...,
+        description=(
+            "Numbered question title in Vietnamese (e.g. '1. Bạn tìm đồ cho dịp nào?')"
+        ),
+    )
+    type: Literal["single", "multiple"] = Field(
+        default="single",
+        description=(
+            "'single' for radio selection, 'multiple' for checkbox multi-select"
+        ),
+    )
+    options: list[str] = Field(
+        default_factory=list,
+        description=(
+            "2-4 concise answer options written from the customer's perspective"
+        ),
+    )
+    allow_custom: bool = Field(
+        default=False,
+        description=(
+            "Whether to show an inline input for custom text or body measurements"
+        ),
+    )
+    custom_placeholder: str | None = Field(
+        default=None,
+        description=(
+            "Placeholder for custom input (e.g. 'Nhập chiều cao, cân nặng: 1m70, 62kg')"
+        ),
+    )
+
+
+class ClarificationForm(BaseModel):
+    """Interactive multi-question clarification card rendered inline in chat."""
+
+    title: str = Field(
+        default="Xác định thêm nhu cầu trang phục của bạn",
+        description="Header title displayed above the clarification card",
+    )
+    submit_label: str = Field(
+        default="Xác nhận và xem gợi ý",
+        description=(
+            "Label for the primary confirmation button at the bottom of the card"
+        ),
+    )
+    questions: list[ClarificationQuestion] = Field(
+        default_factory=list,
+        description="1-4 clarification questions for the customer to select",
+    )
+
+
 class AgentReply(BaseModel):
     """Structured output returned by the LLM at the final turn of conversation."""
 
@@ -64,7 +124,7 @@ class AgentReply(BaseModel):
         ...,
         description=(
             "Nội dung câu trả lời hoàn chỉnh, lịch sự bằng tiếng Việt "
-            "gửi cho khách hàng."
+            "gửi cho khách hàng. Nếu cần hỏi làm rõ, chỉ viết 1-2 câu dẫn ngắn gọn."
         ),
     )
     needs_clarification: bool = Field(
@@ -74,18 +134,15 @@ class AgentReply(BaseModel):
             "gu thời trang trước khi đưa ra kết luận."
         ),
     )
+    clarification_form: ClarificationForm | None = Field(
+        default=None,
+        description="Khung câu hỏi trắc nghiệm tương tác khi needs_clarification=True",
+    )
     product_ids: list[str] = Field(
         default_factory=list,
         description=(
             "Danh sách ID các sản phẩm thực sự được gợi ý trong reply "
             "(ví dụ ['1', '2']). Trả về danh sách rỗng nếu không gợi ý sản phẩm."
-        ),
-    )
-    quick_replies: list[str] = Field(
-        default_factory=list,
-        description=(
-            "2-4 gợi ý câu trả lời nhanh / câu hỏi tiếp theo phù hợp với ngữ cảnh "
-            "hiện tại. Không bịa số đo hay cam kết ngoài kết quả tool."
         ),
     )
 
@@ -157,6 +214,77 @@ class ChatRequest(BaseModel):
         return v
 
 
+class LangChainUsageMetadata(BaseModel):
+    """Token usage metrics following LangChain's UsageMetadata specification."""
+
+    input_tokens: int = 0
+    output_tokens: int = 0
+    total_tokens: int = 0
+    input_token_details: dict[str, Any] | None = None
+    output_token_details: dict[str, Any] | None = None
+
+
+class LangChainToolCall(BaseModel):
+    """Standard LangChain ToolCall structure."""
+
+    id: str | None = None
+    name: str
+    args: dict[str, Any] = Field(default_factory=dict)
+    type: Literal["tool_call"] = "tool_call"
+
+
+class LangChainMessageDump(BaseModel):
+    """Serialized representation of a LangChain BaseMessage for debug view."""
+
+    type: str = Field(..., description="human | ai | system | tool")
+    content: str | list[Any] = ""
+    name: str | None = None
+    tool_calls: list[dict[str, Any]] | None = None
+    tool_call_id: str | None = None
+    usage_metadata: dict[str, Any] | None = None
+    response_metadata: dict[str, Any] | None = None
+
+
+class LangChainRunTrace(BaseModel):
+    """Trace record for a single LangChain execution run (chat model or tool)."""
+
+    run_id: str
+    parent_run_id: str | None = None
+    name: str
+    run_type: Literal["chat_model", "llm", "tool", "chain"]
+    inputs: dict[str, Any] = Field(default_factory=dict)
+    outputs: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    usage_metadata: LangChainUsageMetadata | dict[str, Any] | None = None
+    latency_ms: int = 0
+    error: str | None = None
+
+
+class StateSnapshotDebug(BaseModel):
+    """Debug snapshot of conversation and agent state machine."""
+
+    clarify_phase: str
+    gated_turns: int
+    tools_available: list[str]
+    gate_search: bool
+    active_profile: dict[str, Any] | None = None
+    detected_slots: dict[str, Any] = Field(default_factory=dict)
+    context_messages_count: int = 0
+
+
+class TurnDebugMeta(BaseModel):
+    """Comprehensive observability payload attached to ChatResponse."""
+
+    mode: str
+    phase: str
+    gated_turns: int
+    tools_available: list[str]
+    latency_ms: int
+    usage_metadata: LangChainUsageMetadata | dict[str, Any] | None = None
+    runs: list[LangChainRunTrace] = Field(default_factory=list)
+    state_snapshot: StateSnapshotDebug | None = None
+
+
 class ChatResponse(BaseModel):
     """Customer shop assistant reply payload."""
 
@@ -166,15 +294,15 @@ class ChatResponse(BaseModel):
     clarification_asked: bool = Field(
         default=False, description="Whether assistant asked a clarifying question"
     )
+    clarification_form: ClarificationForm | None = Field(
+        default=None, description="Structured interactive clarification card"
+    )
     tools_used: list[str] = Field(
         default_factory=list, description="Names of tools invoked during turn"
     )
     products: list[ChatRecommendedProduct] = Field(
         default_factory=list, description="Recommended products matching inquiry"
     )
-    quick_replies: list[str] = Field(
-        default_factory=list, description="Contextual quick reply suggestions"
-    )
-    debug_meta: dict[str, Any] | None = Field(
-        default=None, description="Debug turn telemetry (mode, phase, tools)"
+    debug_meta: TurnDebugMeta | dict[str, Any] | None = Field(
+        default=None, description="Debug turn telemetry (mode, phase, tools, traces)"
     )

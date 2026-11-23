@@ -3,7 +3,7 @@ import hashlib
 import hmac
 import json
 from collections.abc import AsyncIterator
-from typing import Annotated
+from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import StreamingResponse
@@ -16,6 +16,7 @@ from customer_shop_assistant.schemas.chat import (
     ChatResponse,
 )
 from customer_shop_assistant.services.agent_service import ShopAssistantAgent
+from customer_shop_assistant.services.session_manager import get_session_manager
 
 router = APIRouter(prefix="/api/v1", tags=["Assistant"])
 security = HTTPBearer(auto_error=False)
@@ -129,3 +130,60 @@ async def chat_stream(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail=f"Failed to initiate streaming: {exc}",
         ) from exc
+
+
+class SessionStateResponse(BaseModel):
+    """Debug snapshot of conversation session and graph state."""
+
+    session_id: str
+    user_id: int | None = None
+    clarification_mode: str
+    clarify_phase: str
+    gated_turns: int
+    active_profile: dict[str, Any] | None = None
+    history_turns: int
+    context_messages_count: int
+    graph_checkpoint_next: list[str] = []
+
+
+@router.get("/chat/sessions/{session_id}/state", response_model=SessionStateResponse)
+async def get_session_state(
+    session_id: str,
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> SessionStateResponse:
+    sess_mgr = get_session_manager(
+        ttl_seconds=settings.SESSION_TTL_SECONDS,
+        default_max_turns=settings.MAX_SESSION_HISTORY_TURNS,
+    )
+    session = sess_mgr.get_session(session_id)
+    if not session:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Session '{session_id}' not found.",
+        )
+
+    agent = ShopAssistantAgent(settings=settings)
+    config = {"configurable": {"thread_id": session_id}}
+    checkpoint_next: list[str] = []
+    try:
+        graph_state = await agent.graph.aget_state(config)
+        if graph_state and graph_state.next:
+            checkpoint_next = list(graph_state.next)
+    except Exception:
+        pass
+
+    return SessionStateResponse(
+        session_id=session.session_id,
+        user_id=session.user_id,
+        clarification_mode=session.clarification_mode,
+        clarify_phase=session.clarify_phase.value,
+        gated_turns=session.gated_turns,
+        active_profile=(
+            session.active_profile.model_dump()
+            if session.active_profile
+            else None
+        ),
+        history_turns=len(session.messages) // 2,
+        context_messages_count=len(session.messages),
+        graph_checkpoint_next=checkpoint_next,
+    )

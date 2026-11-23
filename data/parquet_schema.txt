@@ -1,0 +1,33 @@
+article_id: large_string
+product_code: large_string
+prod_name: large_string
+product_type_no: int64
+product_type_name: large_string
+product_group_name: large_string
+graphical_appearance_no: int64
+graphical_appearance_name: large_string
+colour_group_code: large_string
+colour_group_name: large_string
+perceived_colour_value_id: int64
+perceived_colour_value_name: large_string
+perceived_colour_master_id: int64
+perceived_colour_master_name: large_string
+department_no: int64
+department_name: large_string
+index_code: large_string
+index_name: large_string
+index_group_no: int64
+index_group_name: large_string
+section_no: int64
+section_name: large_string
+garment_group_no: int64
+garment_group_name: large_string
+detail_desc: large_string
+text_to_embed: large_string
+image_url: large_string
+dense_embedding: large_list<element: double>
+  child 0, element: double
+sparse_indices: large_list<element: int64>
+  child 0, element: int64
+sparse_values: large_list<element: double>
+  child 0, element: double

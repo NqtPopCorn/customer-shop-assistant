@@ -28,3 +28,8 @@ wheels/
 # Logs
 logs/*
 !logs/.gitkeep
+
+# Large raw dataset artifacts
+*.parquet
+data/parquet_sample.csv
+

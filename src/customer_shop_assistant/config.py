@@ -80,8 +80,10 @@ class Settings(BaseSettings):
         description="Default clarification strategy when not provided by client",
     )
     DEBUG_CHAT_META: bool = Field(
-        default=False,
-        description="Include debug metadata (mode, phase, tools) in ChatResponse",
+        default=True,
+        description=(
+            "Include debug metadata (mode, phase, tools, traces) in ChatResponse"
+        ),
     )
 
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"

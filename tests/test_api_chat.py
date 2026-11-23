@@ -46,8 +46,7 @@ def test_api_v1_chat_clarification_minimal() -> None:
     assert data["clarification_asked"] is True
     assert "chiều cao" in data["reply"]
     assert "cân nặng" in data["reply"]
-    assert "quick_replies" in data
-    assert isinstance(data["quick_replies"], list)
+    assert "quick_replies" not in data
     assert "products" in data
 
 
@@ -154,3 +153,46 @@ def test_api_chat_session_continuity_and_jwt() -> None:
     assert session.active_profile.height_cm == 172.0
     assert session.active_profile.weight_kg == 68.0
     assert session.user_id == 42
+
+    # Verify GET /api/v1/chat/sessions/{session_id}/state
+    state_res = client.get(f"/api/v1/chat/sessions/{session_id}/state")
+    assert state_res.status_code == 200
+    state_data = state_res.json()
+    assert state_data["session_id"] == session_id
+    assert state_data["user_id"] == 42
+    assert state_data["active_profile"]["height_cm"] == 172.0
+    assert state_data["clarify_phase"] in ("INTERVIEW", "OPEN")
+
+    # Verify 404 for non-existent session
+    not_found_res = client.get("/api/v1/chat/sessions/non-existent-9999/state")
+    assert not_found_res.status_code == 404
+
+
+def test_api_v1_chat_debug_meta() -> None:
+    session_id = "test-debug-meta-session"
+    fake_model = GenericFakeChatModel(
+        messages=iter([AIMessage(content="Chào bạn! Shop có thể tư vấn gì cho bạn?")])
+    )
+    with patch(
+        "customer_shop_assistant.services.agent_service.get_chat_model",
+        return_value=fake_model,
+    ):
+        res = client.post(
+            "/api/v1/chat",
+            json={
+                "session_id": session_id,
+                "message": "Gợi ý váy đi tiệc",
+                "clarification_mode": "CONDITIONAL_CLARIFICATION",
+            },
+        )
+    assert res.status_code == 200
+    data = res.json()
+    assert "debug_meta" in data
+    assert data["debug_meta"] is not None
+    d_meta = data["debug_meta"]
+    assert "mode" in d_meta
+    assert "phase" in d_meta
+    assert "runs" in d_meta
+    assert isinstance(d_meta["runs"], list)
+    assert "state_snapshot" in d_meta
+    assert d_meta["state_snapshot"]["detected_slots"]["known_occasion"] == "party"

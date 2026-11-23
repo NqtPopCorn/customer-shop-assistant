@@ -100,8 +100,15 @@ class SessionManager:
         return session.messages[-max_messages:]
 
     def add_user_message(self, session_id: str, content: str) -> None:
-        """Append user inquiry to session message history."""
+        """Append user inquiry to session message history without duplicates."""
         session = self.get_or_create_session(session_id)
+        if (
+            session.messages
+            and isinstance(session.messages[-1], HumanMessage)
+            and session.messages[-1].content.strip() == content.strip()
+        ):
+            session.touch()
+            return
         session.messages.append(HumanMessage(content=content))
         session.touch()
 

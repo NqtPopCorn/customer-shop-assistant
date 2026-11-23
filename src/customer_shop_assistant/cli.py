@@ -42,6 +42,7 @@ def print_banner(provider: str, model: str, mode: ClarificationMode) -> None:
     print(f"  - {BOLD}/mode 1|2|3{RESET}       : Đổi chế độ làm rõ (1/2/3)")
     print(f"  - {BOLD}/profile [h] [w]{RESET} : Cập nhật số đo (vd: /profile 172 65)")
     print(f"  - {BOLD}/profile show|clear{RESET}: Xem hoặc xóa thông tin vóc dáng")
+    print(f"  - {BOLD}/debug{RESET}             : Bật/tắt xem LangChain traces")
     print(f"  - {BOLD}/reset{RESET}             : Xóa lịch sử phiên hội thoại")
     print(f"  - {BOLD}/exit{RESET} hoặc {BOLD}quit{RESET}   : Thoát chương trình")
     print(f"{CYAN}{'=' * 66}{RESET}\n")
@@ -123,6 +124,7 @@ async def run_cli() -> None:
     mode = ClarificationMode.MINIMAL_CLARIFICATION
     profile: UserProfile | None = None
     history: list[ChatMessage] = []
+    show_debug = "--debug" in sys.argv
 
     print_banner(settings.LLM_PROVIDER, active_model, mode)
     agent = ShopAssistantAgent(settings=settings)
@@ -150,6 +152,14 @@ async def run_cli() -> None:
         if cmd in ("/reset", "reset", "/clear", "clear"):
             history.clear()
             print(f"{YELLOW}[Hệ thống]{RESET} Đã xóa lịch sử hội thoại.")
+            continue
+
+        if cmd == "/debug":
+            show_debug = not show_debug
+            print(
+                f"{GREEN}[Debug Mode]{RESET} "
+                f"{'Bật (ON)' if show_debug else 'Tắt (OFF)'}"
+            )
             continue
 
         if cmd.startswith("/mode"):
@@ -239,6 +249,30 @@ async def run_cli() -> None:
             elif c_type == "done":
                 full_reply = chunk.get("reply", full_reply)
                 tools_used_list = chunk.get("tools_used", tools_used_list)
+                d_meta = chunk.get("debug_meta")
+                if show_debug and d_meta:
+                    print(f"\n{CYAN}{DIM}--- [LANGCHAIN RUNS & STATE] ---{RESET}")
+                    print(
+                        f"{DIM}Phase: {d_meta.get('phase')} | "
+                        f"Latency: {d_meta.get('latency_ms')}ms | "
+                        f"Gated: {d_meta.get('gated_turns')}{RESET}"
+                    )
+                    usage = d_meta.get("usage_metadata")
+                    if usage:
+                        print(
+                            f"{DIM}Tokens: in={usage.get('input_tokens', 0)} "
+                            f"out={usage.get('output_tokens', 0)} "
+                            f"total={usage.get('total_tokens', 0)}{RESET}"
+                        )
+                    runs = d_meta.get("runs") or []
+                    if runs:
+                        print(f"{DIM}Runs ({len(runs)}):{RESET}")
+                        for r in runs:
+                            print(
+                                f"  • [{r.get('run_type')}] {r.get('name')} "
+                                f"({r.get('latency_ms')}ms)"
+                            )
+                    print(f"{CYAN}{DIM}--------------------------------{RESET}\n")
 
             elif c_type == "error":
                 print(f"\n{YELLOW}{chunk.get('content', '')}{RESET}")

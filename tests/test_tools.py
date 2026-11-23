@@ -79,6 +79,55 @@ async def test_search_products_tool_mocked(
 
 
 @pytest.mark.anyio
+async def test_search_products_normalizes_english_category_to_semantic_keyword(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_params: dict[str, object] = {}
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        if params:
+            captured_params.update(params)
+        return httpx.Response(
+            status_code=200,
+            json={"items": []},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    await search_products.ainvoke(
+        {"keyword": "đi tiệc", "category": "dresses", "target_gender": "female"}
+    )
+    assert captured_params.get("mode") == "semantic"
+    assert "đầm váy" in str(captured_params.get("search", ""))
+    assert "category" not in captured_params
+    assert captured_params.get("targetGender") == "FEMALE"
+
+
+@pytest.mark.anyio
+async def test_search_products_preserves_valid_vietnamese_category(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_params: dict[str, object] = {}
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        if params:
+            captured_params.update(params)
+        return httpx.Response(
+            status_code=200,
+            json={"items": []},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    await search_products.ainvoke({"keyword": "đầm dự tiệc", "category": "Đầm dạ hội"})
+    assert captured_params.get("mode") == "semantic"
+    assert captured_params.get("search") == "đầm dự tiệc"
+    assert captured_params.get("category") == "Đầm dạ hội"
+
+
+@pytest.mark.anyio
 async def test_get_product_detail_tool_mocked(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -150,3 +199,78 @@ async def test_voucher_tool_mocked(monkeypatch: pytest.MonkeyPatch) -> None:
     result = await check_voucher.ainvoke({"code": "SUMMER50", "order_value": 400000})
     assert "HỢP LỆ" in result
     assert "50,000đ" in result
+
+
+@pytest.mark.anyio
+async def test_concurrent_turns_have_isolated_product_contexts() -> None:
+    import asyncio
+
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.tools.catalog_tool import (
+        get_cached_product,
+        get_latest_searched_product_ids,
+        product_turn_context,
+        record_searched_products,
+    )
+
+    async def turn_a() -> tuple[list[int], ChatRecommendedProduct | None]:
+        with product_turn_context():
+            record_searched_products(
+                [ChatRecommendedProduct(id=57, name="Đầm Dạ Hội", price=490000.0)]
+            )
+            await asyncio.sleep(0.05)
+            # Even after turn_b runs concurrently, turn_a only sees its own product
+            assert get_cached_product(101) is None
+            return get_latest_searched_product_ids(), get_cached_product(57)
+
+    async def turn_b() -> tuple[list[int], ChatRecommendedProduct | None]:
+        with product_turn_context():
+            await asyncio.sleep(0.01)
+            record_searched_products(
+                [ChatRecommendedProduct(id=101, name="Áo Sơ Mi Nam", price=350000.0)]
+            )
+            assert get_cached_product(57) is None
+            return get_latest_searched_product_ids(), get_cached_product(101)
+
+    (ids_a, prod_a), (ids_b, prod_b) = await asyncio.gather(turn_a(), turn_b())
+    assert ids_a == [57]
+    assert prod_a is not None and prod_a.name == "Đầm Dạ Hội"
+    assert ids_b == [101]
+    assert prod_b is not None and prod_b.name == "Áo Sơ Mi Nam"
+
+
+@pytest.mark.anyio
+async def test_empty_search_clears_searched_ids_and_context_resets_after_turn(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.tools.catalog_tool import (
+        get_cached_product,
+        get_latest_searched_product_ids,
+        product_turn_context,
+        record_searched_products,
+    )
+
+    async def mock_empty_get(self, url, params=None, **kwargs) -> httpx.Response:
+        return httpx.Response(
+            status_code=200,
+            json={"items": []},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_empty_get)
+
+    with product_turn_context():
+        record_searched_products(
+            [ChatRecommendedProduct(id=57, name="Đầm Dạ Hội", price=490000.0)]
+        )
+        assert get_latest_searched_product_ids() == [57]
+
+        # Subsequent empty search must clear searched_ids in the same turn
+        res = await search_products.ainvoke({"keyword": "không tồn tại"})
+        assert "Không tìm thấy" in res
+        assert get_latest_searched_product_ids() == []
+
+    # After exiting context, nothing leaks globally
+    assert get_latest_searched_product_ids() == []
+    assert get_cached_product(57) is None
