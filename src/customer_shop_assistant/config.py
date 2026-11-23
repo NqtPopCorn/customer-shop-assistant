@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -34,8 +34,22 @@ class Settings(BaseSettings):
         description="Ollama server endpoint",
     )
     OLLAMA_MODEL: str = "llama3.2"
+    OLLAMA_REASONING: bool | None = Field(
+        default=False,
+        description=(
+            "Control Ollama thinking/reasoning mode (False disables hidden "
+            "thinking on qwen3/qwen3.5; leave empty/None to use Ollama default)"
+        ),
+    )
     EMBEDDING_PROVIDER: Literal["ollama", "tfidf"] = "ollama"
     OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+
+    @field_validator("OLLAMA_REASONING", mode="before")
+    @classmethod
+    def parse_ollama_reasoning(cls, v: Any) -> Any:
+        if isinstance(v, str) and v.strip().lower() in ("", "none", "null"):
+            return None
+        return v
 
     LMSTUDIO_BASE_URL: str = Field(
         default="http://127.0.0.1:1235/v1",
@@ -84,6 +98,16 @@ class Settings(BaseSettings):
         description=(
             "Include debug metadata (mode, phase, tools, traces) in ChatResponse"
         ),
+    )
+
+    OUTFIT_KG_ENABLED: bool = Field(
+        default=True,
+        description="Enable suggest_outfit KG tool (False = baseline)",
+    )
+    OUTFIT_KG_CACHE_TTL_SECONDS: int = Field(
+        default=600,
+        ge=1,
+        description="TTL in seconds for in-memory OutfitGraph cache",
     )
 
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"

@@ -139,3 +139,72 @@ def test_metric_out_of_scope_rejection() -> None:
     )
     assert res.out_of_scope_match
     assert res.passed
+
+
+def test_metric_outfit_returned_and_violation_rate() -> None:
+    from customer_shop_assistant.schemas.chat import (
+        OutfitItem,
+        OutfitSuggestion,
+        UserProfile,
+    )
+    from customer_shop_assistant.schemas.shop import GenderTarget
+
+    case = EvaluationCase(
+        id="OUTFIT_TEST",
+        category="product_suitability",
+        sub_category="mix_and_match",
+        question="Gợi ý set đồ đi làm cho nam",
+        user_profile=UserProfile(gender=GenderTarget.MALE),
+        ground_truth=GroundTruth(
+            expected_intent="PRODUCT_ADVICE",
+            expected_tool="suggest_outfit",
+            required_keywords=["áo", "quần"],
+        ),
+    )
+
+    valid_outfit = OutfitSuggestion(
+        top=OutfitItem(
+            product_id=1,
+            name="Áo polo nam",
+            category="Áo polo",
+            color="Xanh navy",
+            in_stock=True,
+            price=350000.0,
+        ),
+        bottom=OutfitItem(
+            product_id=2,
+            name="Quần kaki nam",
+            category="Quần kaki",
+            color="Be sữa",
+            in_stock=True,
+            price=450000.0,
+        ),
+        score=0.9,
+        reasons=["Hợp"],
+    )
+    bad_skirt_for_male = OutfitSuggestion(
+        top=valid_outfit.top,
+        bottom=OutfitItem(
+            product_id=3,
+            name="Chân váy xếp ly",
+            category="Chân váy",
+            color="Đen",
+            in_stock=True,
+            price=380000.0,
+        ),
+        score=0.8,
+        reasons=["Sai giới tính"],
+    )
+
+    res_ok = evaluate_response(
+        case=case,
+        reply="Gợi ý áo polo và quần kaki cho bạn.",
+        intent="PRODUCT_ADVICE",
+        tools_used=["suggest_outfit"],
+        clarification_asked=False,
+        latency_ms=100.0,
+        estimated_tokens=40,
+        outfits=[valid_outfit, bad_skirt_for_male],
+    )
+    assert res_ok.outfit_returned is True
+    assert res_ok.outfit_rule_violation_rate == 0.5

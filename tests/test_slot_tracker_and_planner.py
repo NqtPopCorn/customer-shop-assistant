@@ -9,6 +9,7 @@ from customer_shop_assistant.schemas.chat import (
 )
 from customer_shop_assistant.schemas.shop import GenderTarget
 from customer_shop_assistant.services.clarification_planner import (
+    align_reply_with_clarification_form,
     build_clarification_form,
     validate_or_repair_clarification_form,
 )
@@ -188,3 +189,83 @@ def test_prompt_summary_excludes_p3_measurements_for_product_search() -> None:
     summary = format_slots_for_prompt(slots, intent)
     assert "Giới tính/Đối tượng [P0]" in summary
     assert "Số đo cơ thể" not in summary
+
+
+def test_align_reply_catches_single_line_numbered_list_and_garbled_phrase() -> None:
+    slots, intent = extract_conversation_slots(["tìm giúp tôi đồ đi đám cưới cho nam"])
+    form = build_clarification_form(slots, intent, max_questions=3)
+    single_line_leaked = (
+        "Chào anh! Rất vui được tư vấn đồ đi đám cưới cho nam giới của anh nhé! 🎉 "
+        "Để giúp shop tư vấn chính xác nhất, anh có thể tích điểm vào các mục dưới "
+        "đây: 1. Bạn đang tìm kiểu trang phục dự tiệc nào? (Đám cưới, Gala, Party, "
+        "Wedding) 2. Ngân sách dự kiến của bạn cho trang phục này? (300k - 500k, "
+        "500k - 800k, 800k+) 3. Bạn thích phong cách thẩm mỹ nào? (Minimalism, "
+        "Công sở, Streetwear, Casual) Anh có thể chọn và tích vào các mục trên để "
+        "shop tư vấn chính xác hơn nhé! 😊"
+    )
+    aligned = align_reply_with_clarification_form(
+        single_line_leaked, form, slots, intent
+    )
+    assert "1." not in aligned
+    assert "tích điểm" not in aligned
+    assert "buổi tiệc" in aligned
+    assert len(aligned.split()) <= 45
+
+
+def test_outfit_dual_category_extraction_and_multi_turn_intent_preservation() -> None:
+    slots, intent = extract_conversation_slots(
+        ["Shop gợi ý cho mình một set đồ gồm áo thun trắng và quần jeans đen cho nam"]
+    )
+    assert intent == TurnIntent.OUTFIT_ADVICE
+    assert slots.value_of("target_gender") == "MALE"
+    assert slots.value_of("top_category") == "tshirt"
+    assert slots.value_of("bottom_category") == "jeans"
+    assert slots.value_of("top_color") == "Trắng"
+    assert slots.value_of("bottom_color") == "Đen"
+
+    summary = format_slots_for_prompt(slots, intent)
+    assert "Loại áo phối" in summary
+    assert "Loại quần/váy phối" in summary
+
+    # Clarification form for OUTFIT_ADVICE must not ask single-category selection
+    slots_vague, intent_vague = extract_conversation_slots(["Phối đồ cho mình với"])
+    assert intent_vague == TurnIntent.OUTFIT_ADVICE
+    form = build_clarification_form(slots_vague, intent_vague, max_questions=3)
+    assert all(q.id not in ("category", "category_subtype") for q in form.questions)
+
+    # Answering clarification form preserves OUTFIT_ADVICE in turn 2
+    history = [
+        HumanMessage(content="Phối đồ cho mình với"),
+        AIMessage(content="Bạn giúp mình chọn thông tin bên dưới nhé:"),
+        HumanMessage(content="Nam\nĐi làm công sở – Lịch sự, chỉn chu"),
+    ]
+    slots_t2, intent_t2 = extract_conversation_slots(history)
+    assert intent_t2 == TurnIntent.OUTFIT_ADVICE
+    assert slots_t2.value_of("target_gender") == "MALE"
+    assert slots_t2.value_of("occasion") == "office"
+
+
+def test_switching_from_shirt_to_pants_updates_category_and_hides_outfit_slots() -> (
+    None
+):
+    history = [
+        HumanMessage(content="Tìm áo sơ mi công sở"),
+        AIMessage(content="Bạn giúp mình chọn thêm tiêu chí nhé:"),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n1. Nam\n2. Phổ biến (300.000đ – 600.000đ)\n"
+                "3. Form ôm nhẹ gọn gàng, tôn dáng (Slim fit)"
+            )
+        ),
+        AIMessage(content="Dưới đây là các mẫu áo sơ mi..."),
+        HumanMessage(content="gợi ý vài loại quần phù hợp"),
+    ]
+    slots, intent = extract_conversation_slots(history)
+    assert intent == TurnIntent.PRODUCT_SEARCH
+    assert slots.value_of("category") == "pants"
+    assert slots.value_of("target_gender") == "MALE"
+    assert slots.value_of("occasion") == "office"
+
+    summary = format_slots_for_prompt(slots, intent)
+    assert "Danh mục [P0]=pants" in summary
+    assert "Loại áo phối" not in summary

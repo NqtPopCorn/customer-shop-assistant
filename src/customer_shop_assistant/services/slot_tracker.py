@@ -53,6 +53,8 @@ class ConversationSlots(BaseModel):
     # P0 - Purpose & Core Context
     target_gender: SlotValue | None = None
     category: SlotValue | None = None
+    top_category: SlotValue | None = None
+    bottom_category: SlotValue | None = None
     occasion: SlotValue | None = None
     shopping_intent: SlotValue | None = None
 
@@ -64,6 +66,8 @@ class ConversationSlots(BaseModel):
     # P2 - Aesthetic Preferences
     style: SlotValue | None = None
     color: SlotValue | None = None
+    top_color: SlotValue | None = None
+    bottom_color: SlotValue | None = None
     material: SlotValue | None = None
 
     # P3 - Advanced Personalization
@@ -293,30 +297,96 @@ _BODY_FIT_CUES = (
 _OUTFIT_ADVICE_CUES = (
     "phối đồ",
     "phối với",
+    "phối cùng",
     "mix đồ",
     "mix & match",
     "mix match",
     "set đồ",
+    "bộ đồ",
+    "1 bộ",
+    "một bộ",
+    "nguyên bộ",
+    "1 set",
+    "một set",
+    "cả set",
+    "combo",
     "outfit",
     "mặc với gì",
+    "mặc cùng",
+    "mặc chung với",
     "kết hợp với",
     "nguyên set",
     "cả bộ",
 )
 
+_SINGLE_ITEM_SWITCH_CUES = (
+    "tìm áo",
+    "tìm quần",
+    "tìm đầm",
+    "tìm váy",
+    "tìm cho tôi loại",
+    "tìm mẫu",
+    "xem mẫu",
+    "chỉ tìm áo",
+    "chỉ tìm quần",
+)
+
+_FORM_MULTI_GARMENT_PHRASES = (
+    "áo (sơ mi",
+    "áo nam (áo",
+    "áo nữ (",
+    "áo sơ mi / áo polo",
+    "áo thun / áo polo",
+    "áo thun / áo khoác",
+    "áo sơ mi / áo thun",
+    "quần (quần âu",
+    "quần nam (quần",
+    "quần nữ (",
+    "quần âu / quần kaki",
+    "quần jeans / quần short",
+    "quần âu / quần jeans",
+    "đầm / váy",
+    "đầm công sở liền thân",
+    "đầm dạo phố",
+)
+
+_TOP_COMPONENT_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("áo sơ mi", "shirt"),
+    ("sơ mi", "shirt"),
+    ("áo polo", "polo"),
+    ("polo", "polo"),
+    ("áo thun", "tshirt"),
+    ("áo phông", "tshirt"),
+    ("t-shirt", "tshirt"),
+    ("tshirt", "tshirt"),
+    ("áo khoác", "jacket"),
+    ("blazer", "jacket"),
+    ("hoodie", "jacket"),
+    ("bomber", "jacket"),
+    ("jacket", "jacket"),
+)
+
+_BOTTOM_COMPONENT_PATTERNS: tuple[tuple[str, str], ...] = (
+    ("chân váy", "skirt"),
+    ("skirt", "skirt"),
+    ("quần jeans", "jeans"),
+    ("quần jean", "jeans"),
+    ("quần bò", "jeans"),
+    ("jeans", "jeans"),
+    ("jean", "jeans"),
+    ("quần kaki", "kaki"),
+    ("kaki", "kaki"),
+    ("khaki", "kaki"),
+    ("quần short", "short"),
+    ("quần đùi", "short"),
+    ("short", "short"),
+    ("quần âu", "pants"),
+    ("quần tây", "pants"),
+)
+
 _FEMALE_INFERRED_CATEGORIES = {"dress", "skirt"}
-_SPECIFIC_CATEGORIES = {
-    "shirt",
-    "polo",
-    "tshirt",
-    "jacket",
-    "jeans",
-    "kaki",
-    "short",
-    "dress",
-    "skirt",
-    "accessory",
-}
+_SPECIFIC_TOP_CATEGORIES = {"shirt", "polo", "tshirt", "jacket"}
+_SPECIFIC_PANT_CATEGORIES = {"jeans", "kaki", "short"}
 
 
 def classify_turn_intent(message: str) -> TurnIntent:
@@ -358,6 +428,10 @@ def classify_turn_intent(message: str) -> TurnIntent:
         return TurnIntent.BODY_FIT_ADVICE
 
     if any(cue in lower for cue in _OUTFIT_ADVICE_CUES):
+        return TurnIntent.OUTFIT_ADVICE
+
+    top_cat, bot_cat, _, _ = _extract_outfit_components(lower)
+    if top_cat is not None and bot_cat is not None:
         return TurnIntent.OUTFIT_ADVICE
 
     return TurnIntent.PRODUCT_SEARCH
@@ -651,13 +725,39 @@ def _extract_measurements(lower: str) -> MeasurementsValue | None:
 
 def _extract_color(lower: str) -> str | None:
     colors = (
+        ("xanh rêu khaki", "Xanh rêu khaki"),
+        ("xanh lam nhạt", "Xanh lam nhạt"),
+        ("xanh cổ vịt", "Xanh cổ vịt"),
+        ("xanh ngọc bích", "Xanh ngọc bích"),
+        ("xanh ngọc", "Xanh ngọc"),
+        ("xanh pastel", "Xanh pastel"),
+        ("xanh dương", "Xanh dương"),
+        ("xanh navy", "Xanh navy"),
+        ("xanh rêu", "Xanh rêu khaki"),
+        ("xanh mint", "Xanh mint"),
+        ("xanh lá", "Xanh lá"),
+        ("trắng kem", "Trắng kem"),
+        ("be sữa", "Be sữa"),
+        ("be sáng", "Be sáng"),
+        ("nâu camel", "Nâu camel"),
+        ("nâu be", "Nâu be"),
+        ("xám tiêu", "Xám tiêu"),
+        ("xám đậm", "Xám đậm"),
+        ("xám nhạt", "Xám nhạt"),
+        ("hồng pastel", "Hồng pastel"),
+        ("hồng đất", "Hồng đất"),
+        ("đỏ đô", "Đỏ đô"),
+        ("đỏ tươi", "Đỏ tươi"),
+        ("cam đào", "Cam đào"),
+        ("cam đất", "Cam đất"),
+        ("vàng mù tạt", "Vàng mù tạt"),
+        ("vàng kem", "Vàng kem"),
+        ("vàng ánh kim", "Vàng ánh kim"),
+        ("tím than", "Tím than"),
+        ("tím lilac", "Tím lilac"),
         ("trắng", "Trắng"),
         ("đen", "Đen"),
-        ("xanh navy", "Xanh navy"),
         ("navy", "Xanh navy"),
-        ("xanh dương", "Xanh dương"),
-        ("xanh pastel", "Xanh pastel"),
-        ("xanh rêu", "Xanh rêu"),
         ("xanh", "Xanh"),
         ("be", "Be"),
         ("nâu", "Nâu"),
@@ -666,7 +766,9 @@ def _extract_color(lower: str) -> str | None:
         ("đỏ", "Đỏ"),
         ("hồng", "Hồng"),
         ("vàng", "Vàng"),
+        ("cam", "Cam"),
         ("tím", "Tím"),
+        ("bạc", "Bạc"),
         ("trung tính", "Trung tính"),
         ("màu tối", "Tối màu"),
         ("màu sáng", "Sáng màu"),
@@ -675,6 +777,49 @@ def _extract_color(lower: str) -> str | None:
         if re.search(rf"\b{re.escape(cue)}\b", lower):
             return label
     return None
+
+
+def _extract_outfit_components(
+    lower: str,
+) -> tuple[str | None, str | None, str | None, str | None]:
+    """Extract independent (top_cat, bottom_cat, top_col, bottom_col) from text."""
+    if any(phrase in lower for phrase in _FORM_MULTI_GARMENT_PHRASES):
+        return None, None, None, None
+
+    top_cat: str | None = None
+    top_idx: int | None = None
+    for cue, code in _TOP_COMPONENT_PATTERNS:
+        pos = lower.find(cue)
+        if pos != -1 and (top_idx is None or pos < top_idx):
+            top_cat = code
+            top_idx = pos
+
+    bot_cat: str | None = None
+    bot_idx: int | None = None
+    for cue, code in _BOTTOM_COMPONENT_PATTERNS:
+        pos = lower.find(cue)
+        if pos != -1 and (bot_idx is None or pos < bot_idx):
+            bot_cat = code
+            bot_idx = pos
+
+    top_col: str | None = None
+    bot_col: str | None = None
+    if top_idx is not None and bot_idx is not None:
+        split_at = max(top_idx, bot_idx)
+        seg1 = lower[:split_at]
+        seg2 = lower[split_at:]
+        if top_idx < bot_idx:
+            top_col = _extract_color(seg1)
+            bot_col = _extract_color(seg2)
+        else:
+            bot_col = _extract_color(seg1)
+            top_col = _extract_color(seg2)
+    elif top_idx is not None:
+        top_col = _extract_color(lower)
+    elif bot_idx is not None:
+        bot_col = _extract_color(lower)
+
+    return top_cat, bot_cat, top_col, bot_col
 
 
 def _extract_style(lower: str) -> str | None:
@@ -787,10 +932,11 @@ def extract_conversation_slots(
         category = _extract_category(lower)
         if category:
             current_cat = slots.value_of("category")
-            # Avoid downgrading a specific garment to generic tops/pants in follow-ups
-            if not (
-                current_cat in _SPECIFIC_CATEGORIES and category in ("tops", "pants")
-            ):
+            # Avoid downgrading a specific garment to its generic group in follow-ups
+            is_same_group_downgrade = (
+                current_cat in _SPECIFIC_TOP_CATEGORIES and category == "tops"
+            ) or (current_cat in _SPECIFIC_PANT_CATEGORIES and category == "pants")
+            if not is_same_group_downgrade:
                 slots.category = SlotValue(value=category, source="explicit")
 
         occasion = _extract_occasion(lower)
@@ -818,6 +964,16 @@ def extract_conversation_slots(
         if color:
             slots.color = SlotValue(value=color, source="explicit")
 
+        top_cat, bot_cat, top_col, bot_col = _extract_outfit_components(lower)
+        if top_cat:
+            slots.top_category = SlotValue(value=top_cat, source="explicit")
+        if bot_cat:
+            slots.bottom_category = SlotValue(value=bot_cat, source="explicit")
+        if top_col:
+            slots.top_color = SlotValue(value=top_col, source="explicit")
+        if bot_col:
+            slots.bottom_color = SlotValue(value=bot_col, source="explicit")
+
         style = _extract_style(lower)
         if style:
             slots.style = SlotValue(value=style, source="explicit")
@@ -844,16 +1000,24 @@ def extract_conversation_slots(
             slots.body_concern = SlotValue(value=concern, source="explicit")
 
     # 3. High-confidence inference ONLY for unmistakably female categories
-    if (
-        not slots.has("target_gender")
-        and slots.value_of("category") in _FEMALE_INFERRED_CATEGORIES
+    if not slots.has("target_gender") and (
+        slots.value_of("category") in _FEMALE_INFERRED_CATEGORIES
+        or slots.value_of("bottom_category") == "skirt"
     ):
         slots.target_gender = SlotValue(
             value=GenderTarget.FEMALE.value, source="inferred"
         )
 
     latest_text = user_texts[-1] if user_texts else ""
+    latest_lower = latest_text.strip().lower()
     intent = classify_turn_intent(latest_text)
+    if (
+        intent == TurnIntent.PRODUCT_SEARCH
+        and slots.value_of("shopping_intent") == "OUTFIT"
+        and not any(cue in latest_lower for cue in _SINGLE_ITEM_SWITCH_CUES)
+    ):
+        intent = TurnIntent.OUTFIT_ADVICE
+
     if intent == TurnIntent.OUTFIT_ADVICE:
         slots.shopping_intent = SlotValue(value="OUTFIT", source="explicit")
     elif not slots.has("shopping_intent") and intent != TurnIntent.NON_SHOPPING:
@@ -902,7 +1066,7 @@ def get_priority_slots(intent: TurnIntent, slots: ConversationSlots) -> list[str
         return ["target_gender", "category", "measurements", "occasion", "budget"]
 
     if intent == TurnIntent.OUTFIT_ADVICE:
-        return ["target_gender", "occasion", "category", "budget", "style", "color"]
+        return ["target_gender", "occasion", "color", "style"]
 
     cat_val = slots.value_of("category")
     if cat_val is None:
@@ -960,20 +1124,23 @@ def format_slots_for_prompt(
     slot_labels = {
         "target_gender": ("Giới tính/Đối tượng", "P0"),
         "category": ("Danh mục", "P0"),
+        "top_category": ("Loại áo phối", "P0"),
+        "bottom_category": ("Loại quần/váy phối", "P0"),
         "category_subtype": ("Loại sản phẩm cụ thể", "P0"),
         "occasion": ("Dịp sử dụng", "P0"),
         "budget": ("Ngân sách", "P1"),
         "fit": ("Form dáng", "P1"),
         "size": ("Size", "P1"),
         "color": ("Màu sắc", "P2"),
+        "top_color": ("Màu áo", "P2"),
+        "bottom_color": ("Màu quần/váy", "P2"),
         "style": ("Phong cách", "P2"),
         "material": ("Chất liệu", "P2"),
         "measurements": ("Số đo cơ thể", meas_prio),
         "body_concern": ("Đặc điểm vóc dáng", "P3"),
     }
 
-    known_items: list[str] = []
-    for key in (
+    base_keys: tuple[str, ...] = (
         "target_gender",
         "category",
         "occasion",
@@ -985,16 +1152,35 @@ def format_slots_for_prompt(
         "material",
         "measurements",
         "body_concern",
-    ):
+    )
+    if intent == TurnIntent.OUTFIT_ADVICE:
+        ordered_keys = (
+            "target_gender",
+            "category",
+            "top_category",
+            "bottom_category",
+            "occasion",
+            "budget",
+            "fit",
+            "size",
+            "color",
+            "top_color",
+            "bottom_color",
+            "style",
+            "material",
+            "measurements",
+            "body_concern",
+        )
+    else:
+        ordered_keys = base_keys
+
+    known_items: list[str] = []
+    for key in ordered_keys:
         if slots.has(key):
             label, prio = slot_labels[key]
             disp = _format_slot_display(key, slots.value_of(key))
             src = getattr(slots, key).source
             known_items.append(f"{label} [{prio}]={disp} ({src})")
-
-    known_str = "; ".join(known_items) if known_items else "Chưa có"
-    if not include_missing:
-        return f"TÓM TẮT NGỮ CẢNH ({intent.value}):\n- Đã biết: {known_str}"
 
     known_str = "; ".join(known_items) if known_items else "Chưa có"
     if not include_missing:

@@ -19,13 +19,16 @@ def get_chat_model(settings: Settings | None = None) -> BaseChatModel:
         extra_kwargs["seed"] = s.SEED
 
     if s.LLM_PROVIDER == "ollama":
+        ollama_kwargs = dict(extra_kwargs)
+        if s.OLLAMA_REASONING is not None:
+            ollama_kwargs["reasoning"] = s.OLLAMA_REASONING
         return ChatOllama(
             base_url=s.OLLAMA_BASE_URL,
             model=s.OLLAMA_MODEL,
             temperature=s.TEMPERATURE,
             timeout=s.TIMEOUT,
             streaming=True,
-            **extra_kwargs,
+            **ollama_kwargs,
         )
 
     return ChatOpenAI(

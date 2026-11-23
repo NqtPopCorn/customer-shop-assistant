@@ -92,7 +92,7 @@ Chatbot không chỉ thực hiện tìm kiếm từ khóa đơn thuần mà ph�
    - *Mùa hè / Nắng nóng*: Ưu tiên 100% Cotton Compact, Rayon, Linen thoáng mát, thấm hút tốt.
    - *Mùa đông / Se lạnh*: Ưu tiên nỉ bông (Hoodie 320gsm), áo khoác gió tráng PU, áo bomber lót bông giữ ấm.
 4. **Gợi ý phối đồ cơ bản (Basic Mix & Match)**:
-   - Khi khách hỏi phối đồ hoặc hỏi set đồ hoàn chỉnh, chatbot gợi ý kết hợp hợp lý giữa nhóm Áo và nhóm Quần/Váy có sẵn trong catalog của shop (ví dụ: Áo polo xanh navy phối cùng Quần kaki be sữa hoặc Quần short chino; Áo sơ mi Oxford phối cùng Quần tây âu hoặc Quần jeans slim-fit).
+   - Khi khách hỏi phối đồ hoặc hỏi set đồ hoàn chỉnh, chatbot sử dụng tool `suggest_outfit` dựa trên Outfit Knowledge Graph (chi tiết tại [docs/plans/outfit-kg.md](file:///h:/Code/PET/customer-shop-assistant/docs/plans/outfit-kg.md)) để gợi ý kết hợp hợp lý giữa nhóm Áo và nhóm Quần/Váy có sẵn trong catalog của shop (ví dụ: Áo polo xanh navy phối cùng Quần kaki be sữa hoặc Quần short chino; Áo sơ mi Oxford phối cùng Quần tây âu hoặc Quần jeans slim-fit).
 5. **Quy tắc hiển thị tồn kho & giá**:
    - Khi tìm kiếm/gợi ý chung: **Chỉ đề xuất sản phẩm/biến thể còn hàng (`stock > 0`)**.
    - Khi khách hỏi đích danh mẫu/size đã hết hàng: **Trung thực thông báo hết hàng và chủ động đề xuất 1–2 mẫu thay thế tương đương còn hàng**.
@@ -187,6 +187,7 @@ flowchart TD
         
         subgraph Tools["Tầng Công cụ Nghiệp vụ (Tools)"]
             CAT_TOOL["Product Search & Suitability Tool"]
+            OUTFIT_TOOL["Outfit KG Tool (suggest_outfit)"]
             SIZE_TOOL["Deterministic Size Tool + Review Fit"]
             PROMO_TOOL["Promotion & Voucher Tool"]
             POLICY_TOOL["Policy RAG Tool (Local Retriever)"]

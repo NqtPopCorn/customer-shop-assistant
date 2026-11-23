@@ -467,3 +467,55 @@ async def test_search_products_balanced_skipped_when_explicit_gender_given(
 
     assert len(captured_calls) == 1
     assert "targetGender" not in captured_calls[0]
+
+
+@pytest.mark.anyio
+async def test_search_products_caps_limit_at_five(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.tools.catalog_tool import (
+        get_latest_searched_product_ids,
+        product_turn_context,
+    )
+
+    captured_params: dict[str, object] = {}
+    items = [
+        {
+            "id": 100 + i,
+            "name": f"Quần Âu Nam Mẫu {i}",
+            "slug": f"quan-au-{i}",
+            "targetGender": "MALE",
+            "variants": [
+                {
+                    "id": 1000 + i,
+                    "sku": f"QA-{i}",
+                    "size": "31",
+                    "listPrice": 400000,
+                    "sellingPrice": 400000,
+                    "finalPrice": 400000,
+                    "stock": 5,
+                }
+            ],
+        }
+        for i in range(10)
+    ]
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        if params:
+            captured_params.update(params)
+        req_limit = int(params.get("limit", 5)) if params else 5
+        return httpx.Response(
+            status_code=200,
+            json={"items": items[:req_limit]},
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    with product_turn_context():
+        result = await search_products.ainvoke({"keyword": "quần âu", "limit": 10})
+        ids = get_latest_searched_product_ids()
+
+    assert captured_params.get("limit") == 5
+    assert len(ids) == 5
+    assert result.count("Quần Âu Nam Mẫu") == 5

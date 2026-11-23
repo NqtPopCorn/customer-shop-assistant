@@ -35,6 +35,7 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     t1_reply = AIMessage(content="Bạn đang tìm trang phục cho dịp nào?")
     t1_model = InspectableFakeChatModel(messages=iter([t1_reply]))
     agent_t1 = ShopAssistantAgent(chat_model=t1_model, session_manager=session_mgr)
+    t1_model.last_bound_tools = None
     agent_t1.structured_model = AsyncMock()
     agent_t1.structured_model.ainvoke.return_value = AgentReply(
         reply="Bạn đang tìm trang phục cho dịp nào?",
@@ -50,12 +51,18 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     res1 = await agent_t1.chat(req1)
 
     assert res1.clarification_asked is True
-    # Verify search_products was NOT bound in turn 1
+    # Verify NO tools were bound in turn 1 (gate_search=True)
     bound_tool_names_t1 = [
         getattr(t, "name", str(t)) for t in (t1_model.last_bound_tools or [])
     ]
-    assert "search_products" not in bound_tool_names_t1
-    assert "recommend_size" in bound_tool_names_t1
+    assert bound_tool_names_t1 == []
+    agent_t1.structured_model.ainvoke.assert_not_awaited()
+    assert res1.debug_meta is not None
+    assert res1.debug_meta.phase == "INTERVIEW"
+    assert res1.debug_meta.tools_available == []
+    assert res1.debug_meta.state_snapshot is not None
+    assert res1.debug_meta.state_snapshot.clarify_phase == "INTERVIEW"
+    assert res1.debug_meta.state_snapshot.next_phase == "OPEN"
 
     # Check session state advanced to OPEN after turn 1
     sess = session_mgr.get_session(session_id)
@@ -91,13 +98,16 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     )
     res2 = await agent_t2.chat(req2)
 
-    # In turn 2, search_products must be bound
+    # In turn 2, search_products must be bound and structured_model skipped
     bound_tool_names_t2 = [
         getattr(t, "name", str(t)) for t in (t2_model.last_bound_tools or [])
     ]
     assert "search_products" in bound_tool_names_t2
     assert "search_products" in res2.tools_used
     assert not res2.clarification_asked
+    agent_t2.structured_model.ainvoke.assert_not_awaited()
+    assert res2.debug_meta is not None
+    assert res2.debug_meta.phase == "OPEN"
 
 
 @pytest.mark.anyio
@@ -720,3 +730,357 @@ async def test_mode_a_respects_female_inferred_garment_like_dress(
     assert captured_calls[0].get("targetGender") == "FEMALE"
     assert "đầm" in str(captured_calls[0].get("search", "")).lower()
     assert [p.id for p in res.products] == [105]
+
+
+@pytest.mark.anyio
+async def test_mode_b_interview_uses_compact_prompt_and_buffers_stream() -> None:
+    captured_prompts: list[str] = []
+
+    class PromptCapturingModel(InspectableFakeChatModel):
+        async def ainvoke(
+            self, input: Any, config: Any = None, **kwargs: Any
+        ) -> AIMessage:
+            if isinstance(input, list) and input:
+                captured_prompts.append(str(input[0].content))
+            return await super().ainvoke(input, config=config, **kwargs)
+
+    session_mgr = SessionManager()
+    clean_intro = (
+        "Chào anh! Để chọn set đồ đi đám cưới lịch lãm nhất, "
+        "anh tích chọn thêm vài tiêu chí bên dưới nhé:"
+    )
+    prompt_model = PromptCapturingModel(messages=iter([AIMessage(content=clean_intro)]))
+    agent_prompt = ShopAssistantAgent(
+        chat_model=prompt_model, session_manager=session_mgr
+    )
+    agent_prompt.structured_model = AsyncMock()
+
+    res = await agent_prompt.chat(
+        ChatRequest(
+            message="tìm giúp tôi đồ đi đám cưới cho nam",
+            session_id="mode-b-compact-prompt",
+            clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+        )
+    )
+    assert captured_prompts
+    sys_prompt = captured_prompts[0]
+    assert "BẢNG TRẮC NGHIỆM ĐÃ HIỂN THỊ SẴN" not in sys_prompt
+    assert "Quy định bắt buộc:" not in sys_prompt
+    assert "Còn thiếu" not in sys_prompt
+    assert res.reply == clean_intro
+    agent_prompt.structured_model.ainvoke.assert_not_awaited()
+
+    noisy_reply = (
+        "Chào anh! Rất vui được tư vấn đồ đi đám cưới cho nam giới của anh nhé! 🎉\n\n"
+        "Để giúp shop tư vấn chính xác nhất, anh có thể tích điểm vào các mục "
+        "dưới đây:\n\n"
+        "1. Bạn đang tìm kiểu trang phục dự tiệc nào? "
+        "(Đám cưới, Gala, Party, Wedding)\n"
+        "2. Ngân sách dự kiến của bạn cho trang phục này? "
+        "(300k - 500k, 500k - 800k, 800k+)\n"
+        "3. Bạn thích phong cách thẩm mỹ nào? "
+        "(Minimalism, Công sở, Streetwear, Casual)"
+    )
+    stream_model = InspectableFakeChatModel(
+        messages=iter([AIMessage(content=noisy_reply)])
+    )
+    agent_stream = ShopAssistantAgent(
+        chat_model=stream_model, session_manager=session_mgr
+    )
+    agent_stream.structured_model = AsyncMock()
+
+    chunks: list[dict[str, Any]] = []
+    async for chunk in agent_stream.chat_stream(
+        ChatRequest(
+            message="tìm giúp tôi đồ đi đám cưới cho nam",
+            session_id="mode-b-stream-buffer",
+            clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+        )
+    ):
+        chunks.append(chunk)
+
+    assert [c for c in chunks if c["type"] == "token"] == []
+    done_chunk = next(c for c in chunks if c["type"] == "done")
+    assert "1." not in done_chunk["reply"]
+    assert "tích điểm" not in done_chunk["reply"]
+    assert "buổi tiệc" in done_chunk["reply"]
+    assert done_chunk["clarification_asked"] is True
+    assert done_chunk["debug_meta"]["phase"] == "INTERVIEW"
+    assert done_chunk["debug_meta"]["state_snapshot"]["next_phase"] == "OPEN"
+    agent_stream.structured_model.ainvoke.assert_not_awaited()
+
+
+@pytest.mark.anyio
+async def test_ungrounded_listing_triggers_verified_search_fallback() -> None:
+    from langchain_core.messages import HumanMessage
+
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.schemas.shop import GenderTarget
+    from customer_shop_assistant.tools.catalog_tool import record_searched_products
+
+    session_mgr = SessionManager()
+    session_id = "test-hallucinated-follow-up"
+    sess = session_mgr.get_or_create_session(session_id)
+    sess.clarification_mode = ClarificationMode.ALWAYS_CLARIFY.value
+    sess.clarify_phase = ClarifyPhase.OPEN
+    sess.gated_turns = 1
+    sess.messages = [
+        HumanMessage(content="tìm giúp tôi đồ đi đám cưới cho nam"),
+        AIMessage(
+            content=(
+                "Chào bạn! Để mình chọn ra các mẫu trang phục cho buổi tiệc "
+                "sắp tới phù hợp và ưng ý nhất, bạn giúp mình tích chọn nhanh:"
+            )
+        ),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n"
+                "1. Quần âu / Quần tây phối vest\n"
+                "2. Phổ biến (300.000đ – 600.000đ)\n"
+                "3. Thanh lịch, tối giản (Minimalist)"
+            )
+        ),
+        AIMessage(content="Mình gợi ý các mẫu quần tây [184], [199]."),
+    ]
+
+    hallucinated_reply = (
+        "Chào bạn! Mình gợi ý ngay 4 mẫu nổi bật:\n\n"
+        "### **1. Áo Sơ Mi Công Sở Màu Xanh Navy**\n"
+        "- **ID:** `[57]` | **Giá:** 329,000đ\n\n"
+        "### **2. Áo Polo Nam Màu Cam**\n"
+        "- **ID:** `[193]` | **Giá:** 345,000đ\n\n"
+        "### **3. Áo Polo Nam Màu Xanh Navy**\n"
+        "- **ID:** `[194]` | **Giá:** 358,000đ\n\n"
+        "### **4. Áo Polo Nam Màu Đen**\n"
+        "- **ID:** `[195]` | **Giá:** 372,000đ"
+    )
+    fake_model = InspectableFakeChatModel(
+        messages=iter([AIMessage(content=hallucinated_reply)])
+    )
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=session_mgr)
+
+    real_shirts = [
+        ChatRecommendedProduct(
+            id=10,
+            name="Áo Sơ Mi Nam Oxford Trắng",
+            price=420000.0,
+            category="Áo sơ mi",
+            brand="H&M",
+        ),
+        ChatRecommendedProduct(
+            id=11,
+            name="Áo Polo Nam Minimalist Đen",
+            price=350000.0,
+            category="Áo polo",
+            brand="Zara",
+        ),
+    ]
+    captured_args: list[dict[str, Any]] = []
+
+    async def _mock_search_invoke(
+        args: dict[str, Any], *rest: Any, **kwargs: Any
+    ) -> str:
+        captured_args.append(dict(args))
+        record_searched_products(
+            real_shirts,
+            gender_map={10: GenderTarget.MALE, 11: GenderTarget.MALE},
+        )
+        return (
+            "- [10] Áo Sơ Mi Nam Oxford Trắng | Giá từ: 420,000đ\n"
+            "- [11] Áo Polo Nam Minimalist Đen | Giá từ: 350,000đ"
+        )
+
+    mock_search = AsyncMock()
+    mock_search.name = "search_products"
+    mock_search.ainvoke.side_effect = _mock_search_invoke
+    agent.tools_by_name["search_products"] = mock_search
+
+    res = await agent.chat(
+        ChatRequest(
+            message="tìm cho tôi loại áo phù hợp",
+            session_id=session_id,
+            clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+        )
+    )
+
+    mock_search.ainvoke.assert_awaited_once()
+    assert captured_args[0]["target_gender"] == "MALE"
+    assert captured_args[0]["min_price"] == 300000.0
+    assert captured_args[0]["max_price"] == 600000.0
+    assert "áo" in captured_args[0]["keyword"].lower()
+    assert "search_products" in res.tools_used
+    assert [p.id for p in res.products] == [10, 11]
+    assert "329,000đ" not in res.reply
+    assert "[193]" not in res.reply
+    assert "Áo Polo Nam Màu Cam" not in res.reply
+    assert "[10]" in res.reply
+    assert "[11]" in res.reply
+    assert "Áo Sơ Mi Nam Oxford Trắng" in res.reply
+
+
+@pytest.mark.anyio
+async def test_ungrounded_listing_empty_catalog_returns_honest_message() -> None:
+    from langchain_core.messages import HumanMessage
+
+    from customer_shop_assistant.tools.catalog_tool import record_searched_products
+
+    session_mgr = SessionManager()
+    session_id = "test-hallucinated-empty-catalog"
+    sess = session_mgr.get_or_create_session(session_id)
+    sess.clarification_mode = ClarificationMode.ALWAYS_CLARIFY.value
+    sess.clarify_phase = ClarifyPhase.OPEN
+    sess.gated_turns = 1
+    sess.messages = [
+        HumanMessage(content="tìm giúp tôi đồ đi đám cưới cho nam"),
+        AIMessage(content="Bạn giúp mình chọn tiêu chí nhé:"),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n"
+                "1. Quần âu / Quần tây phối vest\n"
+                "2. Phổ biến (300.000đ – 600.000đ)"
+            )
+        ),
+        AIMessage(content="Mình gợi ý quần âu [184]."),
+    ]
+
+    hallucinated_reply = (
+        "Mình gợi ý:\n- **ID:** `[193]` | **Giá:** 329,000đ — Áo Polo Nam Màu Cam"
+    )
+    fake_model = InspectableFakeChatModel(
+        messages=iter([AIMessage(content=hallucinated_reply)])
+    )
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=session_mgr)
+
+    async def _mock_empty_search(*args: Any, **kwargs: Any) -> str:
+        record_searched_products([])
+        return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+
+    mock_search = AsyncMock()
+    mock_search.name = "search_products"
+    mock_search.ainvoke.side_effect = _mock_empty_search
+    agent.tools_by_name["search_products"] = mock_search
+
+    res = await agent.chat(
+        ChatRequest(
+            message="tìm cho tôi loại áo phù hợp",
+            session_id=session_id,
+            clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+        )
+    )
+
+    mock_search.ainvoke.assert_awaited_once()
+    assert res.products == []
+    assert "[193]" not in res.reply
+    assert "329,000đ" not in res.reply
+    assert "chưa tìm thấy" in res.reply.lower()
+
+
+@pytest.mark.anyio
+async def test_mode_b_open_blocks_loop_and_no_id_hallucination() -> None:
+    from langchain_core.messages import HumanMessage
+
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.schemas.shop import GenderTarget
+    from customer_shop_assistant.tools.catalog_tool import record_searched_products
+
+    session_mgr = SessionManager()
+    session_id = "test-mode-b-open-no-loop"
+    sess = session_mgr.get_or_create_session(session_id)
+    sess.clarification_mode = ClarificationMode.ALWAYS_CLARIFY.value
+    sess.clarify_phase = ClarifyPhase.OPEN
+    sess.gated_turns = 1
+    sess.messages = [
+        HumanMessage(content="tìm giúp tôi đồ đi đám cưới cho nam"),
+        AIMessage(content="Chào bạn! Bạn tích chọn vài tiêu chí bên dưới nhé:"),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n"
+                "1. Quần âu / Quần tây phối vest\n"
+                "2. Phổ biến (300.000đ – 600.000đ)\n"
+                "3. Thanh lịch, tối giản (Minimalist)"
+            )
+        ),
+        AIMessage(content="Dưới đây là 4 mẫu quần tây phù hợp..."),
+        HumanMessage(content="tìm áo phù hợp"),
+        AIMessage(content="Bạn tích chọn vài tiêu chí bên dưới nhé:"),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n"
+                "1. Áo sơ mi thanh lịch\n"
+                "2. Form vừa vặn, chỉn chu (Regular fit)"
+            )
+        ),
+        AIMessage(content="Bạn tích chọn vài tiêu chí bên dưới nhé:"),
+    ]
+
+    no_id_hallucinated_reply = (
+        "Chào bạn! Để tìm những mẫu áo sơ mi phù hợp với phong cách Minimalist "
+        "và ngân sách của bạn, mình đã lọc ra 4 sản phẩm nổi bật nhất:\n\n"
+        "### **1. Áo Sơ Mi Nam Cạp Cao Trơn Basic Ak**\n"
+        "- **Giá:** 306,000đ\n\n"
+        "### **2. Áo Sơ Mi Nam Cạp Cao Trơn Basic Leo**\n"
+        "- **Giá:** 331,000đ\n"
+        "- **Đặc điểm:** Màu sắc tươi sáng\n\n"
+        "Bạn có muốn mình tư vấn thêm về size phù hợp cho từng mẫu không?"
+    )
+    fake_model = InspectableFakeChatModel(
+        messages=iter([AIMessage(content=no_id_hallucinated_reply)])
+    )
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=session_mgr)
+
+    real_shirts = [
+        ChatRecommendedProduct(
+            id=21,
+            name="Áo Sơ Mi Nam Oxford Trắng Tinh Tế",
+            price=420000.0,
+            category="Áo sơ mi",
+            brand="H&M",
+        ),
+        ChatRecommendedProduct(
+            id=22,
+            name="Áo Sơ Mi Nam Linen Regular Fit Be",
+            price=460000.0,
+            category="Áo sơ mi",
+            brand="Zara",
+        ),
+    ]
+    captured_args: list[dict[str, Any]] = []
+
+    async def _mock_search_invoke(
+        args: dict[str, Any], *rest: Any, **kwargs: Any
+    ) -> str:
+        captured_args.append(dict(args))
+        record_searched_products(
+            real_shirts,
+            gender_map={21: GenderTarget.MALE, 22: GenderTarget.MALE},
+        )
+        return (
+            "- [21] Áo Sơ Mi Nam Oxford Trắng Tinh Tế | Giá từ: 420,000đ\n"
+            "- [22] Áo Sơ Mi Nam Linen Regular Fit Be | Giá từ: 460,000đ"
+        )
+
+    mock_search = AsyncMock()
+    mock_search.name = "search_products"
+    mock_search.ainvoke.side_effect = _mock_search_invoke
+    agent.tools_by_name["search_products"] = mock_search
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Mình chọn:\n1. Gam màu thanh lịch (Trắng, Be, Pastel)",
+            session_id=session_id,
+            clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
+        )
+    )
+
+    assert res.clarification_asked is False
+    assert res.clarification_form is None
+    mock_search.ainvoke.assert_awaited_once()
+    assert captured_args[0]["target_gender"] == "MALE"
+    assert captured_args[0]["category"] == "Áo sơ mi"
+    assert captured_args[0]["min_price"] == 300000.0
+    assert captured_args[0]["max_price"] == 600000.0
+    assert [p.id for p in res.products] == [21, 22]
+    assert "Áo Sơ Mi Nam Cạp Cao" not in res.reply
+    assert "tích chọn nhanh" not in res.reply
+    assert "[21]" in res.reply
+    assert "[22]" in res.reply

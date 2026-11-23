@@ -395,6 +395,12 @@ def _is_question_reasking_known_slot(
     q_id = q.id.strip().lower()
     q_text = q.question.strip().lower()
 
+    if intent == TurnIntent.OUTFIT_ADVICE and q_id in (
+        "category",
+        "category_subtype",
+    ):
+        return True
+
     if slots.has("target_gender") and (
         q_id in ("target_gender", "gender")
         or any(
@@ -496,11 +502,17 @@ def align_reply_with_clarification_form(
     )
     has_welcome_echo = any(wp in lower_reply for wp in welcome_phrases)
     has_inline_bullets = bool(
-        re.search(r"(?:[:：]\s*[-•*]|\n\s*[-•*]|\n\s*\d+\.)", cleaned)
+        re.search(
+            r"(?:[:：]\s*(?:[-•*]|\d+\.)|\n\s*(?:[-•*]|\d+\.)|\b1\.\s+.+\b2\.)",
+            cleaned,
+        )
     )
     has_inline_table = bool(re.search(r"\|.*\|.*\n\s*\|[-:\s|]+\|", cleaned)) or (
         "|" in cleaned and "-|-" in cleaned
     )
+    has_multiple_questions = cleaned.count("?") >= 2
+    is_too_verbose = len(cleaned.split()) > 45 or len(cleaned) > 280
+    has_garbled_phrases = any(p in lower_reply for p in ("tích điểm",))
     has_unsolicited_measurements = intent not in _MEASUREMENT_INTENTS and any(
         m in lower_reply
         for m in (
@@ -518,6 +530,9 @@ def align_reply_with_clarification_form(
         or has_welcome_echo
         or has_inline_table
         or has_inline_bullets
+        or has_multiple_questions
+        or is_too_verbose
+        or has_garbled_phrases
         or has_unsolicited_measurements
     ):
         if intent == TurnIntent.SIZE_ADVICE:

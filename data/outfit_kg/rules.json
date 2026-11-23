@@ -1,0 +1,100 @@
+{
+  "roles": {
+    "Áo thun": "TOP",
+    "Áo polo": "TOP",
+    "Áo sơ mi": "TOP",
+    "Áo khoác": "JACKET",
+    "Quần jeans": "BOTTOM",
+    "Quần kaki": "BOTTOM",
+    "Quần short": "BOTTOM",
+    "Quần âu": "BOTTOM",
+    "Chân váy": "BOTTOM"
+  },
+  "base_formality": {
+    "Áo thun": 1,
+    "Áo polo": 3,
+    "Áo sơ mi": 4,
+    "Áo khoác": 3,
+    "Quần jeans": 2,
+    "Quần kaki": 3,
+    "Quần short": 1,
+    "Quần âu": 5,
+    "Chân váy": 3
+  },
+  "pairs_with": {
+    "Áo thun": {
+      "Quần jeans": 1.0,
+      "Quần kaki": 0.7,
+      "Quần short": 1.0,
+      "Quần âu": 0.2,
+      "Chân váy": 0.8
+    },
+    "Áo polo": {
+      "Quần jeans": 0.8,
+      "Quần kaki": 1.0,
+      "Quần short": 0.8,
+      "Quần âu": 0.5,
+      "Chân váy": 0.6
+    },
+    "Áo sơ mi": {
+      "Quần jeans": 0.8,
+      "Quần kaki": 0.9,
+      "Quần short": 0.4,
+      "Quần âu": 1.0,
+      "Chân váy": 0.9
+    },
+    "Áo khoác": {
+      "Quần jeans": 1.0,
+      "Quần kaki": 0.9,
+      "Quần short": 0.5,
+      "Quần âu": 0.7,
+      "Chân váy": 0.7
+    }
+  },
+  "formality_keywords": {
+    "plus": [
+      "công sở",
+      "văn phòng",
+      "gặp khách",
+      "đi họp",
+      "lịch sự",
+      "thanh lịch"
+    ],
+    "minus": [
+      "đi biển",
+      "retro",
+      "thể thao",
+      "năng động",
+      "du lịch biển"
+    ]
+  },
+  "occasions": {
+    "đi biển": [1, 2],
+    "du lịch": [1, 2],
+    "đi chơi": [1, 3],
+    "dạo phố": [1, 3],
+    "đi học": [1, 3],
+    "hẹn hò": [2, 4],
+    "cà phê": [2, 4],
+    "smart-casual": [2, 4],
+    "đi làm": [3, 5],
+    "công sở": [3, 5],
+    "gặp khách": [4, 5],
+    "đi họp": [4, 5]
+  },
+  "solid_patterns": [
+    "Solid",
+    "Melange",
+    "Denim",
+    "Treatment",
+    "Other structure"
+  ],
+  "weights": {
+    "cat": 0.30,
+    "colour": 0.30,
+    "pattern": 0.15,
+    "formality": 0.20,
+    "fav": 0.05
+  }
+}
+

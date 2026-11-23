@@ -165,6 +165,32 @@ class ChatRecommendedProduct(BaseModel):
     brand: str | None = Field(default=None, description="Brand name")
 
 
+class OutfitItem(BaseModel):
+    """Single garment item (top or bottom) within a recommended outfit."""
+
+    product_id: int = Field(..., description="Catalog product ID")
+    name: str = Field(..., description="Product commercial name")
+    slug: str | None = Field(default=None, description="Product URL slug")
+    category: str | None = Field(default=None, description="Category name")
+    color: str = Field(..., description="Selected variant colour")
+    in_stock: bool = Field(
+        ..., description="Whether at least one variant of this colour has stock > 0"
+    )
+    image_url: str | None = Field(default=None, description="Item image URL")
+    price: float = Field(..., ge=0.0, description="Lowest selling/final price")
+
+
+class OutfitSuggestion(BaseModel):
+    """Paired top + bottom outfit recommendation produced by the KG."""
+
+    top: OutfitItem = Field(..., description="Recommended top item")
+    bottom: OutfitItem = Field(..., description="Recommended bottom item")
+    score: float = Field(..., ge=0.0, le=1.0, description="KG compatibility score")
+    reasons: list[str] = Field(
+        default_factory=list, description="Human-readable matching explanations"
+    )
+
+
 class ChatMessage(BaseModel):
     """Single turn message in chat history."""
 
@@ -264,6 +290,10 @@ class StateSnapshotDebug(BaseModel):
     """Debug snapshot of conversation and agent state machine."""
 
     clarify_phase: str
+    next_phase: str | None = Field(
+        default=None,
+        description="Clarify phase transitioned to after this turn",
+    )
     gated_turns: int
     tools_available: list[str]
     gate_search: bool
@@ -302,6 +332,10 @@ class ChatResponse(BaseModel):
     )
     products: list[ChatRecommendedProduct] = Field(
         default_factory=list, description="Recommended products matching inquiry"
+    )
+    outfits: list[OutfitSuggestion] = Field(
+        default_factory=list,
+        description="Structured top-bottom outfit recommendations from KG",
     )
     debug_meta: TurnDebugMeta | dict[str, Any] | None = Field(
         default=None, description="Debug turn telemetry (mode, phase, tools, traces)"

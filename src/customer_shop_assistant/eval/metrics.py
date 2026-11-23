@@ -1,6 +1,91 @@
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from pydantic import BaseModel, Field
 
+from customer_shop_assistant.config import get_settings
 from customer_shop_assistant.eval.dataset import EvaluationCase
+from customer_shop_assistant.schemas.chat import OutfitSuggestion
+from customer_shop_assistant.schemas.shop import GenderTarget
+from customer_shop_assistant.services.outfit_rules import (
+    ProductAttrs,
+    compute_formality,
+    load_outfit_rules,
+    normalize_text,
+    resolve_category_role,
+)
+
+
+@lru_cache(maxsize=4)
+def _load_attrs_for_eval(outfit_dir: Path) -> dict[str, ProductAttrs]:
+    attrs_path = outfit_dir / "product_attrs.json"
+    if not attrs_path.exists():
+        return {}
+    with attrs_path.open("r", encoding="utf-8") as f:
+        raw = json.load(f)
+    return {slug: ProductAttrs.model_validate(item) for slug, item in raw.items()}
+
+
+def _compute_outfit_violation_rate(
+    case: EvaluationCase, outfits: list[OutfitSuggestion]
+) -> float:
+    outfit_dir = get_settings().DATA_DIR / "outfit_kg"
+    rules = load_outfit_rules(outfit_dir)
+    attrs_by_slug = _load_attrs_for_eval(outfit_dir.resolve())
+    user_gender = case.user_profile.gender if case.user_profile else None
+
+    violations = 0
+    for outfit in outfits:
+        violated = False
+        top_role = resolve_category_role(outfit.top.category, rules)
+        bot_role = resolve_category_role(outfit.bottom.category, rules)
+
+        if outfit.top.category and (
+            top_role is None or top_role[1] not in ("TOP", "JACKET")
+        ):
+            violated = True
+        if outfit.bottom.category and (bot_role is None or bot_role[1] != "BOTTOM"):
+            violated = True
+
+        if (
+            user_gender == GenderTarget.MALE
+            and outfit.bottom.category
+            and normalize_text(outfit.bottom.category) == "chân váy"
+        ):
+            violated = True
+
+        top_attrs = attrs_by_slug.get(outfit.top.slug) if outfit.top.slug else None
+        bot_attrs = (
+            attrs_by_slug.get(outfit.bottom.slug) if outfit.bottom.slug else None
+        )
+
+        f_top: int | None = None
+        f_bot: int | None = None
+        if top_attrs is not None:
+            f_top = top_attrs.formality
+        elif outfit.top.category:
+            f_top = compute_formality(outfit.top.category, None, rules)
+        if bot_attrs is not None:
+            f_bot = bot_attrs.formality
+        elif outfit.bottom.category:
+            f_bot = compute_formality(outfit.bottom.category, None, rules)
+
+        if f_top is not None and f_bot is not None and abs(f_top - f_bot) > 2:
+            violated = True
+
+        if (
+            top_attrs is not None
+            and bot_attrs is not None
+            and top_attrs.pattern_class == "PATTERN"
+            and bot_attrs.pattern_class == "PATTERN"
+        ):
+            violated = True
+
+        if violated:
+            violations += 1
+
+    return round(violations / len(outfits), 4)
 
 
 class EvaluationMetricResult(BaseModel):
@@ -24,6 +109,8 @@ class EvaluationMetricResult(BaseModel):
     out_of_stock_match: bool = True
     keyword_score: float = 1.0
     latency_pass: bool = True
+    outfit_returned: bool | None = None
+    outfit_rule_violation_rate: float | None = None
 
     # Overall outcome
     passed: bool = True
@@ -38,6 +125,7 @@ def evaluate_response(
     clarification_asked: bool,
     latency_ms: float,
     estimated_tokens: int,
+    outfits: list[OutfitSuggestion] | None = None,
 ) -> EvaluationMetricResult:
     """Evaluate an assistant turn against ground-truth criteria."""
     gt = case.ground_truth
@@ -138,6 +226,14 @@ def evaluate_response(
     # 8. Latency threshold (target < 4000ms from PRD, allow dry-run)
     latency_pass = latency_ms < 6000.0
 
+    # 9. Outfit KG metrics (for mix & match cases)
+    outfit_returned: bool | None = None
+    outfit_rule_violation_rate: float | None = None
+    if gt.expected_tool == "suggest_outfit" and outfits is not None:
+        outfit_returned = len(outfits) > 0
+        if outfits:
+            outfit_rule_violation_rate = _compute_outfit_violation_rate(case, outfits)
+
     passed = (
         intent_match
         and tool_match
@@ -165,6 +261,8 @@ def evaluate_response(
         out_of_stock_match=out_of_stock_match,
         keyword_score=round(keyword_score, 2),
         latency_pass=latency_pass,
+        outfit_returned=outfit_returned,
+        outfit_rule_violation_rate=outfit_rule_violation_rate,
         passed=passed,
         failure_reasons=reasons,
     )

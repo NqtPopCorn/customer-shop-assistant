@@ -177,7 +177,7 @@ async def async_main() -> None:
         "--experiment",
         type=str,
         default="e1",
-        choices=["e1", "e2"],
+        choices=["e1", "e2", "outfit"],
         help="Experiment code",
     )
     parser.add_argument(
@@ -197,6 +197,45 @@ async def async_main() -> None:
         await run_experiment_e1(
             limit=args.limit, dry_run=args.dry_run, output_report_path=out_p
         )
+    elif args.experiment == "outfit":
+        await run_experiment_outfit_kg(limit=args.limit, dry_run=args.dry_run)
+
+
+async def run_experiment_outfit_kg(
+    limit: int | None = None,
+    dry_run: bool = False,
+) -> dict[str, dict[str, float]]:
+    """Compare baseline (OUTFIT_KG_ENABLED=False) vs KG tool on mix_and_match cases."""
+    all_cases = load_golden_set()
+    cases = [c for c in all_cases if c.sub_category == "mix_and_match"]
+    if limit:
+        cases = cases[:limit]
+
+    summary: dict[str, dict[str, float]] = {}
+    for enabled, label in ((False, "baseline_no_kg"), (True, "kg_tool")):
+        base_settings = get_settings()
+        cfg = base_settings.model_copy(update={"OUTFIT_KG_ENABLED": enabled})
+        runner = EvalRunner(settings=cfg, dry_run=dry_run)
+        print(f"\n{YELLOW}{BOLD}>>> Running Outfit Eval: {label} ...{RESET}")
+        results = await runner.run_suite(cases)
+        tot = len(results)
+        ret_cnt = sum(1 for r in results if r.outfit_returned)
+        viol_vals = [
+            r.outfit_rule_violation_rate
+            for r in results
+            if r.outfit_rule_violation_rate is not None
+        ]
+        summary[label] = {
+            "total": float(tot),
+            "pass_rate": (sum(1 for r in results if r.passed) / tot * 100.0)
+            if tot
+            else 0.0,
+            "outfit_returned_rate": (ret_cnt / tot * 100.0) if tot else 0.0,
+            "rule_violation_rate": (sum(viol_vals) / len(viol_vals) * 100.0)
+            if viol_vals
+            else 0.0,
+        }
+    return summary
 
 
 def main() -> None:

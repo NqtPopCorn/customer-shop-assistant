@@ -136,7 +136,7 @@ async def test_agent_structured_output_reply() -> None:
 
     req = ChatRequest(
         message="Gợi ý áo polo",
-        clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        clarification_mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
     )
     res = await agent.chat(req)
 
@@ -226,3 +226,135 @@ async def test_agent_clarification_aligns_reply_and_known_occasion() -> None:
     q_titles = [q.question.lower() for q in res.clarification_form.questions]
     assert not any("dịp nào" in qt for qt in q_titles)
     assert any("dự tiệc" in qt for qt in q_titles)
+
+
+@pytest.mark.anyio
+async def test_agent_skips_structured_output_and_preserves_markdown_newlines() -> None:
+    from unittest.mock import AsyncMock
+
+    markdown_reply = (
+        "Gợi ý phối đồ công sở lịch lãm:\n"
+        "- Áo sơ mi Oxford phối quần âu\n"
+        "- Áo polo tối giản kết hợp quần kaki"
+    )
+    fake_model_imm = MockChatModel(messages=iter([AIMessage(content=markdown_reply)]))
+    agent_imm = ShopAssistantAgent(chat_model=fake_model_imm)
+    agent_imm.structured_model = AsyncMock()
+
+    res_imm = await agent_imm.chat(
+        ChatRequest(
+            message="Tìm áo khoác gió nam",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    assert "\n- Áo sơ mi Oxford" in res_imm.reply
+    agent_imm.structured_model.ainvoke.assert_not_awaited()
+
+    non_shopping_reply = "Cảm ơn bạn đã ghé shop!\nRất vui được hỗ trợ bạn."
+    fake_model_ns = MockChatModel(
+        messages=iter([AIMessage(content=non_shopping_reply)])
+    )
+    agent_ns = ShopAssistantAgent(chat_model=fake_model_ns)
+    agent_ns.structured_model = AsyncMock()
+
+    res_ns = await agent_ns.chat(
+        ChatRequest(
+            message="Cảm ơn shop nhiều nhé",
+            clarification_mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
+        )
+    )
+    assert "\nRất vui" in res_ns.reply
+    agent_ns.structured_model.ainvoke.assert_not_awaited()
+
+
+def test_ollama_reasoning_setting_and_factory_propagation() -> None:
+    from langchain_ollama import ChatOllama
+    from langchain_openai import ChatOpenAI
+
+    from customer_shop_assistant.config import Settings
+    from customer_shop_assistant.llm.factory import get_chat_model
+
+    s_default = Settings(_env_file=None)
+    assert s_default.OLLAMA_REASONING is False
+
+    s_true = Settings(_env_file=None, OLLAMA_REASONING=True)
+    assert s_true.OLLAMA_REASONING is True
+
+    s_empty = Settings(_env_file=None, OLLAMA_REASONING="")
+    assert s_empty.OLLAMA_REASONING is None
+
+    s_none_str = Settings(_env_file=None, OLLAMA_REASONING="none")
+    assert s_none_str.OLLAMA_REASONING is None
+
+    ollama_false = get_chat_model(
+        Settings(_env_file=None, LLM_PROVIDER="ollama", OLLAMA_REASONING=False)
+    )
+    assert isinstance(ollama_false, ChatOllama)
+    assert ollama_false.reasoning is False
+
+    ollama_default = get_chat_model(
+        Settings(_env_file=None, LLM_PROVIDER="ollama", OLLAMA_REASONING="")
+    )
+    assert isinstance(ollama_default, ChatOllama)
+    assert ollama_default.reasoning is None
+
+    lmstudio_model = get_chat_model(
+        Settings(_env_file=None, LLM_PROVIDER="lmstudio", OLLAMA_REASONING=False)
+    )
+    assert isinstance(lmstudio_model, ChatOpenAI)
+
+
+@pytest.mark.anyio
+async def test_agent_extracts_bracketed_id_prefix_and_caps_products_at_five() -> None:
+    from unittest.mock import AsyncMock
+
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.tools.catalog_tool import record_searched_products
+
+    fake_reply = AIMessage(
+        content=(
+            "1. `[ID] 485` - Áo sơ mi Broadway\n"
+            "2. `[ID] 473` - Áo sơ mi Holly\n"
+            "3. `[ID] 425` - Áo sơ mi Boris\n"
+            "4. `[ID] 60` - Áo sơ mi Bd\n"
+            "5. `[ID] 437` - Áo sơ mi Ca\n"
+            "6. `[ID] 476` - Áo sơ mi Darling\n"
+            "7. `[ID] 431` - Áo sơ mi Td\n"
+        )
+    )
+    tool_call_msg = AIMessage(
+        content="",
+        tool_calls=[
+            {
+                "name": "search_products",
+                "args": {"keyword": "quần âu", "limit": 10},
+                "id": "call_cap_1",
+            }
+        ],
+    )
+    agent = ShopAssistantAgent(
+        chat_model=MockChatModel(messages=iter([tool_call_msg, fake_reply]))
+    )
+
+    mock_prods = [
+        ChatRecommendedProduct(id=pid, name=f"Mẫu {pid}", price=350000.0)
+        for pid in (485, 473, 425, 60, 437, 476, 431)
+    ]
+
+    async def _mock_search(*args: Any, **kwargs: Any) -> str:
+        record_searched_products(mock_prods)
+        return "\n".join(f"- [{p.id}] {p.name}" for p in mock_prods)
+
+    mock_search = AsyncMock()
+    mock_search.name = "search_products"
+    mock_search.ainvoke.side_effect = _mock_search
+    agent.tools_by_name["search_products"] = mock_search
+
+    res = await agent.chat(
+        ChatRequest(
+            message="gợi ý vài loại quần phù hợp",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    assert len(res.products) == 5
+    assert [p.id for p in res.products] == [485, 473, 425, 60, 437]

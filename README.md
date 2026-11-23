@@ -107,4 +107,9 @@ uv run ruff check .
 
 # Automatically format code
 uv run ruff format .
+
+# Build Outfit Knowledge Graph offline attributes (data/outfit_kg/product_attrs.json)
+uv run python scripts/build_outfit_kg.py
 ```
+
+Set `OUTFIT_KG_ENABLED=False` in `.env` to disable `suggest_outfit` when running baseline comparisons.

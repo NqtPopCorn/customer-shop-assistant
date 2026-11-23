@@ -41,18 +41,20 @@ customer-shop-assistant/
 │   ├── rules/                        # python-style, llm-provider, research-logging
 │   ├── skills/                       # add-fastapi-endpoint, llm-provider-factory, etc.
 │   └── workflows/                    # /new-feature, /run-demo, /compare-models
-├── data/                             # Mock data: products.json, policies.json
+├── data/                             # Mock data, size charts, policies, outfit_kg/
 ├── eval/                             # Evaluation datasets: questions.json
 ├── logs/                             # Ignored telemetry logs (chat_turns.jsonl)
+├── scripts/                          # Offline data build & rating export scripts
 ├── tests/                            # Pytest test suite (test_health.py)
 └── src/customer_shop_assistant/
     ├── __init__.py                   # Exports app and main()
     ├── config.py                     # Settings class with get_settings()
     ├── main.py                       # FastAPI app and GET /health
-    ├── api/                          # Future route handlers
-    ├── services/                     # Future business logic
-    ├── schemas/                      # Future Pydantic request/response models
-    ├── loaders/                      # Future catalog/policy data loaders
+    ├── api/                          # Route handlers
+    ├── services/                     # Business logic (agent, outfit_rules, outfit_graph)
+    ├── schemas/                      # Pydantic request/response models
+    ├── tools/                        # LangChain tools (catalog, size, outfit_tool, etc.)
+    ├── loaders/                      # Catalog and policy data loaders
     └── llm/
         ├── __init__.py               # LLM subpackage
         └── factory.py                # get_chat_model(settings) provider factory

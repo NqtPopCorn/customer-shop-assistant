@@ -7,7 +7,10 @@ from dataclasses import dataclass, field
 from langchain_core.tools import tool
 from pydantic import BaseModel, Field
 
-from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+from customer_shop_assistant.schemas.chat import (
+    ChatRecommendedProduct,
+    OutfitSuggestion,
+)
 from customer_shop_assistant.schemas.shop import (
     GenderTarget,
     ProductFilterParams,
@@ -23,6 +26,7 @@ class TurnProductContext:
     registry: dict[int, ChatRecommendedProduct] = field(default_factory=dict)
     searched_ids: list[int] = field(default_factory=list)
     gender_by_id: dict[int, GenderTarget] = field(default_factory=dict)
+    outfits: list[OutfitSuggestion] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -128,6 +132,22 @@ def get_latest_searched_product_ids() -> list[int]:
     if ctx is None:
         return []
     return list(ctx.searched_ids)
+
+
+def record_outfits(outfits: list[OutfitSuggestion]) -> None:
+    """Record KG outfit suggestions into the active turn context."""
+    ctx = _TURN_PRODUCT_CTX.get()
+    if ctx is None:
+        return
+    ctx.outfits[:] = list(outfits)
+
+
+def get_latest_outfits() -> list[OutfitSuggestion]:
+    """Return a copy of outfit suggestions recorded in the active turn."""
+    ctx = _TURN_PRODUCT_CTX.get()
+    if ctx is None:
+        return []
+    return list(ctx.outfits)
 
 
 FEMALE_ONLY_CATEGORIES: frozenset[str] = frozenset(
@@ -241,7 +261,9 @@ class SearchProductsInput(BaseModel):
         ),
     )
     limit: int = Field(
-        default=5, ge=1, le=20, description="Số lượng sản phẩm tối đa trả về (1-20)."
+        default=5,
+        ge=1,
+        description="Số lượng sản phẩm tối đa trả về (tối đa 5, mặc định 5).",
     )
 
 
@@ -439,6 +461,7 @@ async def search_products(
     limit: int = 5,
 ) -> str:
     """Tìm kiếm ngữ nghĩa (semantic) sản phẩm thời trang theo mô tả, giá, giới tính."""
+    capped_limit = max(1, min(5, int(limit or 5)))
     gender_enum = _normalize_gender(target_gender)
     resolved_kw, resolved_cat = _normalize_search_terms(keyword, category)
 
@@ -459,11 +482,11 @@ async def search_products(
         min_price=float(min_price) if min_price is not None else None,
         max_price=float(max_price) if max_price is not None else None,
         target_gender=gender_enum,
-        limit=limit,
+        limit=capped_limit,
     )
 
     client = ShopClient()
-    products = await client.get_products(params)
+    products = (await client.get_products(params))[:capped_limit]
     if not products:
         record_searched_products([])
         return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."

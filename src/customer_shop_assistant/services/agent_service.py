@@ -32,6 +32,7 @@ from customer_shop_assistant.schemas.chat import (
     ChatResponse,
     ClarificationForm,
     ClarificationMode,
+    OutfitSuggestion,
     StateSnapshotDebug,
     TurnDebugMeta,
     UserProfile,
@@ -47,6 +48,7 @@ from customer_shop_assistant.services.clarification_planner import (
     validate_or_repair_clarification_form as planner_validate_or_repair,
 )
 from customer_shop_assistant.services.clarification_policy import (
+    INTERVIEW_SYSTEM_PROMPT,
     PROMPT_A,
     PROMPT_B_INTERVIEW,
     PROMPT_C,
@@ -75,6 +77,7 @@ from customer_shop_assistant.tools.catalog_tool import (
     balanced_gender_search_context,
     get_cached_product,
     get_cached_product_gender,
+    get_latest_outfits,
     get_latest_searched_product_ids,
     product_schema_to_recommended,
     product_turn_context,
@@ -90,6 +93,26 @@ _GENDERED_KEYWORD_PATTERN = re.compile(
     re.IGNORECASE,
 )
 
+_PRODUCT_ID_PATTERN = re.compile(
+    r"(?:\[ID\]\s*:?\s*(\d+)\b|(?:ID:\s*\[|\[)(\d+)\])", re.IGNORECASE
+)
+
+
+def _extract_product_ids_from_text(text: str) -> list[str]:
+    """Extract unique numeric product IDs from [123], ID: [123], or [ID] 123."""
+    found: list[str] = []
+    for g1, g2 in _PRODUCT_ID_PATTERN.findall(text):
+        pid = g1 or g2
+        if pid and pid not in found:
+            found.append(pid)
+    return found
+
+
+_PRODUCT_PRICE_PATTERN = re.compile(
+    r"\b\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnđ|vnd)\b",
+    re.IGNORECASE,
+)
+
 SYSTEM_PROMPT = """Bạn là trợ lý thời trang thông minh của Fashion Shop, \
 chuyên tư vấn và gợi ý sản phẩm phù hợp nhất cho khách hàng.
 
@@ -100,17 +123,29 @@ Phong cách giao tiếp:
   Tuyệt đối KHÔNG viết các thẻ HTML như <br>, <p> vào câu trả lời.
 
 Quy định bắt buộc:
-1. GỢI Ý SẢN PHẨM (TRỌNG TÂM HÀNG ĐẦU):
-   - Khi đã đủ thông tin để tìm sản phẩm theo chế độ làm rõ hiện tại, nếu khách
-     hỏi tìm đồ hoặc gợi ý trang phục:
-     * BẮT BUỘC gọi tool `search_products` để tìm sản phẩm thực tế trong cửa hàng.
-     * BẮT BUỘC GIỚI THIỆU NGAY 2-4 sản phẩm tìm được vào câu trả lời kèm mã `[ID]`
-       (ví dụ: `[57] Đầm Dạ Hội Ren`) và nêu bật lý do thiết kế, chất vải, form dáng.
+1. GỢI Ý SẢN PHẨM & PHỐI ĐỒ (TRỌNG TÂM HÀNG ĐẦU):
+   - Khi đã đủ thông tin để tìm 1 loại sản phẩm đơn lẻ theo chế độ làm rõ hiện tại:
+     * BẮT BUỘC gọi tool `search_products` (truyền `limit=5` hoặc nhỏ hơn) trong
+       chính lượt hiện tại để lấy sản phẩm thực tế trong cửa hàng.
+     * CHỈ GIỚI THIỆU tối đa 3-5 sản phẩm tìm được (TUYỆT ĐỐI không quá 5 sản phẩm),
+       viết đúng định dạng `[ID] Tên sản phẩm` (ví dụ: `[485] Áo sơ mi...`) kèm
+       giá tiền thực tế từ tool, nêu bật thiết kế, chất vải, form dáng.
+     * Khi dùng `search_products` để tìm 1 loại sản phẩm, TUYỆT ĐỐI KHÔNG tự trình
+       bày thành `Bộ 1 / Bộ 2` hay viết dòng `- Quần: ... (cần thêm gợi ý)`.
      * KHÔNG chặn khách để đòi số đo P3 khi khách chỉ đang tìm sản phẩm.
      * Đơn vị tiền là VNĐ. Nếu nói '300k', '400k' thì truyền vào tool là 300000, 400000.
+   - CHỈ KHI khách hỏi PHỐI ĐỒ, mix & match hoặc tìm SET/BỘ/COMBO (Áo + Quần/Váy):
+     * BẮT BUỘC gọi trực tiếp tool `suggest_outfit` (tối đa `limit=3` bộ, truyền
+       `top_category`, `bottom_category`, `top_color`, `bottom_color`, `occasion`,
+       `gender` hoặc `product_id` nếu đã có ID). TUYỆT ĐỐI KHÔNG gọi `search_products`
+       để chỉ gợi ý 1 loại sản phẩm đơn lẻ.
+     * BẮT BUỘC trình bày kết quả theo từng **Bộ / Combo hoàn chỉnh**, mỗi bộ nêu rõ
+       cả **Áo kèm mã `[ID]` (màu, giá)** VÀ **Quần/Váy kèm mã `[ID]` (màu, giá)**
+       cùng lý do phối đồ, nhắc khách nếu màu đang hết hàng.
    - Điền vào `product_ids` danh sách ID các sản phẩm thực sự được gợi ý trong \
-câu trả lời (ví dụ: ['57', '27']). Trả về danh sách rỗng nếu không gợi ý sản phẩm.
-   - Tuyệt đối không tự bịa đặt tên sản phẩm, mã hàng hay trạng thái tồn kho.
+câu trả lời (ví dụ: ['ID1', 'ID2']). Trả về danh sách rỗng nếu không gợi ý sản phẩm.
+   - Tuyệt đối KHÔNG tự bịa đặt tên sản phẩm, giá tiền, mã [ID] hay trạng thái tồn kho \
+khi chưa gọi `search_products` hoặc `suggest_outfit` trong lượt hiện tại.
 2. TƯ VẤN SIZE (HỖ TRỢ KÈM THEO):
    - CHỈ HỎI XIN SỐ ĐO khi khách CHỦ ĐỘNG HỎI VỀ SIZE mà chưa có số đo \
 (ví dụ: 'mình mặc size gì?', 'tư vấn size', 'bảng size'). \
@@ -181,6 +216,7 @@ class AgentState(TypedDict):
     clarification_form: ClarificationForm | None
     product_ids: list[str]
     products: list[ChatRecommendedProduct]
+    outfits: list[OutfitSuggestion]
 
 
 class ShopAssistantAgent:
@@ -195,10 +231,15 @@ class ShopAssistantAgent:
         self.settings = settings or get_settings()
         self.chat_model = chat_model or get_chat_model(self.settings)
         self.session_manager = session_manager
-        self.tools_by_name = {t.name: t for t in ALL_TOOLS}
+        self._enabled_tools = [
+            t
+            for t in ALL_TOOLS
+            if self.settings.OUTFIT_KG_ENABLED or t.name != "suggest_outfit"
+        ]
+        self.tools_by_name = {t.name: t for t in self._enabled_tools}
 
         try:
-            self.model_with_tools = self.chat_model.bind_tools(ALL_TOOLS)
+            self.model_with_tools = self.chat_model.bind_tools(self._enabled_tools)
         except (NotImplementedError, AttributeError):
             self.model_with_tools = self.chat_model
 
@@ -209,6 +250,47 @@ class ShopAssistantAgent:
 
         self.graph = self._create_graph()
 
+    def _get_active_tools_for_turn(
+        self, intent: TurnIntent, gate_search: bool
+    ) -> list[Any]:
+        """Return tools exposed to the LLM for the current turn (strict outfit mode)."""
+        if gate_search:
+            return []
+        if (
+            self.settings.OUTFIT_KG_ENABLED
+            and intent == TurnIntent.OUTFIT_ADVICE
+            and "suggest_outfit" in self.tools_by_name
+        ):
+            return [t for t in self._enabled_tools if t.name != "search_products"]
+        return list(self._enabled_tools)
+
+    @staticmethod
+    def _format_profile_notes(user_profile: UserProfile | None) -> str:
+        """Format known customer measurements and preferences for prompts."""
+        if not user_profile:
+            return ""
+        prof_notes: list[str] = []
+        if user_profile.height_cm:
+            prof_notes.append(f"Chiều cao: {user_profile.height_cm}cm")
+        if user_profile.weight_kg:
+            prof_notes.append(f"Cân nặng: {user_profile.weight_kg}kg")
+        if user_profile.waist_cm:
+            prof_notes.append(f"Vòng eo: {user_profile.waist_cm}cm")
+        if user_profile.chest_cm:
+            prof_notes.append(f"Vòng ngực: {user_profile.chest_cm}cm")
+        if user_profile.hip_cm:
+            prof_notes.append(f"Vòng mông: {user_profile.hip_cm}cm")
+        if user_profile.gender:
+            prof_notes.append(f"Giới tính: {user_profile.gender.value}")
+        if user_profile.fit_preference:
+            prof_notes.append(f"Gu mặc: {user_profile.fit_preference}")
+        if not prof_notes:
+            return ""
+        return (
+            "\nThông tin khách hàng đã biết (áp dụng để gợi ý sản phẩm "
+            f"& chọn size): {', '.join(prof_notes)}"
+        )
+
     def _build_system_prompt(
         self,
         user_profile: UserProfile | None,
@@ -216,29 +298,7 @@ class ShopAssistantAgent:
         clarification_mode: ClarificationMode | None = None,
     ) -> str:
         """Construct system prompt with persona, profile, and clarification rules."""
-        sys_content = SYSTEM_PROMPT
-
-        if user_profile:
-            prof_notes: list[str] = []
-            if user_profile.height_cm:
-                prof_notes.append(f"Chiều cao: {user_profile.height_cm}cm")
-            if user_profile.weight_kg:
-                prof_notes.append(f"Cân nặng: {user_profile.weight_kg}kg")
-            if user_profile.waist_cm:
-                prof_notes.append(f"Vòng eo: {user_profile.waist_cm}cm")
-            if user_profile.chest_cm:
-                prof_notes.append(f"Vòng ngực: {user_profile.chest_cm}cm")
-            if user_profile.hip_cm:
-                prof_notes.append(f"Vòng mông: {user_profile.hip_cm}cm")
-            if user_profile.gender:
-                prof_notes.append(f"Giới tính: {user_profile.gender.value}")
-            if user_profile.fit_preference:
-                prof_notes.append(f"Gu mặc: {user_profile.fit_preference}")
-            if prof_notes:
-                sys_content += (
-                    "\nThông tin khách hàng đã biết (áp dụng để gợi ý sản phẩm "
-                    f"& chọn size): {', '.join(prof_notes)}"
-                )
+        sys_content = SYSTEM_PROMPT + self._format_profile_notes(user_profile)
 
         if policy_prompt_block:
             sys_content += f"\n{policy_prompt_block}\n"
@@ -250,6 +310,84 @@ class ShopAssistantAgent:
             sys_content += f"\n{PROMPT_C}\n"
 
         return sys_content
+
+    def _build_interview_system_prompt(
+        self,
+        user_profile: UserProfile | None,
+        slot_summary: str = "",
+    ) -> str:
+        """Construct compact system prompt for ALWAYS_CLARIFY INTERVIEW turns."""
+        sys_content = INTERVIEW_SYSTEM_PROMPT + self._format_profile_notes(user_profile)
+        if slot_summary:
+            sys_content += f"\n{slot_summary}\n"
+        return sys_content
+
+    @staticmethod
+    def _should_use_structured_output(
+        mode: ClarificationMode,
+        phase: ClarifyPhase,
+        intent: TurnIntent,
+        is_shopping_query: bool,
+        tools_used: list[str],
+    ) -> bool:
+        """Invoke structured_model only when LLM must autonomously build a form."""
+        del phase
+        if not is_shopping_query:
+            return False
+        if (
+            "search_products" in tools_used
+            or "recommend_size" in tools_used
+            or "suggest_outfit" in tools_used
+        ):
+            return False
+        if mode == ClarificationMode.ALWAYS_CLARIFY:
+            return False
+        if mode == ClarificationMode.IMMEDIATE_ANSWER:
+            return intent == TurnIntent.SIZE_ADVICE
+        return True
+
+    def _build_debug_meta(
+        self,
+        *,
+        mode: ClarificationMode,
+        executed_phase: str,
+        next_phase_value: str,
+        gated_turns: int,
+        gate_search: bool,
+        active_profile: UserProfile | None,
+        slots: ConversationSlots,
+        intent: TurnIntent,
+        context_messages_count: int,
+        latency_ms: int,
+        usage_meta: Any,
+        runs: list[Any],
+    ) -> TurnDebugMeta | None:
+        """Build TurnDebugMeta capturing executed phase, next phase, and traces."""
+        if not self.settings.DEBUG_CHAT_META:
+            return None
+        active_tools_names = [
+            t.name for t in self._get_active_tools_for_turn(intent, gate_search)
+        ]
+        state_snapshot = StateSnapshotDebug(
+            clarify_phase=executed_phase,
+            next_phase=next_phase_value,
+            gated_turns=gated_turns,
+            tools_available=active_tools_names,
+            gate_search=gate_search,
+            active_profile=(active_profile.model_dump() if active_profile else None),
+            detected_slots=slots.to_debug_dict(intent),
+            context_messages_count=context_messages_count,
+        )
+        return TurnDebugMeta(
+            mode=mode.value if hasattr(mode, "value") else mode,
+            phase=executed_phase,
+            gated_turns=gated_turns,
+            tools_available=active_tools_names,
+            latency_ms=latency_ms,
+            usage_metadata=usage_meta,
+            runs=runs,
+            state_snapshot=state_snapshot,
+        )
 
     def _create_graph(self) -> CompiledStateGraph:
         """Construct the LangGraph workflow with tool execution and memory."""
@@ -267,45 +405,42 @@ class ShopAssistantAgent:
                 mode, phase, is_shopping_query=is_shopping_query
             )
 
-            if policy.gate_search:
-                active_tools = [t for t in ALL_TOOLS if t.name != "search_products"]
-            else:
-                active_tools = list(ALL_TOOLS)
-
-            try:
-                bound_model = self.chat_model.bind_tools(active_tools)
-            except (NotImplementedError, AttributeError):
-                bound_model = self.chat_model
-
             slots, intent = extract_conversation_slots(
                 state["messages"], state.get("user_profile")
             )
-            include_missing = mode != ClarificationMode.IMMEDIATE_ANSWER
-            slot_summary = format_slots_for_prompt(
-                slots, intent, include_missing=include_missing
-            )
 
-            policy_block = policy.prompt_block
             if policy.gate_search:
-                planned_form = build_clarification_form(slots, intent, max_questions=3)
-                q_summary = " | ".join(q.question for q in planned_form.questions)
-                policy_block = (
-                    f"{policy_block}\n"
-                    f"{slot_summary}\n"
-                    "BẢNG TRẮC NGHIỆM ĐÃ HIỂN THỊ SẴN BÊN DƯỚI GỒM CÁC CÂU HỎI: "
-                    f"[{q_summary}].\n"
-                    "YÊU CẦU BẮT BUỘC: Trong câu trả lời của bạn, CHỈ viết đúng 1 câu "
-                    "chào và dẫn nhập ngắn gọn mời khách chọn các mục trong bảng "
-                    "bên dưới. Không lặp lại danh sách gạch đầu dòng."
+                bound_model = self.chat_model
+                slot_summary = format_slots_for_prompt(
+                    slots, intent, include_missing=False
                 )
-            elif is_shopping_query:
-                policy_block = f"{policy_block}\n{slot_summary}"
+                sys_prompt = self._build_interview_system_prompt(
+                    user_profile=state.get("user_profile"),
+                    slot_summary=slot_summary,
+                )
+            else:
+                active_tools = self._get_active_tools_for_turn(
+                    intent, policy.gate_search
+                )
+                try:
+                    bound_model = self.chat_model.bind_tools(active_tools)
+                except (NotImplementedError, AttributeError):
+                    bound_model = self.chat_model
 
-            sys_prompt = self._build_system_prompt(
-                user_profile=state.get("user_profile"),
-                policy_prompt_block=policy_block,
-                clarification_mode=mode,
-            )
+                include_missing = mode != ClarificationMode.IMMEDIATE_ANSWER
+                slot_summary = format_slots_for_prompt(
+                    slots, intent, include_missing=include_missing
+                )
+                policy_block = (
+                    f"{policy.prompt_block}\n{slot_summary}"
+                    if is_shopping_query
+                    else policy.prompt_block
+                )
+                sys_prompt = self._build_system_prompt(
+                    user_profile=state.get("user_profile"),
+                    policy_prompt_block=policy_block,
+                    clarification_mode=mode,
+                )
 
             trimmed = trim_messages(
                 state["messages"],
@@ -338,23 +473,41 @@ class ShopAssistantAgent:
             )
 
             active_tool_names = (
-                {t.name for t in ALL_TOOLS if t.name != "search_products"}
-                if policy.gate_search
-                else {t.name for t in ALL_TOOLS}
+                set() if policy.gate_search else {t.name for t in self._enabled_tools}
             )
-
-            mode_a_slots: ConversationSlots | None = None
-            if mode == ClarificationMode.IMMEDIATE_ANSWER and any(
-                tc.get("name") == "search_products" for tc in tool_calls
-            ):
-                mode_a_slots, _ = extract_conversation_slots(
-                    state["messages"], state.get("user_profile")
-                )
+            turn_slots, turn_intent = extract_conversation_slots(
+                state["messages"], state.get("user_profile")
+            )
+            mode_a_slots: ConversationSlots | None = (
+                turn_slots
+                if mode == ClarificationMode.IMMEDIATE_ANSWER
+                and any(tc.get("name") == "search_products" for tc in tool_calls)
+                else None
+            )
 
             for tc in tool_calls:
                 t_name = tc["name"]
                 t_args = tc.get("args", {})
                 t_id = tc.get("id") or str(uuid.uuid4())
+
+                if (
+                    not policy.gate_search
+                    and self.settings.OUTFIT_KG_ENABLED
+                    and turn_intent == TurnIntent.OUTFIT_ADVICE
+                    and t_name == "search_products"
+                    and "suggest_outfit" in self.tools_by_name
+                ):
+                    logger.info(
+                        "Redirecting search_products -> suggest_outfit in OUTFIT_ADVICE"
+                    )
+                    t_name = "suggest_outfit"
+                    t_args = self._build_outfit_tool_args(
+                        t_args, turn_slots, state.get("user_id")
+                    )
+                elif t_name == "suggest_outfit":
+                    t_args = self._build_outfit_tool_args(
+                        t_args, turn_slots, state.get("user_id")
+                    )
 
                 if t_name not in active_tool_names:
                     logger.warning(
@@ -425,9 +578,20 @@ class ShopAssistantAgent:
             )
             phase = state.get("clarify_phase", ClarifyPhase.INTERVIEW)
             gated_turns = state.get("gated_turns", 0)
-            allow_clarification = not (
+            is_open_no_clarify = intent != TurnIntent.SIZE_ADVICE and (
                 mode == ClarificationMode.IMMEDIATE_ANSWER
-                and intent != TurnIntent.SIZE_ADVICE
+                or (
+                    mode == ClarificationMode.ALWAYS_CLARIFY
+                    and phase == ClarifyPhase.OPEN
+                )
+            )
+            allow_clarification = not is_open_no_clarify
+            use_structured_output = self._should_use_structured_output(
+                mode=mode,
+                phase=phase,
+                intent=intent,
+                is_shopping_query=is_shopping_query,
+                tools_used=tools_used,
             )
 
             agent_reply = await self._generate_agent_reply(
@@ -436,24 +600,58 @@ class ShopAssistantAgent:
                 is_shopping_query=is_shopping_query,
                 tools_used=tools_used,
                 allow_clarification=allow_clarification,
+                use_structured_output=use_structured_output,
                 config=config,
             )
 
-            searched_ids = (
-                get_latest_searched_product_ids()
-                if "search_products" in tools_used
-                else None
+            outfits: list[OutfitSuggestion] = []
+            outfit_products: list[ChatRecommendedProduct] = []
+            if "suggest_outfit" in tools_used:
+                outfits = get_latest_outfits()[:3]
+                seen_outfit_pids: set[int] = set()
+                for outfit in outfits:
+                    for item in (outfit.top, outfit.bottom):
+                        if item.product_id in seen_outfit_pids:
+                            continue
+                        seen_outfit_pids.add(item.product_id)
+                        cached = get_cached_product(item.product_id)
+                        if cached is not None:
+                            outfit_products.append(cached)
+
+            has_catalog_tool = (
+                "search_products" in tools_used
+                or "get_product_detail" in tools_used
+                or "suggest_outfit" in tools_used
             )
-            products = await self._resolve_products(
-                agent_reply.product_ids,
-                reply_text=last_text or agent_reply.reply,
-                fallback_product_ids=searched_ids,
-            )
+            if "search_products" in tools_used or "get_product_detail" in tools_used:
+                searched_ids = (
+                    get_latest_searched_product_ids()
+                    if "search_products" in tools_used
+                    else None
+                )
+                resolved_catalog = await self._resolve_products(
+                    agent_reply.product_ids,
+                    reply_text=last_text or agent_reply.reply,
+                    fallback_product_ids=searched_ids,
+                )
+            else:
+                resolved_catalog = []
+
+            if outfit_products:
+                seen_pids = {p.id for p in outfit_products}
+                products = (
+                    outfit_products
+                    + [p for p in resolved_catalog if p.id not in seen_pids]
+                )[:5]
+            else:
+                products = resolved_catalog[:5]
             agent_reply.product_ids = [str(p.id) for p in products]
 
             is_broad_empty_inquiry = (
                 not slots.has("occasion")
                 and not slots.has("category")
+                and not slots.has("top_category")
+                and not slots.has("bottom_category")
                 and not slots.has("budget")
                 and not slots.has("measurements")
                 and not slots.has("body_concern")
@@ -488,43 +686,35 @@ class ShopAssistantAgent:
                     and not products
                     and not tools_used
                 ):
-                    search_tool = self.tools_by_name.get("search_products")
-                    if search_tool is not None:
-                        fallback_args = self._build_immediate_search_args(
-                            slots, state["messages"]
+                    if (
+                        intent == TurnIntent.OUTFIT_ADVICE
+                        and self.settings.OUTFIT_KG_ENABLED
+                        and "suggest_outfit" in self.tools_by_name
+                    ):
+                        (
+                            outfits,
+                            products,
+                            fallback_reply,
+                        ) = await self._run_verified_fallback_outfit(
+                            slots=slots,
+                            user_id=state.get("user_id"),
+                            tools_used=tools_used,
+                            config=config,
                         )
-                        try:
-                            if not slots.has("target_gender"):
-                                with balanced_gender_search_context(
-                                    occasion=slots.value_of("occasion")
-                                ):
-                                    tool_res = await search_tool.ainvoke(
-                                        fallback_args, config=config
-                                    )
-                            else:
-                                tool_res = await search_tool.ainvoke(
-                                    fallback_args, config=config
-                                )
-                            if "search_products" not in tools_used:
-                                tools_used.append("search_products")
-                            products = await self._resolve_products(
-                                [],
-                                reply_text=str(tool_res),
-                                fallback_product_ids=(
-                                    get_latest_searched_product_ids()
-                                ),
-                            )
-                            agent_reply.product_ids = [str(p.id) for p in products]
-                            if products:
-                                agent_reply.reply = (
-                                    self._format_immediate_fallback_reply(
-                                        products, slots
-                                    )
-                                )
-                        except Exception as fallback_err:
-                            logger.warning(
-                                "Immediate fallback search failed: %s",
-                                fallback_err,
+                        agent_reply.product_ids = [str(p.id) for p in products]
+                        if fallback_reply:
+                            agent_reply.reply = fallback_reply
+                    else:
+                        products = await self._run_verified_fallback_search(
+                            slots=slots,
+                            messages=state["messages"],
+                            tools_used=tools_used,
+                            config=config,
+                        )
+                        agent_reply.product_ids = [str(p.id) for p in products]
+                        if products:
+                            agent_reply.reply = self._format_immediate_fallback_reply(
+                                products, slots
                             )
             elif (
                 mode == ClarificationMode.ALWAYS_CLARIFY
@@ -533,6 +723,13 @@ class ShopAssistantAgent:
             ):
                 agent_reply.needs_clarification = True
             elif (
+                mode == ClarificationMode.ALWAYS_CLARIFY
+                and phase == ClarifyPhase.OPEN
+                and intent != TurnIntent.SIZE_ADVICE
+            ):
+                agent_reply.needs_clarification = False
+                agent_reply.clarification_form = None
+            elif (
                 mode == ClarificationMode.CONDITIONAL_CLARIFICATION
                 and is_shopping_query
                 and is_broad_empty_inquiry
@@ -540,6 +737,90 @@ class ShopAssistantAgent:
                 and not tools_used
             ):
                 agent_reply.needs_clarification = True
+
+            has_catalog_tool = (
+                "search_products" in tools_used
+                or "get_product_detail" in tools_used
+                or "suggest_outfit" in tools_used
+            )
+            has_other_lookup_tool = (
+                "search_policy" in tools_used or "check_voucher" in tools_used
+            )
+            needs_open_mode_b_search = (
+                mode == ClarificationMode.ALWAYS_CLARIFY and phase == ClarifyPhase.OPEN
+            )
+            if (
+                is_shopping_query
+                and intent
+                in (
+                    TurnIntent.PRODUCT_SEARCH,
+                    TurnIntent.OUTFIT_ADVICE,
+                    TurnIntent.BODY_FIT_ADVICE,
+                )
+                and not agent_reply.needs_clarification
+                and not has_catalog_tool
+                and not has_other_lookup_tool
+                and (
+                    needs_open_mode_b_search
+                    or self._has_ungrounded_product_listing(
+                        last_text or agent_reply.reply
+                    )
+                )
+            ):
+                if (
+                    intent == TurnIntent.OUTFIT_ADVICE
+                    and self.settings.OUTFIT_KG_ENABLED
+                    and "suggest_outfit" in self.tools_by_name
+                ):
+                    logger.warning(
+                        "Ungrounded or missing suggest_outfit in %s/%s; "
+                        "running verified fallback outfit",
+                        mode,
+                        phase,
+                    )
+                    (
+                        outfits,
+                        products,
+                        fallback_reply,
+                    ) = await self._run_verified_fallback_outfit(
+                        slots=slots,
+                        user_id=state.get("user_id"),
+                        tools_used=tools_used,
+                        config=config,
+                    )
+                    agent_reply.product_ids = [str(p.id) for p in products]
+                    if fallback_reply:
+                        agent_reply.reply = fallback_reply
+                    else:
+                        agent_reply.reply = (
+                            "Hiện tại mình chưa tìm thấy bộ phối đồ nào khớp hoàn toàn "
+                            "với tiêu chí này trong cửa hàng. Bạn có thể thử dịp mặc "
+                            "hoặc màu sắc khác để mình gợi ý lại nhé!"
+                        )
+                else:
+                    logger.warning(
+                        "Ungrounded or missing search_products in %s/%s; "
+                        "running verified fallback search",
+                        mode,
+                        phase,
+                    )
+                    products = await self._run_verified_fallback_search(
+                        slots=slots,
+                        messages=state["messages"],
+                        tools_used=tools_used,
+                        config=config,
+                    )
+                    agent_reply.product_ids = [str(p.id) for p in products]
+                    if products:
+                        agent_reply.reply = self._format_immediate_fallback_reply(
+                            products, slots
+                        )
+                    else:
+                        agent_reply.reply = (
+                            "Hiện tại mình chưa tìm thấy sản phẩm nào khớp hoàn toàn "
+                            "với tiêu chí này trong cửa hàng. Bạn có thể nới rộng "
+                            "khoảng giá hoặc mô tả kiểu đồ khác để mình tìm lại nhé!"
+                        )
 
             agent_reply.reply = agent_reply.reply.strip()
 
@@ -591,6 +872,7 @@ class ShopAssistantAgent:
                 "clarification_form": agent_reply.clarification_form,
                 "product_ids": agent_reply.product_ids,
                 "products": products,
+                "outfits": outfits,
                 "tools_used": tools_used,
                 "clarify_phase": new_phase,
             }
@@ -749,7 +1031,11 @@ class ShopAssistantAgent:
         kw_parts: list[str] = []
         cat_val = slots.value_of("category")
         occ_val = slots.value_of("occasion")
-        if cat_val in cat_kw_map:
+        if cat_val == "tops" and occ_val in ("party", "office"):
+            kw_parts.append("áo sơ mi áo polo áo khoác")
+        elif cat_val == "pants" and occ_val in ("party", "office"):
+            kw_parts.append("quần âu quần kaki")
+        elif cat_val in cat_kw_map:
             kw_parts.append(cat_kw_map[cat_val])
         if occ_val in occ_kw_map:
             if cat_val is None and occ_val == "party":
@@ -802,10 +1088,23 @@ class ShopAssistantAgent:
     def _build_immediate_search_args(
         slots: ConversationSlots, messages: list[BaseMessage]
     ) -> dict[str, Any]:
-        """Build search_products tool arguments for IMMEDIATE_ANSWER fallback."""
+        """Build search_products tool arguments for verified fallback search."""
         keyword = ShopAssistantAgent._build_neutral_keyword(slots, messages)
         limit = 5 if not slots.has("target_gender") else 4
         args: dict[str, Any] = {"keyword": keyword, "limit": limit}
+        exact_cat_map = {
+            "shirt": "Áo sơ mi",
+            "polo": "Áo polo",
+            "tshirt": "Áo thun",
+            "jacket": "Áo khoác",
+            "jeans": "Quần jeans",
+            "kaki": "Quần kaki",
+            "short": "Quần short",
+            "skirt": "Chân váy",
+        }
+        cat_val = slots.value_of("category")
+        if cat_val in exact_cat_map:
+            args["category"] = exact_cat_map[cat_val]
         if slots.has("target_gender"):
             args["target_gender"] = slots.value_of("target_gender")
         budget_val = slots.value_of("budget")
@@ -817,6 +1116,212 @@ class ShopAssistantAgent:
             if max_p is not None:
                 args["max_price"] = max_p
         return args
+
+    @staticmethod
+    def _has_ungrounded_product_listing(text: str) -> bool:
+        """Detect fabricated product IDs or VND prices when no catalog tool ran."""
+        if not text:
+            return False
+        return bool(
+            _PRODUCT_ID_PATTERN.search(text) or _PRODUCT_PRICE_PATTERN.search(text)
+        )
+
+    @staticmethod
+    def _format_product_bullet(p: ChatRecommendedProduct) -> str:
+        """Format a single grounded product recommendation bullet."""
+        price_txt = f"{p.price:,.0f}đ" if p.price > 0 else "Liên hệ"
+        meta_parts = [part for part in (p.category, p.brand) if part]
+        meta_txt = f" ({' | '.join(meta_parts)})" if meta_parts else ""
+        return f"- [{p.id}] **{p.name}**{meta_txt} — Giá: {price_txt}"
+
+    @staticmethod
+    def _build_outfit_tool_args(
+        raw_args: dict[str, Any],
+        slots: ConversationSlots,
+        user_id: int | None,
+    ) -> dict[str, Any]:
+        """Normalize and enrich suggest_outfit arguments from detected slots."""
+        allowed_keys = {
+            "product_id",
+            "color",
+            "top_category",
+            "bottom_category",
+            "top_color",
+            "bottom_color",
+            "occasion",
+            "gender",
+            "user_id",
+            "favorite_colors",
+            "disliked_colors",
+            "limit",
+        }
+        args: dict[str, Any] = {
+            k: v for k, v in raw_args.items() if k in allowed_keys and v is not None
+        }
+
+        if not args.get("gender") and raw_args.get("target_gender"):
+            args["gender"] = raw_args["target_gender"]
+        if (
+            not args.get("top_category")
+            and not args.get("bottom_category")
+            and raw_args.get("category")
+        ):
+            args["top_category"] = raw_args["category"]
+
+        cat_code_map = {
+            "shirt": "Áo sơ mi",
+            "polo": "Áo polo",
+            "tshirt": "Áo thun",
+            "jacket": "Áo khoác",
+            "jeans": "Quần jeans",
+            "kaki": "Quần kaki",
+            "short": "Quần short",
+            "pants": "Quần âu",
+            "skirt": "Chân váy",
+            "dress": "Váy liền",
+            "accessory": "Phụ kiện",
+        }
+        if not args.get("top_category") and slots.has("top_category"):
+            raw_top = str(slots.value_of("top_category"))
+            args["top_category"] = cat_code_map.get(raw_top, raw_top)
+        if not args.get("bottom_category") and slots.has("bottom_category"):
+            raw_bot = str(slots.value_of("bottom_category"))
+            args["bottom_category"] = cat_code_map.get(raw_bot, raw_bot)
+        if (
+            args.get("product_id") is None
+            and not args.get("top_category")
+            and not args.get("bottom_category")
+            and slots.value_of("category") in ("dress", "accessory")
+        ):
+            raw_cat = str(slots.value_of("category"))
+            args["top_category"] = cat_code_map.get(raw_cat, raw_cat)
+
+        if not args.get("top_color") and slots.has("top_color"):
+            args["top_color"] = slots.value_of("top_color")
+        if not args.get("bottom_color") and slots.has("bottom_color"):
+            args["bottom_color"] = slots.value_of("bottom_color")
+        if (
+            not args.get("color")
+            and not args.get("top_color")
+            and not args.get("bottom_color")
+            and slots.has("color")
+        ):
+            args["color"] = slots.value_of("color")
+
+        if not args.get("occasion") and slots.has("occasion"):
+            occ_map = {
+                "office": "đi làm",
+                "party": "hẹn hò",
+                "casual": "đi chơi",
+                "sport": "đi chơi",
+            }
+            occ_val = str(slots.value_of("occasion"))
+            args["occasion"] = occ_map.get(occ_val, occ_val)
+
+        if not args.get("gender") and slots.has("target_gender"):
+            args["gender"] = slots.value_of("target_gender")
+        if args.get("user_id") is None and user_id is not None:
+            args["user_id"] = user_id
+
+        return args
+
+    @staticmethod
+    def _format_immediate_outfit_fallback_reply(
+        outfits: list[OutfitSuggestion], slots: ConversationSlots
+    ) -> str:
+        """Format complete top + bottom combos from OutfitGraph for fallback paths."""
+        if not slots.has("target_gender") and not slots.has("bottom_category"):
+            intro = (
+                "Vì bạn chưa nêu rõ giới tính nên mình gợi ý các bộ phối đồ "
+                "cân bằng cho cả Nữ và Nam:"
+            )
+        else:
+            intro = "Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:"
+
+        lines = [intro]
+        for idx, outfit in enumerate(outfits, start=1):
+            top_stock = "" if outfit.top.in_stock else " *(màu này đang hết hàng)*"
+            bot_stock = "" if outfit.bottom.in_stock else " *(màu này đang hết hàng)*"
+            lines.append(f"\n**Bộ {idx}** (Độ phù hợp: {outfit.score:.2f}):")
+            lines.append(
+                f"- **Áo**: [{outfit.top.product_id}] **{outfit.top.name}** "
+                f"— Màu: {outfit.top.color} — Giá: {outfit.top.price:,.0f}đ{top_stock}"
+            )
+            lines.append(
+                f"- **Quần/Váy**: [{outfit.bottom.product_id}] "
+                f"**{outfit.bottom.name}** — Màu: {outfit.bottom.color} "
+                f"— Giá: {outfit.bottom.price:,.0f}đ{bot_stock}"
+            )
+            if outfit.reasons:
+                lines.append(f"- *Lý do phối*: {'; '.join(outfit.reasons)}")
+        return "\n".join(lines)
+
+    async def _run_verified_fallback_outfit(
+        self,
+        slots: ConversationSlots,
+        user_id: int | None,
+        tools_used: list[str],
+        config: RunnableConfig | None = None,
+    ) -> tuple[list[OutfitSuggestion], list[ChatRecommendedProduct], str]:
+        """Execute suggest_outfit fallback and resolve combo products & reply."""
+        outfit_tool = self.tools_by_name.get("suggest_outfit")
+        if outfit_tool is None:
+            return [], [], ""
+        fallback_args = self._build_outfit_tool_args({}, slots, user_id)
+        try:
+            tool_res = await outfit_tool.ainvoke(fallback_args, config=config)
+            if "suggest_outfit" not in tools_used:
+                tools_used.append("suggest_outfit")
+            outfits = get_latest_outfits()
+            products: list[ChatRecommendedProduct] = []
+            seen_pids: set[int] = set()
+            for outfit in outfits:
+                for item in (outfit.top, outfit.bottom):
+                    if item.product_id in seen_pids:
+                        continue
+                    seen_pids.add(item.product_id)
+                    cached = get_cached_product(item.product_id)
+                    if cached is not None:
+                        products.append(cached)
+            if outfits:
+                reply = self._format_immediate_outfit_fallback_reply(outfits, slots)
+                return outfits, products, reply
+            res_text = str(tool_res or "").strip()
+            return [], [], res_text
+        except Exception as fallback_err:
+            logger.warning("Verified fallback outfit failed: %s", fallback_err)
+            return [], [], ""
+
+    async def _run_verified_fallback_search(
+        self,
+        slots: ConversationSlots,
+        messages: list[BaseMessage],
+        tools_used: list[str],
+        config: RunnableConfig | None = None,
+    ) -> list[ChatRecommendedProduct]:
+        """Execute a grounded search_products fallback and resolve real products."""
+        search_tool = self.tools_by_name.get("search_products")
+        if search_tool is None:
+            return []
+        fallback_args = self._build_immediate_search_args(slots, messages)
+        try:
+            if not slots.has("target_gender"):
+                with balanced_gender_search_context(
+                    occasion=slots.value_of("occasion")
+                ):
+                    tool_res = await search_tool.ainvoke(fallback_args, config=config)
+            else:
+                tool_res = await search_tool.ainvoke(fallback_args, config=config)
+            if "search_products" not in tools_used:
+                tools_used.append("search_products")
+            return await self._resolve_products(
+                [],
+                reply_text=str(tool_res),
+                fallback_product_ids=get_latest_searched_product_ids(),
+            )
+        except Exception as fallback_err:
+            logger.warning("Verified fallback search failed: %s", fallback_err)
+            return []
 
     @staticmethod
     def _format_immediate_fallback_reply(
@@ -851,8 +1356,7 @@ class ShopAssistantAgent:
                         continue
                     lines.append(f"\n{label}")
                     for p in items:
-                        price_txt = f"{p.price:,.0f}đ" if p.price > 0 else "Liên hệ"
-                        lines.append(f"- [{p.id}] **{p.name}** — Giá: {price_txt}")
+                        lines.append(ShopAssistantAgent._format_product_bullet(p))
                 return "\n".join(lines)
 
             intro = (
@@ -863,8 +1367,7 @@ class ShopAssistantAgent:
             intro = "Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:"
         lines = [intro]
         for p in top_products:
-            price_txt = f"{p.price:,.0f}đ" if p.price > 0 else "Liên hệ"
-            lines.append(f"- [{p.id}] **{p.name}** — Giá: {price_txt}")
+            lines.append(ShopAssistantAgent._format_product_bullet(p))
         return "\n".join(lines)
 
     async def _generate_agent_reply(
@@ -874,6 +1377,7 @@ class ShopAssistantAgent:
         is_shopping_query: bool = True,
         tools_used: list[str] | None = None,
         allow_clarification: bool = True,
+        use_structured_output: bool = True,
         config: RunnableConfig | None = None,
     ) -> AgentReply:
         """Obtain AgentReply via structured output or fallback parsing."""
@@ -884,7 +1388,7 @@ class ShopAssistantAgent:
         )
         used_set = set(tools_used or [])
 
-        if self.structured_model is not None:
+        if use_structured_output and self.structured_model is not None:
             try:
                 recent_msgs = [
                     m
@@ -924,11 +1428,9 @@ class ShopAssistantAgent:
                         reply_obj.reply = last_reply_text
 
                     if not reply_obj.product_ids and last_reply_text:
-                        for match in re.findall(
-                            r"(?:ID:\s*\[|\[)(\d+)\]", last_reply_text
-                        ):
-                            if match not in reply_obj.product_ids:
-                                reply_obj.product_ids.append(match)
+                        reply_obj.product_ids = _extract_product_ids_from_text(
+                            last_reply_text
+                        )
 
                     if (
                         allow_clarification
@@ -936,7 +1438,9 @@ class ShopAssistantAgent:
                         and is_shopping_query
                         and not reply_obj.product_ids
                         and "search_products" not in used_set
+                        and "suggest_outfit" not in used_set
                         and last_reply_text
+                        and not self._has_ungrounded_product_listing(last_reply_text)
                     ):
                         lower_txt = last_reply_text.lower()
                         if "?" in last_reply_text or any(
@@ -974,7 +1478,7 @@ class ShopAssistantAgent:
                 pass
 
         if not last_reply_text:
-            if get_latest_searched_product_ids():
+            if get_latest_searched_product_ids() or get_latest_outfits():
                 text = (
                     "Dưới đây là một số mẫu trang phục phù hợp với nhu cầu và "
                     "phong cách của bạn:"
@@ -984,16 +1488,15 @@ class ShopAssistantAgent:
         else:
             text = last_reply_text
 
-        found_pids: list[str] = []
-        for match in re.findall(r"(?:ID:\s*\[|\[)(\d+)\]", text):
-            if match not in found_pids:
-                found_pids.append(match)
+        found_pids = _extract_product_ids_from_text(text)
 
         is_clarification = (
             allow_clarification
             and is_shopping_query
             and not found_pids
             and "search_products" not in used_set
+            and "suggest_outfit" not in used_set
+            and not self._has_ungrounded_product_listing(text)
             and (
                 "?" in text
                 or any(
@@ -1038,11 +1541,13 @@ class ShopAssistantAgent:
         product_ids: list[str],
         reply_text: str = "",
         fallback_product_ids: list[int] | None = None,
+        *,
+        allow_unverified_fetch: bool = False,
     ) -> list[ChatRecommendedProduct]:
-        """Resolve products by IDs, extracting from text and fetching if missing."""
+        """Resolve products from verified turn cache (and optional ID fetch)."""
         candidate_ids = list(product_ids)
 
-        for match in re.findall(r"(?:ID:\s*\[|\[)(\d+)\]", reply_text):
+        for match in _extract_product_ids_from_text(reply_text):
             if match not in candidate_ids:
                 candidate_ids.append(match)
 
@@ -1066,7 +1571,7 @@ class ShopAssistantAgent:
                     resolved.append(prod)
                 else:
                     resolved.append(product_schema_to_recommended(prod))
-            else:
+            elif allow_unverified_fetch:
                 try:
                     async with ShopClient(settings=self.settings) as client:
                         p_schema = await client.get_product_by_id(pid)
@@ -1077,7 +1582,7 @@ class ShopAssistantAgent:
                 except Exception:
                     pass
 
-        return resolved
+        return resolved[:5]
 
     async def chat(
         self,
@@ -1104,6 +1609,7 @@ class ShopAssistantAgent:
                 session_id, max_turns=self.settings.MAX_SESSION_HISTORY_TURNS
             )
             is_shopping_query = intent != TurnIntent.NON_SHOPPING
+            executed_phase = session.clarify_phase.value
 
             initial_state: AgentState = {
                 "messages": history_msgs,
@@ -1121,6 +1627,7 @@ class ShopAssistantAgent:
                 "clarification_form": None,
                 "product_ids": [],
                 "products": [],
+                "outfits": [],
             }
 
             debug_handler = LangChainDebugCallbackHandler()
@@ -1134,9 +1641,11 @@ class ShopAssistantAgent:
             latency_ms = int((time.time() - start_time) * 1000)
             logger.info(
                 "CHAT_LANGGRAPH_METRICS session_id=%s mode=%s phase=%s "
-                "tools=%s needs_clarification=%s products_count=%d latency_ms=%d",
+                "next_phase=%s tools=%s needs_clarification=%s products_count=%d "
+                "latency_ms=%d",
                 session_id[:8],
                 mode.value if hasattr(mode, "value") else mode,
+                executed_phase,
                 session.clarify_phase.value,
                 result_state.get("tools_used", []),
                 result_state.get("needs_clarification", False),
@@ -1146,41 +1655,20 @@ class ShopAssistantAgent:
 
             runs = debug_handler.get_runs()
             usage_meta = debug_handler.get_aggregated_usage()
-            active_tools_names = [
-                t.name
-                for t in (
-                    [t for t in ALL_TOOLS if t.name != "search_products"]
-                    if policy.gate_search
-                    else list(ALL_TOOLS)
-                )
-            ]
-            detected_slots = slots.to_debug_dict(intent)
-            state_snapshot = StateSnapshotDebug(
-                clarify_phase=session.clarify_phase.value,
+            debug_meta = self._build_debug_meta(
+                mode=mode,
+                executed_phase=executed_phase,
+                next_phase_value=session.clarify_phase.value,
                 gated_turns=session.gated_turns,
-                tools_available=active_tools_names,
                 gate_search=policy.gate_search,
-                active_profile=(
-                    session.active_profile.model_dump()
-                    if session.active_profile
-                    else None
-                ),
-                detected_slots=detected_slots,
+                active_profile=session.active_profile,
+                slots=slots,
+                intent=intent,
                 context_messages_count=len(session_mgr.get_messages(session_id)),
+                latency_ms=latency_ms,
+                usage_meta=usage_meta,
+                runs=runs,
             )
-
-            debug_meta = None
-            if self.settings.DEBUG_CHAT_META:
-                debug_meta = TurnDebugMeta(
-                    mode=mode.value if hasattr(mode, "value") else mode,
-                    phase=session.clarify_phase.value,
-                    gated_turns=session.gated_turns,
-                    tools_available=active_tools_names,
-                    latency_ms=latency_ms,
-                    usage_metadata=usage_meta,
-                    runs=runs,
-                    state_snapshot=state_snapshot,
-                )
 
             turn_id = (len(session.messages) // 2) + 1
             await log_chat_turn(
@@ -1201,6 +1689,7 @@ class ShopAssistantAgent:
                 clarification_form=result_state.get("clarification_form"),
                 tools_used=result_state.get("tools_used", []),
                 products=result_state.get("products", []),
+                outfits=result_state.get("outfits", []),
                 debug_meta=debug_meta,
             )
         except Exception as e:
@@ -1228,6 +1717,7 @@ class ShopAssistantAgent:
                 clarification_form=None,
                 tools_used=[],
                 products=[],
+                outfits=[],
             )
 
     async def chat_stream(
@@ -1254,6 +1744,7 @@ class ShopAssistantAgent:
             session_id, max_turns=self.settings.MAX_SESSION_HISTORY_TURNS
         )
         is_shopping_query = intent != TurnIntent.NON_SHOPPING
+        executed_phase = session.clarify_phase.value
 
         initial_state: AgentState = {
             "messages": history_msgs,
@@ -1271,6 +1762,7 @@ class ShopAssistantAgent:
             "clarification_form": None,
             "product_ids": [],
             "products": [],
+            "outfits": [],
         }
 
         debug_handler = LangChainDebugCallbackHandler()
@@ -1295,11 +1787,12 @@ class ShopAssistantAgent:
                         ):
                             text = str(msg.content)
                             full_reply_parts.append(text)
-                            yield {
-                                "type": "token",
-                                "content": text,
-                                "session_id": session_id,
-                            }
+                            if not policy.gate_search:
+                                yield {
+                                    "type": "token",
+                                    "content": text,
+                                    "session_id": session_id,
+                                }
                     elif chunk_mode == "updates":
                         if "tools" in payload:
                             new_tools = payload["tools"].get("tools_used", [])
@@ -1324,49 +1817,25 @@ class ShopAssistantAgent:
                             latency_ms = int((time.time() - start_time) * 1000)
                             runs = debug_handler.get_runs()
                             usage_meta = debug_handler.get_aggregated_usage()
-                            active_tools_names = [
-                                t.name
-                                for t in (
-                                    [
-                                        t
-                                        for t in ALL_TOOLS
-                                        if t.name != "search_products"
-                                    ]
-                                    if policy.gate_search
-                                    else list(ALL_TOOLS)
-                                )
-                            ]
-                            detected_slots = slots.to_debug_dict(intent)
-                            state_snapshot = StateSnapshotDebug(
-                                clarify_phase=session.clarify_phase.value,
+                            debug_meta_obj = self._build_debug_meta(
+                                mode=mode,
+                                executed_phase=executed_phase,
+                                next_phase_value=session.clarify_phase.value,
                                 gated_turns=session.gated_turns,
-                                tools_available=active_tools_names,
                                 gate_search=policy.gate_search,
-                                active_profile=(
-                                    session.active_profile.model_dump()
-                                    if session.active_profile
-                                    else None
-                                ),
-                                detected_slots=detected_slots,
+                                active_profile=session.active_profile,
+                                slots=slots,
+                                intent=intent,
                                 context_messages_count=len(
                                     session_mgr.get_messages(session_id)
                                 ),
+                                latency_ms=latency_ms,
+                                usage_meta=usage_meta,
+                                runs=runs,
                             )
-
-                            debug_meta = None
-                            if self.settings.DEBUG_CHAT_META:
-                                debug_meta = TurnDebugMeta(
-                                    mode=(
-                                        mode.value if hasattr(mode, "value") else mode
-                                    ),
-                                    phase=session.clarify_phase.value,
-                                    gated_turns=session.gated_turns,
-                                    tools_available=active_tools_names,
-                                    latency_ms=latency_ms,
-                                    usage_metadata=usage_meta,
-                                    runs=runs,
-                                    state_snapshot=state_snapshot,
-                                ).model_dump()
+                            debug_meta = (
+                                debug_meta_obj.model_dump() if debug_meta_obj else None
+                            )
 
                             turn_id = (len(session.messages) // 2) + 1
                             await log_chat_turn(
@@ -1395,6 +1864,9 @@ class ShopAssistantAgent:
                                 "tools_used": tools_used,
                                 "products": [
                                     p.model_dump() for p in fin_data.get("products", [])
+                                ],
+                                "outfits": [
+                                    o.model_dump() for o in fin_data.get("outfits", [])
                                 ],
                                 "debug_meta": debug_meta,
                             }

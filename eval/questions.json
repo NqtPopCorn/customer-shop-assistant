@@ -1,5 +1,5 @@
 {
-  "_comment": "Golden Evaluation Dataset (60 questions across 6 core PRD categories)",
+  "_comment": "Golden Evaluation Dataset (81 questions across 6 core PRD categories)",
   "version": "1.0",
   "questions": [
     {
@@ -191,7 +191,7 @@
       "clarification_mode": "MINIMAL_CLARIFICATION",
       "ground_truth": {
         "expected_intent": "PRODUCT_ADVICE",
-        "expected_tool": "search_products",
+        "expected_tool": "suggest_outfit",
         "expected_policy_doc": null,
         "required_keywords": ["quần", "kaki", "trắng"],
         "forbidden_keywords": [],
@@ -209,7 +209,7 @@
       "clarification_mode": "MINIMAL_CLARIFICATION",
       "ground_truth": {
         "expected_intent": "PRODUCT_ADVICE",
-        "expected_tool": "search_products",
+        "expected_tool": "suggest_outfit",
         "expected_policy_doc": null,
         "required_keywords": ["sơ mi", "trắng"],
         "forbidden_keywords": [],
@@ -227,7 +227,7 @@
       "clarification_mode": "MINIMAL_CLARIFICATION",
       "ground_truth": {
         "expected_intent": "PRODUCT_ADVICE",
-        "expected_tool": "search_products",
+        "expected_tool": "suggest_outfit",
         "expected_policy_doc": null,
         "required_keywords": ["áo thun", "quần jean"],
         "forbidden_keywords": [],
@@ -1193,6 +1193,277 @@
         "forbidden_keywords": [],
         "should_clarify": false,
         "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+
+    {
+      "id": "OUTFIT_01",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Áo polo nam màu xanh navy phối với quần kaki màu gì để đi làm lịch sự?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["polo", "quần"],
+        "forbidden_keywords": ["chân váy"],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_02",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Mình có áo sơ mi nam màu trắng, nên phối với quần nào để đi họp gặp khách?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi", "quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_03",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Quần kaki nam màu be sữa phối với áo gì để đi cà phê cuối tuần?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["quần", "áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_04",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Chân váy nữ màu đen thì phối với áo kiểu nào đi hẹn hò đẹp?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["chân váy", "áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_05",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Áo sơ mi nữ màu xanh lam nhạt phối đồ công sở với quần hay chân váy hợp hơn?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["sơ mi"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_06",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Áo khoác nam màu đen phối với quần gì để đi chơi dạo phố trẻ trung?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo khoác", "quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_07",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Áo thun nữ trắng trơn phối với chân váy hoặc quần jeans đi chơi thế nào cho đẹp?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo thun"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_08",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Gợi ý giúp mình một set đồ đi làm công sở thanh lịch cho nam gồm áo và quần.",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo", "quần"],
+        "forbidden_keywords": ["chân váy"],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_09",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Tư vấn phối cho mình một set đồ đi làm gồm áo và chân váy cho nữ nhé.",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo", "váy"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_10",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Gợi ý set đồ đi biển du lịch mùa hè thoải mái cho nam giúp mình.",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo", "quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_11",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Shop phối giúp mình set đồ dạo phố đi chơi cuối tuần trẻ trung cho nữ.",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_12",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Gợi ý set đồ áo với quần hoặc váy để đi hẹn hò buổi tối thật ấn tượng.",
+      "user_profile": null,
+      "clarification_mode": "IMMEDIATE_ANSWER",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_13",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Gợi ý phối đồ smart-casual gồm áo và quần đi cà phê cho nam nhé.",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["áo", "quần"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_14",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Quần short nam màu xanh rêu khaki phối cùng áo thun hay áo polo đi du lịch hợp?",
+      "user_profile": { "gender": "MALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["quần", "áo"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": false,
+        "is_out_of_stock": false
+      }
+    },
+    {
+      "id": "OUTFIT_15",
+      "category": "product_suitability",
+      "sub_category": "mix_and_match",
+      "question": "Váy liền dự tiệc của shop có phối kèm quần hay áo ngoài gì trong công cụ phối đồ không?",
+      "user_profile": { "gender": "FEMALE" },
+      "clarification_mode": "MINIMAL_CLARIFICATION",
+      "ground_truth": {
+        "expected_intent": "PRODUCT_ADVICE",
+        "expected_tool": "suggest_outfit",
+        "expected_policy_doc": null,
+        "required_keywords": ["chưa hỗ trợ"],
+        "forbidden_keywords": [],
+        "should_clarify": false,
+        "is_out_of_scope": true,
         "is_out_of_stock": false
       }
     }

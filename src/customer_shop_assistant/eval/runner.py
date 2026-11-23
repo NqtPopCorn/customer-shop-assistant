@@ -130,6 +130,7 @@ class EvalRunner:
             clarification_asked=res.clarification_asked,
             latency_ms=latency_ms,
             estimated_tokens=estimated_tokens,
+            outfits=res.outfits,
         )
 
     async def run_suite(
@@ -205,6 +206,23 @@ class EvalRunner:
         print(f"  • Average Latency   : {BOLD}{avg_latency:.1f} ms{RESET}")
         print(f"  • Total Est. Tokens : {BOLD}{total_tokens:,}{RESET}")
         print(f"  • Telemetry Output  : {DIM}{log_path}{RESET}")
+        outfit_cases = [r for r in results if r.outfit_returned is not None]
+        if outfit_cases:
+            ret_rate = (
+                sum(1 for r in outfit_cases if r.outfit_returned)
+                / len(outfit_cases)
+                * 100.0
+            )
+            viol_rates = [
+                r.outfit_rule_violation_rate
+                for r in outfit_cases
+                if r.outfit_rule_violation_rate is not None
+            ]
+            avg_viol = (
+                (sum(viol_rates) / len(viol_rates)) * 100.0 if viol_rates else 0.0
+            )
+            print(f"  • Outfit Returned   : {BOLD}{ret_rate:.1f}%{RESET}")
+            print(f"  • Rule Violations   : {BOLD}{avg_viol:.1f}%{RESET}")
         print(f"{CYAN}{'-' * 72}{RESET}")
 
         # Category breakdown
