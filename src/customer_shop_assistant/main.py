@@ -9,6 +9,8 @@ import uvicorn
 from fastapi import APIRouter, Depends, FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 
+from customer_shop_assistant.api.judge import router as judge_router
+from customer_shop_assistant.api.judge import ui_router as judge_ui_router
 from customer_shop_assistant.api.routes import chat, chat_stream
 from customer_shop_assistant.api.routes import router as api_router
 from customer_shop_assistant.cli import run_cli
@@ -32,6 +34,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(api_router)
+app.include_router(judge_router)
+app.include_router(judge_ui_router)
 
 # Compatibility alias router (/api/chat and /api/chat/stream)
 compat_router = APIRouter(prefix="/api", tags=["Assistant Compat"])

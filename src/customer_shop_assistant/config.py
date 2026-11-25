@@ -15,6 +15,17 @@ class Settings(BaseSettings):
     PORT: int = 8000
     DEBUG: bool = True
 
+    @field_validator("DEBUG", mode="before")
+    @classmethod
+    def parse_debug_flag(cls, v: Any) -> Any:
+        if isinstance(v, str):
+            normalized = v.strip().lower()
+            if normalized in ("release", "prod", "production"):
+                return False
+            if normalized in ("debug", "dev", "development"):
+                return True
+        return v
+
     CORS_ORIGINS: list[str] = [
         "http://localhost:5000",
         "http://127.0.0.1:5000",
@@ -134,6 +145,19 @@ class Settings(BaseSettings):
     )
 
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"
+    EVAL_DIR: Path = Path(__file__).resolve().parent.parent.parent / "eval"
+    JUDGE_SHEET_FILENAME: str = Field(
+        default="e1_tier2_judge_sheet.csv",
+        description="Tier-2 human judge sheet CSV filename in EVAL_DIR",
+    )
+    JUDGE_BRIDGE_URL: str = Field(
+        default="",
+        description="Optional Google Apps Script Web App URL for shared team judging",
+    )
+    JUDGE_BRIDGE_TOKEN: str = Field(
+        default="",
+        description="Optional shared passcode token for Google Apps Script bridge",
+    )
 
     model_config = SettingsConfigDict(
         env_file=".env",

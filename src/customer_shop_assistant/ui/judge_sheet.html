@@ -1,0 +1,2695 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tier-2 Human Judge — e1_tier2_judge_sheet.csv</title>
+  <style>
+    :root {
+      --bg: #f4f6fa;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #dfe5ef;
+      --text: #0f172a;
+      --muted: #526075;
+      --primary: #2563eb;
+      --primary-soft: #eff6ff;
+      --primary-hover: #1d4ed8;
+      --green: #15803d;
+      --green-soft: #dcfce7;
+      --amber: #b45309;
+      --amber-soft: #fef3c7;
+      --red: #b91c1c;
+      --red-soft: #fee2e2;
+      --slate-soft: #e2e8f0;
+      --radius: 10px;
+      --shadow: 0 1px 3px rgba(15, 23, 42, 0.06), 0 1px 2px rgba(15, 23, 42, 0.04);
+      --font: "Segoe UI", system-ui, -apple-system, Roboto, sans-serif;
+      --mono: "Cascadia Code", "Consolas", ui-monospace, monospace;
+    }
+
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--font);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    button, input, select, textarea { font-family: inherit; font-size: inherit; }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Top Bar */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      z-index: 20;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .brand h1 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .path-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 2px 8px;
+      border-radius: 999px;
+      max-width: 280px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .progress-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 5px 10px;
+      border-radius: 999px;
+    }
+
+    .progress-track {
+      width: 120px;
+      height: 8px;
+      border-radius: 999px;
+      background: var(--slate-soft);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), #16a34a);
+      width: 0%;
+      transition: width 0.2s ease;
+    }
+
+    .progress-label { font-size: 12px; font-weight: 600; color: var(--text); }
+
+    .topbar-controls {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .seg {
+      display: inline-flex;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 2px;
+    }
+
+    .seg button {
+      border: none;
+      background: transparent;
+      padding: 5px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--muted);
+      font-weight: 600;
+      font-size: 12.5px;
+    }
+
+    .seg button.active {
+      background: var(--surface);
+      color: var(--primary);
+      box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      color: var(--text);
+      padding: 6px 11px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 12.5px;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease;
+    }
+
+    .btn:hover { background: var(--surface-alt); border-color: #c7d2e4; }
+    .btn.primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .btn.primary:hover { background: var(--primary-hover); }
+    .btn.active-toggle {
+      background: #eef2ff;
+      border-color: #818cf8;
+      color: #3730a3;
+    }
+    .btn.danger-outline {
+      color: var(--red);
+      border-color: #fecaca;
+    }
+    .btn.danger-outline:hover { background: var(--red-soft); }
+
+    /* Workspace Layout */
+    .workspace {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      overflow: hidden;
+    }
+
+    /* Single View */
+    .single-layout {
+      display: grid;
+      grid-template-columns: 290px minmax(0, 1fr) 340px;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .sidebar {
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .filter-panel {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .filter-panel input, .filter-panel select {
+      width: 100%;
+      padding: 6px 9px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface-alt);
+      color: var(--text);
+      font-size: 12.5px;
+    }
+
+    .filter-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .filter-count {
+      font-size: 11.5px;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .row-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 6px;
+    }
+
+    .row-item {
+      width: 100%;
+      text-align: left;
+      border: 1px solid transparent;
+      background: transparent;
+      padding: 8px 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      margin-bottom: 4px;
+    }
+
+    .row-item:hover { background: var(--surface-alt); }
+    .row-item.active {
+      background: var(--primary-soft);
+      border-color: #93c5fd;
+    }
+
+    .row-item-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-weight: 700;
+      font-size: 12.5px;
+    }
+
+    .row-item-q {
+      font-size: 12px;
+      color: var(--muted);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 999px;
+      flex-shrink: 0;
+    }
+    .dot.scored { background: #16a34a; }
+    .dot.partial { background: #d97706; }
+    .dot.unscored { background: #cbd5e1; }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 7px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      color: var(--text);
+      white-space: nowrap;
+    }
+    .badge.green { background: var(--green-soft); border-color: #bbf7d0; color: var(--green); }
+    .badge.red { background: var(--red-soft); border-color: #fecaca; color: var(--red); }
+    .badge.amber { background: var(--amber-soft); border-color: #fde68a; color: var(--amber); }
+    .badge.blue { background: var(--primary-soft); border-color: #bfdbfe; color: var(--primary-hover); }
+
+    /* Center Reading Pane */
+    .reader-pane {
+      overflow-y: auto;
+      padding: 16px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      min-width: 0;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .card-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--muted);
+      margin: 0;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .question-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .md-body {
+      font-size: 14px;
+      line-height: 1.6;
+      color: var(--text);
+      word-break: break-word;
+    }
+    .md-body h1, .md-body h2, .md-body h3, .md-body h4 {
+      margin: 12px 0 6px;
+      font-size: 14.5px;
+      color: #0f172a;
+    }
+    .md-body p { margin: 6px 0; }
+    .md-body ul { margin: 6px 0 6px 18px; padding: 0; }
+    .md-body li { margin: 3px 0; }
+    .md-body hr { border: none; border-top: 1px solid var(--border); margin: 10px 0; }
+    .md-body code {
+      font-family: var(--mono);
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 1px 4px;
+      border-radius: 4px;
+      font-size: 12.5px;
+    }
+
+    .raw-pre {
+      margin: 0;
+      white-space: pre-wrap;
+      word-break: break-word;
+      font-family: var(--mono);
+      font-size: 12.5px;
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .diag-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 10px;
+    }
+
+    .diag-box {
+      background: var(--surface-alt);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+    }
+    .diag-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--muted);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .diag-list {
+      margin: 0;
+      padding-left: 16px;
+      font-size: 12.5px;
+    }
+    .diag-list li { margin: 2px 0; }
+
+    /* Right Scoring Panel */
+    .judge-pane {
+      background: var(--surface);
+      border-left: 1px solid var(--border);
+      padding: 14px 16px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .save-status {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 4px 9px;
+      border-radius: 6px;
+      background: var(--surface-alt);
+      color: var(--muted);
+      border: 1px solid var(--border);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .save-status.saved { background: var(--green-soft); color: var(--green); border-color: #bbf7d0; }
+    .save-status.saving { background: var(--amber-soft); color: var(--amber); border-color: #fde68a; }
+    .save-status.error { background: var(--red-soft); color: var(--red); border-color: #fecaca; }
+
+    .rubric-item {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 9px 11px;
+      background: var(--surface-alt);
+    }
+
+    .rubric-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 600;
+      font-size: 12.5px;
+      margin-bottom: 6px;
+    }
+
+    .rubric-hint { font-size: 11px; color: var(--muted); font-weight: 400; }
+
+    .pill-group {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .score-pill {
+      flex: 1;
+      min-width: 34px;
+      padding: 6px 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      font-weight: 700;
+      font-size: 12.5px;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+    .score-pill:hover { border-color: var(--primary); color: var(--primary); }
+    .score-pill.selected {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #fff;
+    }
+    .score-pill.selected-warn {
+      background: var(--red);
+      border-color: var(--red);
+      color: #fff;
+    }
+    .score-pill.selected-good {
+      background: var(--green);
+      border-color: var(--green);
+      color: #fff;
+    }
+
+    textarea.notes-input {
+      width: 100%;
+      min-height: 92px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 8px 10px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+    }
+
+    .action-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+    }
+
+    .kbd-hint {
+      font-size: 11px;
+      color: var(--muted);
+      border-top: 1px solid var(--border);
+      padding-top: 8px;
+    }
+
+    /* Compare 3 Modes View */
+    .compare-layout {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .compare-toolbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .compare-toolbar select {
+      padding: 6px 10px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface-alt);
+      font-weight: 600;
+      min-width: 280px;
+    }
+
+    .compare-question-bar {
+      background: #eff6ff;
+      border-bottom: 1px solid #bfdbfe;
+      padding: 10px 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .compare-columns {
+      flex: 1;
+      min-height: 0;
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      padding: 12px 16px;
+      overflow-y: auto;
+    }
+
+    .compare-col {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .compare-col-head {
+      padding: 10px 12px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .compare-col-body {
+      padding: 12px;
+      overflow-y: auto;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .compare-col-score {
+      border-top: 1px solid var(--border);
+      background: var(--surface-alt);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .mini-score-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      font-weight: 600;
+    }
+
+    .mini-pills { display: flex; gap: 4px; }
+    .mini-pills .score-pill { padding: 3px 8px; min-width: 26px; font-size: 11.5px; }
+
+    /* Modal */
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      z-index: 100;
+    }
+    .modal-backdrop.open { display: flex; }
+
+    .modal-card {
+      background: var(--surface);
+      border-radius: 12px;
+      border: 1px solid var(--border);
+      width: min(920px, 100%);
+      max-height: 88vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22);
+    }
+
+    .modal-head {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .modal-body {
+      padding: 16px 18px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    table.summary-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    table.summary-table th, table.summary-table td {
+      border: 1px solid var(--border);
+      padding: 8px 10px;
+      text-align: right;
+    }
+    table.summary-table th:first-child,
+    table.summary-table td:first-child { text-align: left; }
+    table.summary-table th { background: var(--surface-alt); font-weight: 700; }
+
+    .hidden { display: none !important; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .form-field {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .form-field.full { grid-column: 1 / -1; }
+    .form-field label {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--muted);
+    }
+    .form-field input, .form-field select {
+      padding: 8px 10px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: var(--surface);
+      color: var(--text);
+      font-size: 13px;
+    }
+    .alert-box {
+      padding: 9px 12px;
+      border-radius: 8px;
+      font-size: 12.5px;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+    }
+    .alert-box.error {
+      background: var(--red-soft);
+      border-color: #fecaca;
+      color: var(--red);
+    }
+    .alert-box.warn {
+      background: var(--amber-soft);
+      border-color: #fde68a;
+      color: var(--amber);
+    }
+    .badge.purple {
+      background: #f5f3ff;
+      border-color: #ddd6fe;
+      color: #6d28d9;
+    }
+    .badge.dirty {
+      background: var(--amber-soft);
+      border-color: #f59e0b;
+      color: var(--amber);
+    }
+    .btn.save-dirty {
+      background: #ea580c;
+      border-color: #c2410c;
+      color: #fff;
+      box-shadow: 0 2px 6px rgba(234, 88, 12, 0.28);
+    }
+    .btn.save-dirty:hover:not(:disabled) {
+      background: #c2410c;
+      border-color: #9a3412;
+    }
+    .btn.save-clean {
+      background: var(--surface-alt);
+      border-color: var(--border);
+      color: var(--muted);
+    }
+    .btn:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .save-cta-lg {
+      width: 100%;
+      justify-content: center;
+      padding: 10px 14px;
+      font-size: 13.5px;
+    }
+
+    @media (max-width: 1120px) {
+      .single-layout { grid-template-columns: 240px minmax(0, 1fr) 300px; }
+      .compare-columns { grid-template-columns: 1fr; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <h1>Human Judge — Tier 2 E2E</h1>
+      <span id="csvPathBadge" class="path-badge" title="">Đang tải...</span>
+      <div class="progress-box">
+        <div class="progress-track"><div id="progressFill" class="progress-fill"></div></div>
+        <span id="progressLabel" class="progress-label">0 / 0</span>
+      </div>
+    </div>
+
+    <div class="topbar-controls">
+      <div class="seg" role="tablist" aria-label="Chế độ xem">
+        <button id="btnViewSingle" class="active" type="button">Chấm từng ca</button>
+        <button id="btnViewCompare" type="button">So sánh 3 chế độ</button>
+      </div>
+      <button id="btnBlindToggle" class="btn" type="button" title="Ẩn tên mode và xáo trộn thứ tự khi chấm">
+        Blind Review: TẮT
+      </button>
+      <button id="btnOpenConnection" class="btn" type="button" title="Cấu hình kết nối Google Sheets Bridge & Tên giám khảo">
+        🔗 Local CSV • Chưa đặt tên
+      </button>
+      <button id="btnSyncNow" class="btn" type="button" title="Đồng bộ dữ liệu mới nhất">
+        🔄 Đồng bộ
+      </button>
+      <button id="btnOpenSummary" class="btn" type="button">Tổng hợp điểm</button>
+      <button id="btnExportCsv" class="btn" type="button">Tải CSV</button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Single-row View -->
+    <section id="singleView" class="single-layout">
+      <aside class="sidebar">
+        <div class="filter-panel">
+          <input id="filterSearch" type="search" placeholder="Tìm scenario, câu hỏi, task_type..." />
+          <div class="filter-row">
+            <select id="filterSuite">
+              <option value="all">Tất cả Suite</option>
+              <option value="contrastive">contrastive</option>
+              <option value="stratified">stratified</option>
+            </select>
+            <select id="filterMode">
+              <option value="all">Tất cả Mode</option>
+              <option value="IMMEDIATE_ANSWER">IMMEDIATE_ANSWER</option>
+              <option value="ALWAYS_CLARIFY">ALWAYS_CLARIFY</option>
+              <option value="CONDITIONAL_CLARIFICATION">CONDITIONAL_CLARIFICATION</option>
+            </select>
+          </div>
+          <select id="filterStatus">
+            <option value="all">Tất cả trạng thái</option>
+            <option value="unscored">Chưa chấm</option>
+            <option value="partial">Chấm dở</option>
+            <option value="scored">Đã chấm đủ</option>
+            <option value="unclaimed">Chưa có người chấm</option>
+            <option value="mine">Ca tôi đã chấm</option>
+            <option value="grounding_fail">Grounding FAIL</option>
+          </select>
+          <div class="filter-count">
+            <span id="filteredCountText">0 ca hiển thị</span>
+            <button id="btnNextUnscoredTop" class="btn" style="padding:2px 8px;font-size:11px;" type="button">
+              Ca chưa chấm tiếp
+            </button>
+          </div>
+        </div>
+        <div id="rowList" class="row-list"></div>
+      </aside>
+
+      <section id="readerPane" class="reader-pane"></section>
+
+      <aside class="judge-pane">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:8px;">
+          <strong style="font-size:14px;">Bảng chấm điểm</strong>
+          <span id="saveStatus" class="save-status">Sẵn sàng</span>
+        </div>
+
+        <div class="rubric-item">
+          <div class="rubric-label">
+            <span>Relevance (1–5)</span>
+            <span class="rubric-hint">Độ phù hợp gợi ý</span>
+          </div>
+          <div class="pill-group" data-field="recommendation_relevance_1_5"></div>
+        </div>
+
+        <div class="rubric-item">
+          <div class="rubric-label">
+            <span>Faithfulness (1–5)</span>
+            <span class="rubric-hint">Trung thực giải thích / KG</span>
+          </div>
+          <div class="pill-group" data-field="explanation_faithfulness_1_5"></div>
+        </div>
+
+        <div class="rubric-item">
+          <div class="rubric-label">
+            <span>Task Completion (0/1)</span>
+            <span class="rubric-hint">1 = Hoàn thành yêu cầu</span>
+          </div>
+          <div class="pill-group" data-field="task_completion_0_1"></div>
+        </div>
+
+        <div class="rubric-item">
+          <div class="rubric-label">
+            <span>Unnecessary Question (0/1)</span>
+            <span class="rubric-hint">1 = Hỏi thừa</span>
+          </div>
+          <div class="pill-group" data-field="unnecessary_question_0_1"></div>
+        </div>
+
+        <div class="rubric-item">
+          <div class="rubric-label">
+            <span>Missed Clarification (0/1)</span>
+            <span class="rubric-hint">1 = Cần hỏi mà không hỏi</span>
+          </div>
+          <div class="pill-group" data-field="missed_clarification_0_1"></div>
+        </div>
+
+        <div>
+          <label for="judgeNotesInput" style="display:block;font-weight:600;font-size:12.5px;margin-bottom:4px;">
+            Ghi chú giám khảo (judge_notes)
+          </label>
+          <textarea id="judgeNotesInput" class="notes-input" placeholder="Ghi nhận xét về chất lượng gợi ý, lý do trừ điểm, lỗi hallucination..."></textarea>
+        </div>
+
+        <button id="btnSaveNow" class="btn save-clean save-cta-lg" type="button">
+          ✓ Đã lưu (Ctrl+S)
+        </button>
+
+        <div class="action-grid">
+          <button id="btnPrevRow" class="btn" type="button">← Trước (Alt+←)</button>
+          <button id="btnNextRow" class="btn" type="button">Tiếp → (Alt+→)</button>
+          <button id="btnNextUnscored" class="btn" type="button">Chưa chấm (Alt+N)</button>
+          <button id="btnClearRow" class="btn danger-outline" type="button">Xóa điểm ca này</button>
+        </div>
+
+        <div class="kbd-hint">
+          Phím tắt: <code>Ctrl+S</code> Lưu thay đổi • <code>Alt+N</code> Ca chưa chấm tiếp •
+          <code>Alt+←/→</code> Lùi / Tiến.
+        </div>
+      </aside>
+    </section>
+
+    <!-- Compare 3 Modes View -->
+    <section id="compareView" class="compare-layout hidden">
+      <div class="compare-toolbar">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+          <button id="btnPrevScenario" class="btn" type="button">← Scenario trước</button>
+          <select id="scenarioSelect"></select>
+          <button id="btnNextScenario" class="btn" type="button">Scenario tiếp →</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+          <span id="compareSaveStatus" class="save-status">Đã đồng bộ</span>
+          <button id="btnCompareSaveAll" class="btn save-clean" type="button">
+            ✓ Đã lưu (Ctrl+S)
+          </button>
+        </div>
+      </div>
+      <div id="compareQuestionBar" class="compare-question-bar"></div>
+      <div id="compareColumns" class="compare-columns"></div>
+    </section>
+  </main>
+</div>
+
+<!-- Summary Modal -->
+<div id="summaryModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="summaryModalTitle">
+  <div class="modal-card">
+    <div class="modal-head">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <h2 id="summaryModalTitle" style="margin:0;font-size:16px;">Tổng hợp điểm Human Judge theo Chế độ</h2>
+        <select id="summarySuiteSelect" style="padding:5px 9px;border:1px solid var(--border);border-radius:6px;">
+          <option value="all">Tất cả Suite</option>
+          <option value="contrastive">contrastive</option>
+          <option value="stratified">stratified</option>
+        </select>
+      </div>
+      <button id="btnCloseSummary" class="btn" type="button">Đóng</button>
+    </div>
+    <div class="modal-body">
+      <div id="summaryStatsText" style="font-size:13px;color:var(--muted);"></div>
+      <div id="summaryTableWrap"></div>
+      <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+          <strong style="font-size:13px;">Bảng Markdown (dán vào experiment_report.md)</strong>
+          <button id="btnCopyMarkdown" class="btn primary" type="button">Copy Markdown</button>
+        </div>
+        <pre id="summaryMarkdownPre" class="raw-pre"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Connection & Judge Identity Modal -->
+<div id="connectionModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="connectionModalTitle">
+  <div class="modal-card" style="width:min(640px,100%);">
+    <div class="modal-head">
+      <h2 id="connectionModalTitle" style="margin:0;font-size:16px;">Kết nối nguồn dữ liệu &amp; Danh tính giám khảo</h2>
+      <button id="btnCloseConnection" class="btn" type="button">Đóng</button>
+    </div>
+    <div class="modal-body">
+      <div id="connFileHint" class="alert-box warn hidden">
+        Bạn đang mở file HTML trực tiếp (<code>file://</code>). Hãy chọn <strong>Google Sheets Bridge</strong>, nhập Tên giám khảo, Apps Script URL và Passcode để cả team cùng chấm trên một bảng chung.
+      </div>
+      <div id="connErrorBox" class="alert-box error hidden"></div>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="connSource">Nguồn dữ liệu</label>
+          <select id="connSource">
+            <option value="local">Local CSV (FastAPI server)</option>
+            <option value="bridge">Google Sheets Bridge (Apps Script)</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="connJudgeName">Tên giám khảo (judge_name)</label>
+          <input id="connJudgeName" type="text" placeholder="Ví dụ: Minh, An, Trường..." />
+        </div>
+        <div class="form-field full" id="connBridgeUrlWrap">
+          <label for="connBridgeUrl">Google Apps Script Web App URL</label>
+          <input id="connBridgeUrl" type="url" placeholder="https://script.google.com/macros/s/.../exec" />
+        </div>
+        <div class="form-field full" id="connBridgeTokenWrap">
+          <label for="connBridgeToken">Passcode (token)</label>
+          <input id="connBridgeToken" type="password" placeholder="Nhập passcode chung của team" />
+        </div>
+      </div>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;">
+        <button id="btnCopyShareLink" class="btn" type="button">Copy link cấu hình</button>
+        <div style="display:flex;gap:8px;">
+          <button id="btnTestAndConnect" class="btn primary" type="button">Lưu &amp; Kết nối</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Conflict Resolution Modal -->
+<div id="conflictModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="conflictModalTitle">
+  <div class="modal-card" style="width:min(760px,100%);">
+    <div class="modal-head">
+      <h2 id="conflictModalTitle" style="margin:0;font-size:16px;color:var(--red);">Phát hiện xung đột dữ liệu</h2>
+      <button id="btnCloseConflict" class="btn" type="button">Đóng</button>
+    </div>
+    <div class="modal-body">
+      <div id="conflictInfoBox" class="alert-box warn"></div>
+      <div id="conflictDiffWrap"></div>
+      <div style="display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;">
+        <button id="btnConflictUseServer" class="btn" type="button">Tải bản mới nhất trên Sheet</button>
+        <button id="btnConflictForceMine" class="btn primary" type="button">Ghi đè bằng bản của tôi</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Unsaved Changes Guard Modal -->
+<div id="unsavedModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="unsavedModalTitle">
+  <div class="modal-card" style="width:min(520px,100%);">
+    <div class="modal-head">
+      <h2 id="unsavedModalTitle" style="margin:0;font-size:16px;color:var(--amber);">Có thay đổi chưa lưu</h2>
+      <button id="btnUnsavedClose" class="btn" type="button">Đóng</button>
+    </div>
+    <div class="modal-body">
+      <div id="unsavedMessage" class="alert-box warn"></div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;border-top:1px solid var(--border);padding-top:12px;">
+        <button id="btnUnsavedStay" class="btn" type="button">Ở lại</button>
+        <button id="btnUnsavedDiscard" class="btn danger-outline" type="button">Bỏ thay đổi</button>
+        <button id="btnUnsavedSaveProceed" class="btn primary" type="button">💾 Lưu &amp; tiếp tục</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const CONN_STORAGE_KEY = "judge_ui_conn_v1";
+  const IS_FILE_PROTOCOL = window.location.protocol === "file:";
+  const CANONICAL_MODES = [
+    "IMMEDIATE_ANSWER",
+    "ALWAYS_CLARIFY",
+    "CONDITIONAL_CLARIFICATION",
+  ];
+  const CSV_EXPORT_COLUMNS = [
+    "source",
+    "suite",
+    "scenario_id",
+    "task_type",
+    "mode",
+    "turns_to_completion",
+    "question",
+    "final_reply",
+    "clarification_asked",
+    "asked_slots",
+    "decision_source",
+    "reason_codes",
+    "tools_used",
+    "applied_rule_ids",
+    "products_summary",
+    "outfits_summary",
+    "grounding_ok",
+    "recommendation_relevance_1_5",
+    "unnecessary_question_0_1",
+    "missed_clarification_0_1",
+    "task_completion_0_1",
+    "explanation_faithfulness_1_5",
+    "judge_notes",
+    "judge_name",
+    "updated_at",
+  ];
+
+  const state = {
+    rows: [],
+    filteredIndices: [],
+    selectedRowIndex: 0,
+    viewMode: "single",
+    blindMode: false,
+    showRawReply: false,
+    scenarios: [],
+    selectedScenarioKey: "",
+    filters: { search: "", suite: "all", mode: "all", status: "all" },
+    summarySuite: "all",
+    cleanSnapshots: {},
+    pendingNavigation: null,
+    savingRows: new Set(),
+    inFlightPayloads: {},
+    saveQueue: Promise.resolve(),
+    lastSyncText: "",
+    pendingConflict: null,
+    conn: {
+      source: IS_FILE_PROTOCOL ? "bridge" : "local",
+      judgeName: "",
+      bridgeUrl: "",
+      bridgeToken: "",
+    },
+  };
+
+  const els = {
+    csvPathBadge: document.getElementById("csvPathBadge"),
+    progressFill: document.getElementById("progressFill"),
+    progressLabel: document.getElementById("progressLabel"),
+    btnViewSingle: document.getElementById("btnViewSingle"),
+    btnViewCompare: document.getElementById("btnViewCompare"),
+    btnBlindToggle: document.getElementById("btnBlindToggle"),
+    btnOpenConnection: document.getElementById("btnOpenConnection"),
+    btnSyncNow: document.getElementById("btnSyncNow"),
+    btnOpenSummary: document.getElementById("btnOpenSummary"),
+    btnExportCsv: document.getElementById("btnExportCsv"),
+    singleView: document.getElementById("singleView"),
+    compareView: document.getElementById("compareView"),
+    filterSearch: document.getElementById("filterSearch"),
+    filterSuite: document.getElementById("filterSuite"),
+    filterMode: document.getElementById("filterMode"),
+    filterStatus: document.getElementById("filterStatus"),
+    filteredCountText: document.getElementById("filteredCountText"),
+    rowList: document.getElementById("rowList"),
+    readerPane: document.getElementById("readerPane"),
+    saveStatus: document.getElementById("saveStatus"),
+    judgeNotesInput: document.getElementById("judgeNotesInput"),
+    btnPrevRow: document.getElementById("btnPrevRow"),
+    btnNextRow: document.getElementById("btnNextRow"),
+    btnSaveNow: document.getElementById("btnSaveNow"),
+    btnNextUnscored: document.getElementById("btnNextUnscored"),
+    btnNextUnscoredTop: document.getElementById("btnNextUnscoredTop"),
+    btnClearRow: document.getElementById("btnClearRow"),
+    scenarioSelect: document.getElementById("scenarioSelect"),
+    btnPrevScenario: document.getElementById("btnPrevScenario"),
+    btnNextScenario: document.getElementById("btnNextScenario"),
+    compareQuestionBar: document.getElementById("compareQuestionBar"),
+    compareColumns: document.getElementById("compareColumns"),
+    compareSaveStatus: document.getElementById("compareSaveStatus"),
+    btnCompareSaveAll: document.getElementById("btnCompareSaveAll"),
+    summaryModal: document.getElementById("summaryModal"),
+    summarySuiteSelect: document.getElementById("summarySuiteSelect"),
+    summaryStatsText: document.getElementById("summaryStatsText"),
+    summaryTableWrap: document.getElementById("summaryTableWrap"),
+    summaryMarkdownPre: document.getElementById("summaryMarkdownPre"),
+    btnCloseSummary: document.getElementById("btnCloseSummary"),
+    btnCopyMarkdown: document.getElementById("btnCopyMarkdown"),
+    connectionModal: document.getElementById("connectionModal"),
+    connFileHint: document.getElementById("connFileHint"),
+    connErrorBox: document.getElementById("connErrorBox"),
+    connSource: document.getElementById("connSource"),
+    connJudgeName: document.getElementById("connJudgeName"),
+    connBridgeUrl: document.getElementById("connBridgeUrl"),
+    connBridgeToken: document.getElementById("connBridgeToken"),
+    connBridgeUrlWrap: document.getElementById("connBridgeUrlWrap"),
+    connBridgeTokenWrap: document.getElementById("connBridgeTokenWrap"),
+    btnCloseConnection: document.getElementById("btnCloseConnection"),
+    btnTestAndConnect: document.getElementById("btnTestAndConnect"),
+    btnCopyShareLink: document.getElementById("btnCopyShareLink"),
+    conflictModal: document.getElementById("conflictModal"),
+    conflictInfoBox: document.getElementById("conflictInfoBox"),
+    conflictDiffWrap: document.getElementById("conflictDiffWrap"),
+    btnCloseConflict: document.getElementById("btnCloseConflict"),
+    btnConflictUseServer: document.getElementById("btnConflictUseServer"),
+    btnConflictForceMine: document.getElementById("btnConflictForceMine"),
+    unsavedModal: document.getElementById("unsavedModal"),
+    unsavedMessage: document.getElementById("unsavedMessage"),
+    btnUnsavedClose: document.getElementById("btnUnsavedClose"),
+    btnUnsavedStay: document.getElementById("btnUnsavedStay"),
+    btnUnsavedDiscard: document.getElementById("btnUnsavedDiscard"),
+    btnUnsavedSaveProceed: document.getElementById("btnUnsavedSaveProceed"),
+  };
+
+  function escHtml(value) {
+    return String(value ?? "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function renderSafeMarkdown(rawText) {
+    const escaped = escHtml(rawText || "");
+    const lines = escaped.split(/\r?\n/);
+    const out = [];
+    let inList = false;
+
+    const formatInline = (text) =>
+      text
+        .replace(/`([^`]+)`/g, "<code>$1</code>")
+        .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+        .replace(/\*([^*]+)\*/g, "<em>$1</em>");
+
+    for (const line of lines) {
+      const trimmed = line.trim();
+      if (/^---+$/.test(trimmed)) {
+        if (inList) { out.push("</ul>"); inList = false; }
+        out.push("<hr />");
+        continue;
+      }
+      const hMatch = /^(#{1,4})\s+(.*)$/.exec(trimmed);
+      if (hMatch) {
+        if (inList) { out.push("</ul>"); inList = false; }
+        const lvl = hMatch[1].length;
+        out.push(`<h${lvl}>${formatInline(hMatch[2])}</h${lvl}>`);
+        continue;
+      }
+      const liMatch = /^[-*]\s+(.*)$/.exec(trimmed);
+      if (liMatch) {
+        if (!inList) { out.push("<ul>"); inList = true; }
+        out.push(`<li>${formatInline(liMatch[1])}</li>`);
+        continue;
+      }
+      if (inList) { out.push("</ul>"); inList = false; }
+      if (trimmed === "") {
+        out.push("<div style='height:6px'></div>");
+      } else {
+        out.push(`<p>${formatInline(line)}</p>`);
+      }
+    }
+    if (inList) out.push("</ul>");
+    return out.join("");
+  }
+
+  function hashString(str) {
+    let h = 2166136261;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 16777619);
+    }
+    return h >>> 0;
+  }
+
+  function setSaveBadge(statusType, text) {
+    for (const el of [els.saveStatus, els.compareSaveStatus]) {
+      el.className = "save-status" + (statusType ? " " + statusType : "");
+      el.textContent = text;
+    }
+  }
+
+  function updateProgressBar(total, scored, partial) {
+    const pct = total > 0 ? Math.round((scored / total) * 100) : 0;
+    els.progressFill.style.width = `${pct}%`;
+    els.progressLabel.textContent =
+      `Đã chấm ${scored} / ${total}` + (partial ? ` (dở ${partial})` : "");
+  }
+
+  function recomputeProgressFromRows() {
+    const total = state.rows.length;
+    const scored = state.rows.filter((r) => r.status === "scored").length;
+    const partial = state.rows.filter((r) => r.status === "partial").length;
+    updateProgressBar(total, scored, partial);
+  }
+
+  function buildScenarioGroups() {
+    const map = new Map();
+    for (const row of state.rows) {
+      const key = `${row.suite}::${row.scenario_id}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          key,
+          suite: row.suite,
+          scenario_id: row.scenario_id,
+          question: row.question,
+          task_type: row.task_type,
+          rows: [],
+        });
+      }
+      map.get(key).rows.push(row);
+    }
+    state.scenarios = Array.from(map.values());
+    if (!state.selectedScenarioKey && state.scenarios.length > 0) {
+      state.selectedScenarioKey = state.scenarios[0].key;
+    }
+  }
+
+  function getRowDisplayMode(row, blindLabelMap) {
+    if (!state.blindMode) return row.mode;
+    return blindLabelMap?.get(row.row_index) || "Phương án ẩn danh";
+  }
+
+  function getBlindOrderForScenario(rows) {
+    const cloned = [...rows];
+    if (!state.blindMode) {
+      const order = { IMMEDIATE_ANSWER: 0, ALWAYS_CLARIFY: 1, CONDITIONAL_CLARIFICATION: 2 };
+      cloned.sort((a, b) => (order[a.mode] ?? 9) - (order[b.mode] ?? 9));
+      return { ordered: cloned, labels: new Map() };
+    }
+    cloned.sort(
+      (a, b) =>
+        hashString(`${a.scenario_id}:${a.mode}`) - hashString(`${b.scenario_id}:${b.mode}`)
+    );
+    const labels = new Map();
+    cloned.forEach((r, idx) => labels.set(r.row_index, `Phương án #${idx + 1}`));
+    return { ordered: cloned, labels };
+  }
+
+  function applyFilters() {
+    const q = state.filters.search.trim().toLowerCase();
+    state.filteredIndices = state.rows
+      .filter((row) => {
+        if (state.filters.suite !== "all" && row.suite !== state.filters.suite) return false;
+        if (!state.blindMode && state.filters.mode !== "all" && row.mode !== state.filters.mode) {
+          return false;
+        }
+        if (state.filters.status === "grounding_fail") {
+          if (row.grounding_ok) return false;
+        } else if (state.filters.status === "unclaimed") {
+          if ((row.judge_name || "").trim() !== "") return false;
+        } else if (state.filters.status === "mine") {
+          const me = (state.conn.judgeName || "").trim().toLowerCase();
+          if (!me || (row.judge_name || "").trim().toLowerCase() !== me) return false;
+        } else if (state.filters.status !== "all" && row.status !== state.filters.status) {
+          return false;
+        }
+        if (q) {
+          const hay = `${row.scenario_id} ${row.task_type} ${row.question} ${row.suite}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      })
+      .map((r) => r.row_index);
+
+    els.filteredCountText.textContent = `${state.filteredIndices.length} / ${state.rows.length} ca`;
+    if (
+      state.filteredIndices.length > 0 &&
+      !state.filteredIndices.includes(state.selectedRowIndex)
+    ) {
+      state.selectedRowIndex = state.filteredIndices[0];
+    }
+    renderSidebarList();
+    renderSingleRow();
+  }
+
+  function renderSidebarList() {
+    if (state.filteredIndices.length === 0) {
+      els.rowList.innerHTML =
+        `<div style="padding:16px;color:var(--muted);text-align:center;">Không có ca nào khớp bộ lọc.</div>`;
+      return;
+    }
+
+    const html = state.filteredIndices
+      .map((idx) => {
+        const r = state.rows[idx];
+        const active = idx === state.selectedRowIndex ? " active" : "";
+        const modeLabel = state.blindMode ? `Ẩn danh (#${r.row_index + 1})` : escHtml(r.mode);
+        const stateBadge = isRowSaving(idx)
+          ? `<span class="badge blue">Đang lưu...</span>`
+          : isRowUnsaved(idx)
+            ? `<span class="badge dirty">Chưa lưu</span>`
+            : "";
+        const failBadge = r.grounding_ok ? "" : `<span class="badge red">Grounding FAIL</span>`;
+        const judgeBadge = r.judge_name
+          ? `<span class="badge purple">👤 ${escHtml(r.judge_name)}</span>`
+          : "";
+        return `
+          <button type="button" class="row-item${active}" data-row-idx="${idx}">
+            <div class="row-item-top">
+              <span style="display:flex;align-items:center;gap:6px;">
+                <span class="dot ${escHtml(r.status)}"></span>
+                <span>${escHtml(r.scenario_id)}</span>
+                <span style="font-weight:500;color:var(--muted);">(${escHtml(r.suite)})</span>
+              </span>
+              <span style="display:flex;align-items:center;gap:4px;">${stateBadge}${judgeBadge}${failBadge}</span>
+            </div>
+            <div style="font-size:11.5px;color:#334155;">${modeLabel} • ${escHtml(r.task_type)}</div>
+            <div class="row-item-q">${escHtml(r.question)}</div>
+          </button>`;
+      })
+      .join("");
+    els.rowList.innerHTML = html;
+  }
+
+  function splitPipeItems(text) {
+    if (!text || !text.trim()) return [];
+    return text.split(/\s*\|\s*/).map((s) => s.trim()).filter(Boolean);
+  }
+
+  function renderSingleRow() {
+    const row = state.rows[state.selectedRowIndex];
+    if (!row) {
+      els.readerPane.innerHTML = `<div class="card">Chưa có dữ liệu CSV.</div>`;
+      return;
+    }
+
+    const modeBadge = state.blindMode
+      ? `<span class="badge">Chế độ: Ẩn danh (Blind Review)</span>`
+      : `<span class="badge blue">${escHtml(row.mode)}</span>
+         <span class="badge">decision: ${escHtml(row.decision_source || "-")}</span>`;
+
+    const groundBadge = row.grounding_ok
+      ? `<span class="badge green">grounding_ok: True</span>`
+      : `<span class="badge red">grounding_ok: False</span>`;
+
+    const clarifyBadge = row.clarification_asked
+      ? `<span class="badge amber">clarify: True (${escHtml(row.asked_slots || "-")})</span>`
+      : `<span class="badge">clarify: False</span>`;
+
+    const judgeOwnerBadge = row.judge_name
+      ? `<span class="badge purple">👤 ${escHtml(row.judge_name)}</span>`
+      : `<span class="badge">Chưa có người chấm</span>`;
+
+    const replyHtml = state.showRawReply
+      ? `<pre class="raw-pre">${escHtml(row.final_reply)}</pre>`
+      : `<div class="md-body">${renderSafeMarkdown(row.final_reply)}</div>`;
+
+    const products = splitPipeItems(row.products_summary);
+    const outfits = splitPipeItems(row.outfits_summary);
+
+    const renderListOrDash = (items) =>
+      items.length
+        ? `<ul class="diag-list">${items.map((x) => `<li>${escHtml(x)}</li>`).join("")}</ul>`
+        : `<span style="color:var(--muted);font-size:12.5px;">Không có</span>`;
+
+    els.readerPane.innerHTML = `
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Ca #${row.row_index + 1} • ${escHtml(row.scenario_id)}</h2>
+          <div class="chips">
+            <span class="badge">${escHtml(row.suite)}</span>
+            <span class="badge">${escHtml(row.task_type)}</span>
+            ${modeBadge}
+            <span class="badge">turns: ${row.turns_to_completion}</span>
+            ${clarifyBadge}
+            ${groundBadge}
+            ${judgeOwnerBadge}
+          </div>
+        </div>
+        <p class="question-text">${escHtml(row.question)}</p>
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Câu trả lời cuối (final_reply)</h2>
+          <button id="btnToggleRawReply" class="btn" style="padding:3px 9px;font-size:11.5px;" type="button">
+            ${state.showRawReply ? "Xem Markdown" : "Xem Raw"}
+          </button>
+        </div>
+        ${replyHtml}
+      </div>
+
+      <div class="card">
+        <div class="card-header">
+          <h2 class="card-title">Chẩn đoán Tool, KG & Sản phẩm</h2>
+        </div>
+        <div class="diag-grid">
+          <div class="diag-box">
+            <div class="diag-label">Tools & KG Rules</div>
+            <div style="font-size:12.5px;">
+              <div><strong>tools:</strong> ${escHtml(row.tools_used || "-")}</div>
+              <div><strong>rules:</strong> ${escHtml(row.applied_rule_ids || "-")}</div>
+              <div><strong>reasons:</strong> ${escHtml(row.reason_codes || "-")}</div>
+            </div>
+          </div>
+          <div class="diag-box">
+            <div class="diag-label">Sản phẩm truy xuất (${products.length})</div>
+            ${renderListOrDash(products)}
+          </div>
+          <div class="diag-box">
+            <div class="diag-label">Outfit gợi ý (${outfits.length})</div>
+            ${renderListOrDash(outfits)}
+          </div>
+        </div>
+      </div>
+    `;
+
+    const rawBtn = document.getElementById("btnToggleRawReply");
+    if (rawBtn) {
+      rawBtn.addEventListener("click", () => {
+        state.showRawReply = !state.showRawReply;
+        renderSingleRow();
+      });
+    }
+
+    syncScoreForm(row);
+    refreshSaveButtons();
+  }
+
+  const RUBRIC_SPECS = [
+    { field: "recommendation_relevance_1_5", values: [1, 2, 3, 4, 5], goodVal: null, warnVal: null },
+    { field: "explanation_faithfulness_1_5", values: [1, 2, 3, 4, 5], goodVal: null, warnVal: null },
+    { field: "task_completion_0_1", values: [0, 1], goodVal: 1, warnVal: 0 },
+    { field: "unnecessary_question_0_1", values: [0, 1], goodVal: 0, warnVal: 1 },
+    { field: "missed_clarification_0_1", values: [0, 1], goodVal: 0, warnVal: 1 },
+  ];
+
+  const EDITABLE_FIELDS = [
+    "recommendation_relevance_1_5",
+    "unnecessary_question_0_1",
+    "missed_clarification_0_1",
+    "task_completion_0_1",
+    "explanation_faithfulness_1_5",
+    "judge_notes",
+  ];
+
+  function computeRowStatusClient(row) {
+    const scores = [
+      row.recommendation_relevance_1_5,
+      row.unnecessary_question_0_1,
+      row.missed_clarification_0_1,
+      row.task_completion_0_1,
+      row.explanation_faithfulness_1_5,
+    ];
+    const filled = scores.filter((v) => v !== null && v !== undefined).length;
+    if (filled === 0) return "unscored";
+    if (filled === scores.length) return "scored";
+    return "partial";
+  }
+
+  function captureEditableFields(row) {
+    const snap = {};
+    for (const f of EDITABLE_FIELDS) {
+      snap[f] = f === "judge_notes" ? String(row[f] || "") : (row[f] ?? null);
+    }
+    return snap;
+  }
+
+  function fieldsEqual(a, b) {
+    if (!a || !b) return false;
+    for (const f of EDITABLE_FIELDS) {
+      if (a[f] !== b[f]) return false;
+    }
+    return true;
+  }
+
+  function snapshotRow(row) {
+    if (!row) return;
+    state.cleanSnapshots[row.row_index] = captureEditableFields(row);
+  }
+
+  function isRowDirty(rowIndex) {
+    const row = state.rows[rowIndex];
+    const snap = state.cleanSnapshots[rowIndex];
+    if (!row || !snap) return false;
+    return !fieldsEqual(captureEditableFields(row), snap);
+  }
+
+  function isRowSaving(rowIndex) {
+    return state.savingRows.has(rowIndex);
+  }
+
+  function isRowUnsaved(rowIndex) {
+    if (!isRowDirty(rowIndex)) return false;
+    if (
+      state.savingRows.has(rowIndex) &&
+      fieldsEqual(
+        state.inFlightPayloads[rowIndex],
+        captureEditableFields(state.rows[rowIndex])
+      )
+    ) {
+      return false;
+    }
+    return true;
+  }
+
+  function revertRowToClean(rowIndex) {
+    const row = state.rows[rowIndex];
+    const snap = state.cleanSnapshots[rowIndex];
+    if (!row || !snap) return;
+    for (const f of EDITABLE_FIELDS) {
+      row[f] = snap[f];
+    }
+    row.status = computeRowStatusClient(row);
+  }
+
+  function getActiveDirtyIndices() {
+    if (state.viewMode === "single") {
+      return isRowUnsaved(state.selectedRowIndex) ? [state.selectedRowIndex] : [];
+    }
+    const sc = state.scenarios.find((s) => s.key === state.selectedScenarioKey);
+    if (!sc) return [];
+    return sc.rows.map((r) => r.row_index).filter((idx) => isRowUnsaved(idx));
+  }
+
+  function getAllDirtyIndices() {
+    return state.rows.map((r) => r.row_index).filter((idx) => isRowUnsaved(idx));
+  }
+
+  function refreshSaveButtons() {
+    const curIdx = state.selectedRowIndex;
+    const singleUnsaved = isRowUnsaved(curIdx);
+    const singleSaving = isRowSaving(curIdx) && !singleUnsaved;
+    els.btnSaveNow.disabled = singleSaving;
+    if (singleSaving) {
+      els.btnSaveNow.className = "btn save-dirty save-cta-lg";
+      els.btnSaveNow.textContent = "Đang lưu ngầm...";
+    } else if (singleUnsaved) {
+      els.btnSaveNow.className = "btn save-dirty save-cta-lg";
+      els.btnSaveNow.textContent = "💾 Lưu thay đổi ca này (Ctrl+S)";
+    } else {
+      els.btnSaveNow.className = "btn save-clean save-cta-lg";
+      els.btnSaveNow.textContent = "✓ Đã lưu (Ctrl+S)";
+    }
+
+    const sc = state.scenarios.find((s) => s.key === state.selectedScenarioKey);
+    const cmpUnsavedCount = sc
+      ? sc.rows.filter((r) => isRowUnsaved(r.row_index)).length
+      : 0;
+    const cmpSavingCount = sc
+      ? sc.rows.filter((r) => isRowSaving(r.row_index) && !isRowUnsaved(r.row_index)).length
+      : 0;
+    els.btnCompareSaveAll.disabled = cmpSavingCount > 0 && cmpUnsavedCount === 0;
+    if (cmpUnsavedCount > 0) {
+      els.btnCompareSaveAll.className = "btn save-dirty";
+      els.btnCompareSaveAll.textContent = `💾 Lưu ${cmpUnsavedCount} cột đã sửa (Ctrl+S)`;
+    } else if (cmpSavingCount > 0) {
+      els.btnCompareSaveAll.className = "btn save-dirty";
+      els.btnCompareSaveAll.textContent = `Đang lưu ngầm (${cmpSavingCount})...`;
+    } else {
+      els.btnCompareSaveAll.className = "btn save-clean";
+      els.btnCompareSaveAll.textContent = "✓ Đã lưu (Ctrl+S)";
+    }
+
+    const bgCount = state.savingRows.size;
+    if (bgCount > 0) {
+      els.saveStatus.className = "save-status saving";
+      els.saveStatus.textContent = singleUnsaved
+        ? `● Có thay đổi chưa lưu (đang lưu ngầm ${bgCount} ca)`
+        : `Đang lưu ngầm (${bgCount} ca)...`;
+      els.compareSaveStatus.className = "save-status saving";
+      els.compareSaveStatus.textContent = cmpUnsavedCount > 0
+        ? `● ${cmpUnsavedCount} cột chưa lưu (đang lưu ngầm ${bgCount})`
+        : `Đang lưu ngầm (${bgCount} ca)...`;
+    } else {
+      if (singleUnsaved) {
+        els.saveStatus.className = "save-status saving";
+        els.saveStatus.textContent = "● Có thay đổi chưa lưu";
+      } else {
+        els.saveStatus.className = "save-status saved";
+        els.saveStatus.textContent = "✓ Đã đồng bộ";
+      }
+      if (cmpUnsavedCount > 0) {
+        els.compareSaveStatus.className = "save-status saving";
+        els.compareSaveStatus.textContent = `● ${cmpUnsavedCount} cột chưa lưu`;
+      } else {
+        els.compareSaveStatus.className = "save-status saved";
+        els.compareSaveStatus.textContent = "✓ Đã đồng bộ";
+      }
+    }
+
+    for (const btn of els.compareColumns.querySelectorAll("[data-cmp-save]")) {
+      const idx = Number(btn.dataset.cmpSave);
+      const unsaved = isRowUnsaved(idx);
+      const saving = isRowSaving(idx) && !unsaved;
+      btn.disabled = saving;
+      btn.className = "btn " + (unsaved || saving ? "save-dirty" : "save-clean");
+      btn.textContent = saving ? "Đang lưu..." : unsaved ? "💾 Lưu cột này" : "✓ Đã lưu";
+    }
+  }
+
+  function buildSingleScoreButtons() {
+    for (const spec of RUBRIC_SPECS) {
+      const container = document.querySelector(`.pill-group[data-field="${spec.field}"]`);
+      if (!container) continue;
+      container.innerHTML = spec.values
+        .map((v) => `<button type="button" class="score-pill" data-val="${v}">${v}</button>`)
+        .join("");
+
+      container.addEventListener("click", (ev) => {
+        const btn = ev.target.closest(".score-pill");
+        if (!btn) return;
+        const row = state.rows[state.selectedRowIndex];
+        if (!row) return;
+        const val = Number(btn.dataset.val);
+        const nextVal = row[spec.field] === val ? null : val;
+        row[spec.field] = nextVal;
+        row.status = computeRowStatusClient(row);
+        syncScoreForm(row);
+        recomputeProgressFromRows();
+        renderSidebarList();
+        refreshSaveButtons();
+      });
+    }
+  }
+
+  function getPillSelectedClass(spec, val) {
+    if (spec.warnVal === val) return " selected-warn";
+    if (spec.goodVal === val) return " selected-good";
+    return " selected";
+  }
+
+  function syncScoreForm(row) {
+    for (const spec of RUBRIC_SPECS) {
+      const container = document.querySelector(`.pill-group[data-field="${spec.field}"]`);
+      if (!container) continue;
+      for (const btn of container.querySelectorAll(".score-pill")) {
+        const v = Number(btn.dataset.val);
+        btn.className = "score-pill" + (row[spec.field] === v ? getPillSelectedClass(spec, v) : "");
+      }
+    }
+    if (document.activeElement !== els.judgeNotesInput) {
+      els.judgeNotesInput.value = row.judge_notes || "";
+    }
+  }
+
+  function computeSummaryClient(rows, suite) {
+    const filtered = suite === "all" ? rows : rows.filter((r) => r.suite === suite);
+    const grouped = new Map();
+    for (const r of filtered) {
+      if (!grouped.has(r.mode)) grouped.set(r.mode, []);
+      grouped.get(r.mode).push(r);
+    }
+    const orderedModes = [
+      ...CANONICAL_MODES.filter((m) => grouped.has(m)),
+      ...Array.from(grouped.keys()).filter((m) => !CANONICAL_MODES.includes(m)).sort(),
+    ];
+    const avgScore = (vals, digits) => {
+      const valid = vals.filter((v) => v !== null && v !== undefined);
+      if (!valid.length) return null;
+      return Number((valid.reduce((a, b) => a + b, 0) / valid.length).toFixed(digits));
+    };
+    const pctFlag = (vals, digits) => {
+      const valid = vals.filter((v) => v !== null && v !== undefined);
+      if (!valid.length) return null;
+      return Number(((valid.reduce((a, b) => a + b, 0) / valid.length) * 100).toFixed(digits));
+    };
+    const fmt = (val, digits, suffix = "") =>
+      val === null || val === undefined ? "-" : `${val.toFixed(digits)}${suffix}`;
+
+    const byMode = orderedModes.map((modeName) => {
+      const items = grouped.get(modeName);
+      return {
+        mode: modeName,
+        total: items.length,
+        scored: items.filter((i) => i.status === "scored").length,
+        partial: items.filter((i) => i.status === "partial").length,
+        unscored: items.filter((i) => i.status === "unscored").length,
+        avg_relevance: avgScore(items.map((i) => i.recommendation_relevance_1_5), 2),
+        unnecessary_question_rate: pctFlag(items.map((i) => i.unnecessary_question_0_1), 1),
+        missed_clarification_rate: pctFlag(items.map((i) => i.missed_clarification_0_1), 1),
+        task_completion_rate: pctFlag(items.map((i) => i.task_completion_0_1), 1),
+        avg_faithfulness: avgScore(items.map((i) => i.explanation_faithfulness_1_5), 2),
+      };
+    });
+
+    const mdLines = [
+      "| Chế độ | Đã chấm | Relevance (1-5) | Unnecessary (%) | Missed (%) | Task Comp (%) | Faithfulness (1-5) |",
+      "|---|---:|---:|---:|---:|---:|---:|",
+      ...byMode.map(
+        (item) =>
+          `| \`${item.mode}\` | ${item.scored}/${item.total} | ` +
+          `${fmt(item.avg_relevance, 2)} | ` +
+          `${fmt(item.unnecessary_question_rate, 1, "%")} | ` +
+          `${fmt(item.missed_clarification_rate, 1, "%")} | ` +
+          `${fmt(item.task_completion_rate, 1, "%")} | ` +
+          `${fmt(item.avg_faithfulness, 2)} |`
+      ),
+    ];
+
+    return {
+      suite,
+      total_rows: filtered.length,
+      scored_rows: filtered.filter((r) => r.status === "scored").length,
+      partial_rows: filtered.filter((r) => r.status === "partial").length,
+      unscored_rows: filtered.filter((r) => r.status === "unscored").length,
+      by_mode: byMode,
+      markdown_table: mdLines.join("\n"),
+    };
+  }
+
+  function csvEscape(val) {
+    const str = val === null || val === undefined ? "" : String(val);
+    if (/[",\r\n]/.test(str)) {
+      return `"${str.replace(/"/g, '""')}"`;
+    }
+    return str;
+  }
+
+  function downloadCsvClient() {
+    if (state.conn.source === "local" && !IS_FILE_PROTOCOL) {
+      const a = document.createElement("a");
+      a.href = "/api/v1/judge/export";
+      a.download = "e1_tier2_judge_sheet.csv";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      return;
+    }
+    const lines = [CSV_EXPORT_COLUMNS.map(csvEscape).join(",")];
+    for (const row of state.rows) {
+      const line = CSV_EXPORT_COLUMNS.map((col) => {
+        if (col === "clarification_asked" || col === "grounding_ok") {
+          return csvEscape(row[col] ? "True" : "False");
+        }
+        return csvEscape(row[col] ?? "");
+      }).join(",");
+      lines.push(line);
+    }
+    const blob = new Blob(["\uFEFF" + lines.join("\r\n")], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "e1_tier2_judge_sheet.csv";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function loadStoredConn() {
+    try {
+      const raw = localStorage.getItem(CONN_STORAGE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object") {
+          state.conn = { ...state.conn, ...parsed };
+        }
+      }
+    } catch (_err) {
+      // Ignore invalid localStorage payload.
+    }
+    const params = new URLSearchParams(window.location.search);
+    const qBridge = params.get("bridge");
+    const qToken = params.get("token");
+    const qJudge = params.get("judge");
+    if (qBridge) {
+      state.conn.source = "bridge";
+      state.conn.bridgeUrl = qBridge.trim();
+    }
+    if (qToken !== null) {
+      state.conn.bridgeToken = qToken.trim();
+    }
+    if (qJudge) {
+      state.conn.judgeName = qJudge.trim();
+    }
+    if (IS_FILE_PROTOCOL) {
+      state.conn.source = "bridge";
+    }
+    saveStoredConn();
+  }
+
+  function saveStoredConn() {
+    try {
+      localStorage.setItem(CONN_STORAGE_KEY, JSON.stringify(state.conn));
+    } catch (_err) {
+      // Ignore storage errors.
+    }
+  }
+
+  function updateConnectionButton() {
+    const modeTxt = state.conn.source === "bridge" ? "☁️ Google Sheet" : "🔗 Local CSV";
+    const nameTxt = state.conn.judgeName ? `👤 ${state.conn.judgeName}` : "Chưa đặt tên";
+    const syncTxt = state.lastSyncText ? ` • ${state.lastSyncText}` : "";
+    els.btnOpenConnection.textContent = `${modeTxt} • ${nameTxt}${syncTxt}`;
+    els.btnOpenConnection.classList.toggle("active-toggle", state.conn.source === "bridge");
+  }
+
+  function toggleBridgeFieldsInModal() {
+    const isBridge = els.connSource.value === "bridge";
+    els.connBridgeUrlWrap.classList.toggle("hidden", !isBridge);
+    els.connBridgeTokenWrap.classList.toggle("hidden", !isBridge);
+  }
+
+  function openConnectionModal(errorMsg = "") {
+    els.connSource.value = IS_FILE_PROTOCOL ? "bridge" : state.conn.source;
+    const localOpt = els.connSource.querySelector('option[value="local"]');
+    if (localOpt) localOpt.disabled = IS_FILE_PROTOCOL;
+    els.connFileHint.classList.toggle("hidden", !IS_FILE_PROTOCOL);
+    els.connJudgeName.value = state.conn.judgeName || "";
+    els.connBridgeUrl.value = state.conn.bridgeUrl || "";
+    els.connBridgeToken.value = state.conn.bridgeToken || "";
+    toggleBridgeFieldsInModal();
+    if (errorMsg) {
+      els.connErrorBox.textContent = errorMsg;
+      els.connErrorBox.classList.remove("hidden");
+    } else {
+      els.connErrorBox.classList.add("hidden");
+    }
+    els.connectionModal.classList.add("open");
+  }
+
+  function openConflictModal(localRow, serverRow) {
+    state.pendingConflict = { localRow: { ...localRow }, serverRow };
+    const who = serverRow.judge_name || "Một thành viên khác";
+    const when = serverRow.updated_at || "vừa xong";
+    els.conflictInfoBox.textContent =
+      `Dòng #${localRow.row_index + 1} (${localRow.scenario_id} • ${localRow.mode}) vừa được "${who}" cập nhật lúc ${when}.`;
+
+    const fields = [
+      ["Relevance (1-5)", "recommendation_relevance_1_5"],
+      ["Faithfulness (1-5)", "explanation_faithfulness_1_5"],
+      ["Task Completion (0/1)", "task_completion_0_1"],
+      ["Unnecessary Q (0/1)", "unnecessary_question_0_1"],
+      ["Missed Clarify (0/1)", "missed_clarification_0_1"],
+      ["Ghi chú", "judge_notes"],
+    ];
+    const rowsHtml = fields
+      .map(([label, key]) => {
+        const lv = localRow[key] ?? "-";
+        const sv = serverRow[key] ?? "-";
+        const diffCls = String(lv) !== String(sv) ? ' style="background:#fffbeb;font-weight:700;"' : "";
+        return `<tr${diffCls}><td>${escHtml(label)}</td><td>${escHtml(lv)}</td><td>${escHtml(sv)}</td></tr>`;
+      })
+      .join("");
+
+    els.conflictDiffWrap.innerHTML = `
+      <table class="summary-table">
+        <thead>
+          <tr><th>Trường</th><th>Bản của bạn</th><th>Bản trên Sheet/Server</th></tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    els.conflictModal.classList.add("open");
+  }
+
+  const apiAdapter = {
+    async pingBridge(url, token) {
+      const target = `${url}?action=ping&token=${encodeURIComponent(token || "")}`;
+      const res = await fetch(target, { method: "GET" });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const data = await res.json();
+      if (!data.ok) throw new Error(data.error || "Bridge ping failed");
+      return data;
+    },
+
+    async loadRows() {
+      if (state.conn.source === "bridge") {
+        if (!state.conn.bridgeUrl) {
+          throw new Error("Chưa cấu hình Google Apps Script Web App URL.");
+        }
+        const target =
+          `${state.conn.bridgeUrl}?action=rows&token=${encodeURIComponent(state.conn.bridgeToken || "")}`;
+        const res = await fetch(target, { method: "GET" });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.ok === false) {
+          throw new Error(data.error || "Không tải được dữ liệu từ Google Sheet.");
+        }
+        return data;
+      }
+      const res = await fetch("/api/v1/judge/rows");
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    },
+
+    async saveRow(row, force = false) {
+      const payload = {
+        recommendation_relevance_1_5: row.recommendation_relevance_1_5,
+        unnecessary_question_0_1: row.unnecessary_question_0_1,
+        missed_clarification_0_1: row.missed_clarification_0_1,
+        task_completion_0_1: row.task_completion_0_1,
+        explanation_faithfulness_1_5: row.explanation_faithfulness_1_5,
+        judge_notes: row.judge_notes || "",
+        judge_name: (state.conn.judgeName || "").trim(),
+        expected_updated_at: row.updated_at || "",
+        force: !!force,
+      };
+
+      if (state.conn.source === "bridge") {
+        const res = await fetch(state.conn.bridgeUrl, {
+          method: "POST",
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
+          body: JSON.stringify({
+            action: "update_row",
+            token: state.conn.bridgeToken || "",
+            row_index: row.row_index,
+            ...payload,
+          }),
+        });
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+        if (data.conflict) {
+          return { conflict: true, server_row: data.server_row };
+        }
+        if (data.ok === false) {
+          throw new Error(data.error || "Lỗi lưu lên Google Sheet.");
+        }
+        return { conflict: false, data };
+      }
+
+      const res = await fetch(`/api/v1/judge/rows/${row.row_index}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (res.status === 409) {
+        const conflictData = await res.json();
+        return { conflict: true, server_row: conflictData.server_row };
+      }
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(detail || `HTTP ${res.status}`);
+      }
+      return { conflict: false, data: await res.json() };
+    },
+
+    async getSummary(suite) {
+      if (state.conn.source === "bridge" || IS_FILE_PROTOCOL) {
+        return computeSummaryClient(state.rows, suite);
+      }
+      const res = await fetch(`/api/v1/judge/summary?suite=${encodeURIComponent(suite)}`);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      return await res.json();
+    },
+  };
+
+  function saveRowPatch(row, opts = { force: false }) {
+    if (!row) return Promise.resolve(false);
+    const rowIndex = row.row_index;
+    const payloadSnapshot = captureEditableFields(row);
+
+    if (
+      state.savingRows.has(rowIndex) &&
+      fieldsEqual(state.inFlightPayloads[rowIndex], payloadSnapshot) &&
+      !opts.force
+    ) {
+      return Promise.resolve(true);
+    }
+
+    const rowCopy = { ...row, ...payloadSnapshot };
+    state.savingRows.add(rowIndex);
+    state.inFlightPayloads[rowIndex] = payloadSnapshot;
+    renderSidebarList();
+    refreshSaveButtons();
+    setSaveBadge("saving", `Đang lưu ngầm (${state.savingRows.size} ca)...`);
+
+    const task = state.saveQueue.then(async () => {
+      try {
+        const latestRow = state.rows[rowIndex];
+        if (latestRow && latestRow.updated_at) {
+          rowCopy.updated_at = latestRow.updated_at;
+        }
+        const result = await apiAdapter.saveRow(rowCopy, !!opts.force);
+        if (result.conflict && result.server_row) {
+          setSaveBadge("error", `Xung đột dữ liệu #${rowIndex + 1}!`);
+          openConflictModal(rowCopy, result.server_row);
+          return false;
+        }
+        const data = result.data;
+        snapshotRow(data.row);
+        const currentRow = state.rows[rowIndex];
+        if (!currentRow || fieldsEqual(captureEditableFields(currentRow), payloadSnapshot)) {
+          state.rows[rowIndex] = data.row;
+        } else {
+          currentRow.updated_at = data.row.updated_at;
+          currentRow.judge_name = data.row.judge_name;
+        }
+        updateProgressBar(data.total, data.scored, data.partial);
+        const nowTime = new Date().toLocaleTimeString("vi-VN", { hour12: false });
+        state.lastSyncText = nowTime;
+        updateConnectionButton();
+        setSaveBadge("saved", `Đã lưu #${rowIndex + 1}`);
+        if (state.viewMode === "single" && state.selectedRowIndex === rowIndex) {
+          renderSingleRow();
+        }
+        if (state.viewMode === "compare") {
+          renderScenarioSelectOptions();
+        }
+        return true;
+      } catch (err) {
+        setSaveBadge("error", `Lỗi lưu #${rowIndex + 1}: ${err.message}`);
+        return false;
+      } finally {
+        if (state.inFlightPayloads[rowIndex] === payloadSnapshot) {
+          state.savingRows.delete(rowIndex);
+          delete state.inFlightPayloads[rowIndex];
+        }
+        renderSidebarList();
+        refreshSaveButtons();
+      }
+    });
+
+    state.saveQueue = task.catch(() => false);
+    return task;
+  }
+
+  async function saveRowsSequentially(rowIndices) {
+    const tasks = [];
+    for (const idx of rowIndices) {
+      const row = state.rows[idx];
+      if (!row) continue;
+      tasks.push(saveRowPatch(row));
+    }
+    const results = await Promise.all(tasks);
+    return results.every(Boolean);
+  }
+
+  function saveActiveChanges() {
+    if (state.viewMode === "single") {
+      const row = state.rows[state.selectedRowIndex];
+      if (!row) return;
+      row.judge_notes = els.judgeNotesInput.value;
+      saveRowPatch(row);
+      return;
+    }
+    const dirtyIds = getActiveDirtyIndices();
+    if (dirtyIds.length === 0) {
+      if (state.savingRows.size === 0) {
+        setSaveBadge("saved", "Không có thay đổi mới");
+      }
+      return;
+    }
+    saveRowsSequentially(dirtyIds);
+  }
+
+  function guardUnsaved(rowIndicesToCheck, proceedFn) {
+    const dirtyIds = rowIndicesToCheck.filter((idx) => isRowUnsaved(idx));
+    if (dirtyIds.length === 0) {
+      proceedFn();
+      return;
+    }
+    state.pendingNavigation = { dirtyIds, proceedFn };
+    els.unsavedMessage.textContent =
+      `Bạn có ${dirtyIds.length} ca đang sửa nhưng chưa lưu lên Sheet/CSV. Bạn muốn lưu trước khi chuyển không?`;
+    els.unsavedModal.classList.add("open");
+  }
+
+  function renderScenarioSelectOptions() {
+    els.scenarioSelect.innerHTML = state.scenarios
+      .map((sc) => {
+        const done = sc.rows.filter((r) => r.status === "scored").length;
+        const selected = sc.key === state.selectedScenarioKey ? " selected" : "";
+        return `<option value="${escHtml(sc.key)}"${selected}>${escHtml(sc.scenario_id)} (${escHtml(sc.suite)}) — ${done}/${sc.rows.length} đã chấm</option>`;
+      })
+      .join("");
+  }
+
+  function renderCompareView() {
+    renderScenarioSelectOptions();
+    const sc = state.scenarios.find((s) => s.key === state.selectedScenarioKey) || state.scenarios[0];
+    if (!sc) {
+      els.compareQuestionBar.innerHTML = "Không có dữ liệu.";
+      els.compareColumns.innerHTML = "";
+      return;
+    }
+    state.selectedScenarioKey = sc.key;
+
+    els.compareQuestionBar.innerHTML = `
+      <div>
+        <span class="badge">${escHtml(sc.suite)}</span>
+        <span class="badge">${escHtml(sc.task_type)}</span>
+        <strong style="margin-left:8px;font-size:15px;">${escHtml(sc.scenario_id)}: ${escHtml(sc.question)}</strong>
+      </div>
+      <span style="font-size:12px;color:var(--muted);">
+        ${state.blindMode ? "Đang bật Blind Review (ẩn danh & xáo trộn cột)" : "Hiển thị đầy đủ 3 chế độ"}
+      </span>
+    `;
+
+    const { ordered, labels } = getBlindOrderForScenario(sc.rows);
+
+    els.compareColumns.innerHTML = ordered
+      .map((row) => {
+        const modeTitle = state.blindMode ? labels.get(row.row_index) : row.mode;
+        const groundCls = row.grounding_ok ? "green" : "red";
+        const miniRubrics = RUBRIC_SPECS.map((spec) => {
+          const shortNames = {
+            recommendation_relevance_1_5: "Relevance",
+            explanation_faithfulness_1_5: "Faithful",
+            task_completion_0_1: "Task Comp",
+            unnecessary_question_0_1: "Unnecessary",
+            missed_clarification_0_1: "Missed",
+          };
+          const pills = spec.values
+            .map((v) => {
+              const cls = row[spec.field] === v ? getPillSelectedClass(spec, v) : "";
+              return `<button type="button" class="score-pill${cls}" data-cmp-row="${row.row_index}" data-field="${spec.field}" data-val="${v}">${v}</button>`;
+            })
+            .join("");
+          return `<div class="mini-score-row"><span>${shortNames[spec.field]}</span><div class="mini-pills">${pills}</div></div>`;
+        }).join("");
+
+        return `
+          <article class="compare-col">
+            <div class="compare-col-head">
+              <div style="display:flex;align-items:center;gap:6px;">
+                <span class="dot ${escHtml(row.status)}"></span>
+                <strong>${escHtml(modeTitle)}</strong>
+              </div>
+              <div class="chips">
+                ${row.judge_name ? `<span class="badge purple">👤 ${escHtml(row.judge_name)}</span>` : ""}
+                <span class="badge">${row.turns_to_completion}t</span>
+                <span class="badge ${row.clarification_asked ? "amber" : ""}">clarify: ${row.clarification_asked ? "Yes" : "No"}</span>
+                <span class="badge ${groundCls}">ground: ${row.grounding_ok ? "OK" : "FAIL"}</span>
+              </div>
+            </div>
+            <div class="compare-col-body">
+              <div class="md-body">${renderSafeMarkdown(row.final_reply)}</div>
+              <details style="font-size:12px;color:var(--muted);border-top:1px solid var(--border);padding-top:8px;">
+                <summary style="cursor:pointer;font-weight:600;">Chi tiết tools / KG / slots</summary>
+                <div style="margin-top:6px;">
+                  ${state.blindMode ? "" : `<div><strong>decision:</strong> ${escHtml(row.decision_source || "-")}</div>`}
+                  <div><strong>asked_slots:</strong> ${escHtml(row.asked_slots || "-")}</div>
+                  <div><strong>tools:</strong> ${escHtml(row.tools_used || "-")}</div>
+                  <div><strong>rules:</strong> ${escHtml(row.applied_rule_ids || "-")}</div>
+                  <div><strong>outfits:</strong> ${escHtml(row.outfits_summary || "-")}</div>
+                </div>
+              </details>
+            </div>
+            <div class="compare-col-score">
+              ${miniRubrics}
+              <input type="text" data-cmp-note="${row.row_index}" value="${escHtml(row.judge_notes)}" placeholder="Ghi chú nhanh..." style="padding:5px 8px;border:1px solid var(--border);border-radius:6px;background:#fff;font-size:12px;" />
+              <div style="display:flex;justify-content:flex-end;">
+                <button type="button" class="btn ${isRowUnsaved(row.row_index) || isRowSaving(row.row_index) ? "save-dirty" : "save-clean"}" data-cmp-save="${row.row_index}" style="padding:4px 10px;font-size:12px;">
+                  ${isRowSaving(row.row_index) && !isRowUnsaved(row.row_index) ? "Đang lưu..." : isRowUnsaved(row.row_index) ? "💾 Lưu cột này" : "✓ Đã lưu"}
+                </button>
+              </div>
+            </div>
+          </article>`;
+      })
+      .join("");
+    refreshSaveButtons();
+  }
+
+  function selectRow(rowIndex) {
+    state.selectedRowIndex = rowIndex;
+    renderSidebarList();
+    renderSingleRow();
+    const activeBtn = els.rowList.querySelector(".row-item.active");
+    if (activeBtn) activeBtn.scrollIntoView({ block: "nearest" });
+  }
+
+  function stepFilteredRow(delta) {
+    if (state.filteredIndices.length === 0) return;
+    const pos = state.filteredIndices.indexOf(state.selectedRowIndex);
+    const nextPos = pos === -1 ? 0 : (pos + delta + state.filteredIndices.length) % state.filteredIndices.length;
+    selectRow(state.filteredIndices[nextPos]);
+  }
+
+  function jumpToNextUnscored() {
+    const ordered = [...state.filteredIndices, ...state.rows.map((r) => r.row_index)];
+    const startPos = Math.max(0, state.filteredIndices.indexOf(state.selectedRowIndex));
+    const searchPool = [
+      ...state.filteredIndices.slice(startPos + 1),
+      ...state.filteredIndices.slice(0, startPos + 1),
+      ...ordered,
+    ];
+    const target = searchPool.find((idx) => state.rows[idx] && state.rows[idx].status !== "scored");
+    if (target !== undefined) {
+      selectRow(target);
+    } else {
+      setSaveBadge("saved", "Tất cả ca đã được chấm đủ!");
+    }
+  }
+
+  function switchView(mode) {
+    state.viewMode = mode;
+    if (mode === "single") {
+      els.singleView.classList.remove("hidden");
+      els.compareView.classList.add("hidden");
+      els.btnViewSingle.classList.add("active");
+      els.btnViewCompare.classList.remove("active");
+      renderSidebarList();
+      renderSingleRow();
+    } else {
+      els.singleView.classList.add("hidden");
+      els.compareView.classList.remove("hidden");
+      els.btnViewSingle.classList.remove("active");
+      els.btnViewCompare.classList.add("active");
+      renderCompareView();
+    }
+  }
+
+  async function openSummaryModal() {
+    els.summaryModal.classList.add("open");
+    await refreshSummary();
+  }
+
+  async function refreshSummary() {
+    const suite = state.summarySuite;
+    let data;
+    try {
+      data = await apiAdapter.getSummary(suite);
+    } catch (_err) {
+      data = computeSummaryClient(state.rows, suite);
+    }
+    els.summaryStatsText.textContent =
+      `Suite: ${data.suite} • Tổng: ${data.total_rows} ca • Đã chấm đủ: ${data.scored_rows} • Chấm dở: ${data.partial_rows} • Chưa chấm: ${data.unscored_rows}`;
+
+    const fmt = (v, suffix = "") => (v === null || v === undefined ? "-" : `${v}${suffix}`);
+    const rowsHtml = data.by_mode
+      .map(
+        (m) => `
+        <tr>
+          <td><code>${escHtml(m.mode)}</code></td>
+          <td>${m.scored} / ${m.total}</td>
+          <td>${fmt(m.avg_relevance)}</td>
+          <td>${fmt(m.unnecessary_question_rate, "%")}</td>
+          <td>${fmt(m.missed_clarification_rate, "%")}</td>
+          <td>${fmt(m.task_completion_rate, "%")}</td>
+          <td>${fmt(m.avg_faithfulness)}</td>
+        </tr>`
+      )
+      .join("");
+
+    els.summaryTableWrap.innerHTML = `
+      <table class="summary-table">
+        <thead>
+          <tr>
+            <th>Chế độ</th>
+            <th>Đã chấm</th>
+            <th>Relevance (1–5)</th>
+            <th>Unnecessary (%)</th>
+            <th>Missed (%)</th>
+            <th>Task Comp (%)</th>
+            <th>Faithfulness (1–5)</th>
+          </tr>
+        </thead>
+        <tbody>${rowsHtml}</tbody>
+      </table>`;
+    els.summaryMarkdownPre.textContent = data.markdown_table;
+  }
+
+  async function loadSheetData() {
+    try {
+      const data = await apiAdapter.loadRows();
+      state.rows = data.rows || [];
+      state.cleanSnapshots = {};
+      state.rows.forEach(snapshotRow);
+      els.csvPathBadge.textContent = data.csv_path || "Google Sheet";
+      els.csvPathBadge.title = data.csv_path || "";
+      updateProgressBar(data.total, data.scored, data.partial);
+      state.lastSyncText = new Date().toLocaleTimeString("vi-VN", { hour12: false });
+      updateConnectionButton();
+      buildScenarioGroups();
+      applyFilters();
+      if (state.viewMode === "compare") {
+        renderCompareView();
+      }
+      refreshSaveButtons();
+      setSaveBadge("saved", `Đã đồng bộ (${state.rows.length} ca)`);
+    } catch (err) {
+      els.readerPane.innerHTML =
+        `<div class="card" style="color:var(--red);">Không tải được dữ liệu: ${escHtml(err.message)}</div>`;
+      setSaveBadge("error", `Lỗi đồng bộ: ${err.message}`);
+    }
+  }
+
+  async function loadInitialData() {
+    loadStoredConn();
+    if (!IS_FILE_PROTOCOL) {
+      try {
+        const cfgRes = await fetch("/api/v1/judge/config");
+        if (cfgRes.ok) {
+          const cfg = await cfgRes.json();
+          const hasStored = !!localStorage.getItem(CONN_STORAGE_KEY);
+          if (cfg.default_bridge_url && !state.conn.bridgeUrl) {
+            state.conn.bridgeUrl = cfg.default_bridge_url;
+            state.conn.bridgeToken = cfg.default_bridge_token || state.conn.bridgeToken;
+            if (!hasStored) {
+              state.conn.source = "bridge";
+            }
+            saveStoredConn();
+          }
+        }
+      } catch (_err) {
+        // Ignore config fetch failure when running statically.
+      }
+    }
+    updateConnectionButton();
+    if (state.conn.source === "bridge" && !state.conn.bridgeUrl) {
+      openConnectionModal();
+      return;
+    }
+    await loadSheetData();
+  }
+
+  // Bind events
+  buildSingleScoreButtons();
+
+  els.btnViewSingle.addEventListener("click", () => {
+    if (state.viewMode === "single") return;
+    guardUnsaved(getAllDirtyIndices(), () => switchView("single"));
+  });
+  els.btnViewCompare.addEventListener("click", () => {
+    if (state.viewMode === "compare") return;
+    guardUnsaved(getAllDirtyIndices(), () => switchView("compare"));
+  });
+
+  els.btnBlindToggle.addEventListener("click", () => {
+    state.blindMode = !state.blindMode;
+    els.btnBlindToggle.textContent = `Blind Review: ${state.blindMode ? "BẬT" : "TẮT"}`;
+    els.btnBlindToggle.classList.toggle("active-toggle", state.blindMode);
+    els.filterMode.disabled = state.blindMode;
+    applyFilters();
+    if (state.viewMode === "compare") renderCompareView();
+  });
+
+  els.filterSearch.addEventListener("input", () => {
+    state.filters.search = els.filterSearch.value;
+    applyFilters();
+  });
+  els.filterSuite.addEventListener("change", () => {
+    state.filters.suite = els.filterSuite.value;
+    applyFilters();
+  });
+  els.filterMode.addEventListener("change", () => {
+    state.filters.mode = els.filterMode.value;
+    applyFilters();
+  });
+  els.filterStatus.addEventListener("change", () => {
+    state.filters.status = els.filterStatus.value;
+    applyFilters();
+  });
+
+  els.rowList.addEventListener("click", (ev) => {
+    const btn = ev.target.closest(".row-item");
+    if (!btn) return;
+    const nextIdx = Number(btn.dataset.rowIdx);
+    if (nextIdx === state.selectedRowIndex) return;
+    guardUnsaved(getActiveDirtyIndices(), () => selectRow(nextIdx));
+  });
+
+  els.judgeNotesInput.addEventListener("input", () => {
+    const row = state.rows[state.selectedRowIndex];
+    if (!row) return;
+    row.judge_notes = els.judgeNotesInput.value;
+    refreshSaveButtons();
+  });
+
+  els.btnSaveNow.addEventListener("click", saveActiveChanges);
+  els.btnCompareSaveAll.addEventListener("click", saveActiveChanges);
+
+  els.btnClearRow.addEventListener("click", () => {
+    const row = state.rows[state.selectedRowIndex];
+    if (!row) return;
+    row.recommendation_relevance_1_5 = null;
+    row.explanation_faithfulness_1_5 = null;
+    row.task_completion_0_1 = null;
+    row.unnecessary_question_0_1 = null;
+    row.missed_clarification_0_1 = null;
+    row.judge_notes = "";
+    row.status = computeRowStatusClient(row);
+    els.judgeNotesInput.value = "";
+    syncScoreForm(row);
+    recomputeProgressFromRows();
+    renderSidebarList();
+    refreshSaveButtons();
+  });
+
+  els.btnPrevRow.addEventListener("click", () =>
+    guardUnsaved(getActiveDirtyIndices(), () => stepFilteredRow(-1))
+  );
+  els.btnNextRow.addEventListener("click", () =>
+    guardUnsaved(getActiveDirtyIndices(), () => stepFilteredRow(1))
+  );
+  els.btnNextUnscored.addEventListener("click", () =>
+    guardUnsaved(getActiveDirtyIndices(), jumpToNextUnscored)
+  );
+  els.btnNextUnscoredTop.addEventListener("click", () =>
+    guardUnsaved(getActiveDirtyIndices(), jumpToNextUnscored)
+  );
+
+  els.scenarioSelect.addEventListener("change", () => {
+    const nextKey = els.scenarioSelect.value;
+    els.scenarioSelect.value = state.selectedScenarioKey;
+    if (nextKey === state.selectedScenarioKey) return;
+    guardUnsaved(getActiveDirtyIndices(), () => {
+      state.selectedScenarioKey = nextKey;
+      renderCompareView();
+    });
+  });
+  els.btnPrevScenario.addEventListener("click", () => {
+    if (state.scenarios.length === 0) return;
+    guardUnsaved(getActiveDirtyIndices(), () => {
+      const idx = state.scenarios.findIndex((s) => s.key === state.selectedScenarioKey);
+      const prev = (idx - 1 + state.scenarios.length) % state.scenarios.length;
+      state.selectedScenarioKey = state.scenarios[prev].key;
+      renderCompareView();
+    });
+  });
+  els.btnNextScenario.addEventListener("click", () => {
+    if (state.scenarios.length === 0) return;
+    guardUnsaved(getActiveDirtyIndices(), () => {
+      const idx = state.scenarios.findIndex((s) => s.key === state.selectedScenarioKey);
+      const next = (idx + 1) % state.scenarios.length;
+      state.selectedScenarioKey = state.scenarios[next].key;
+      renderCompareView();
+    });
+  });
+
+  els.compareColumns.addEventListener("click", (ev) => {
+    const saveBtn = ev.target.closest("[data-cmp-save]");
+    if (saveBtn) {
+      const rowIdx = Number(saveBtn.dataset.cmpSave);
+      const row = state.rows[rowIdx];
+      if (row) saveRowPatch(row);
+      return;
+    }
+
+    const btn = ev.target.closest(".score-pill[data-cmp-row]");
+    if (!btn) return;
+    const rowIdx = Number(btn.dataset.cmpRow);
+    const field = btn.dataset.field;
+    const val = Number(btn.dataset.val);
+    const row = state.rows[rowIdx];
+    if (!row) return;
+    row[field] = row[field] === val ? null : val;
+    row.status = computeRowStatusClient(row);
+
+    const spec = RUBRIC_SPECS.find((s) => s.field === field);
+    const pillsWrap = btn.closest(".mini-pills");
+    if (pillsWrap && spec) {
+      for (const p of pillsWrap.querySelectorAll(".score-pill")) {
+        const pv = Number(p.dataset.val);
+        p.className = "score-pill" + (row[field] === pv ? getPillSelectedClass(spec, pv) : "");
+      }
+    }
+    const colCard = btn.closest(".compare-col");
+    const colDot = colCard ? colCard.querySelector(".compare-col-head .dot") : null;
+    if (colDot) {
+      colDot.className = `dot ${row.status}`;
+    }
+    recomputeProgressFromRows();
+    renderScenarioSelectOptions();
+    renderSidebarList();
+    refreshSaveButtons();
+  });
+
+  els.compareColumns.addEventListener("input", (ev) => {
+    const inp = ev.target.closest("input[data-cmp-note]");
+    if (!inp) return;
+    const rowIdx = Number(inp.dataset.cmpNote);
+    const row = state.rows[rowIdx];
+    if (!row) return;
+    row.judge_notes = inp.value;
+    refreshSaveButtons();
+  });
+
+  els.btnOpenSummary.addEventListener("click", openSummaryModal);
+  els.btnCloseSummary.addEventListener("click", () => els.summaryModal.classList.remove("open"));
+  els.summaryModal.addEventListener("click", (ev) => {
+    if (ev.target === els.summaryModal) els.summaryModal.classList.remove("open");
+  });
+  els.summarySuiteSelect.addEventListener("change", () => {
+    state.summarySuite = els.summarySuiteSelect.value;
+    refreshSummary();
+  });
+  els.btnCopyMarkdown.addEventListener("click", async () => {
+    await navigator.clipboard.writeText(els.summaryMarkdownPre.textContent);
+    const old = els.btnCopyMarkdown.textContent;
+    els.btnCopyMarkdown.textContent = "Đã copy!";
+    setTimeout(() => { els.btnCopyMarkdown.textContent = old; }, 1400);
+  });
+
+  els.btnExportCsv.addEventListener("click", downloadCsvClient);
+  els.btnSyncNow.addEventListener("click", () =>
+    guardUnsaved(getAllDirtyIndices(), async () => {
+      if (state.savingRows.size > 0) {
+        setSaveBadge("saving", "Đang chờ lưu ngầm hoàn tất...");
+        await state.saveQueue;
+      }
+      await loadSheetData();
+    })
+  );
+  els.btnOpenConnection.addEventListener("click", () => openConnectionModal());
+  els.btnCloseConnection.addEventListener("click", () => els.connectionModal.classList.remove("open"));
+  els.connectionModal.addEventListener("click", (ev) => {
+    if (ev.target === els.connectionModal) els.connectionModal.classList.remove("open");
+  });
+  els.connSource.addEventListener("change", toggleBridgeFieldsInModal);
+
+  els.btnTestAndConnect.addEventListener("click", async () => {
+    const source = IS_FILE_PROTOCOL ? "bridge" : els.connSource.value;
+    const judgeName = els.connJudgeName.value.trim();
+    const bridgeUrl = els.connBridgeUrl.value.trim();
+    const bridgeToken = els.connBridgeToken.value.trim();
+
+    els.connErrorBox.classList.add("hidden");
+    if (source === "bridge") {
+      if (!bridgeUrl) {
+        els.connErrorBox.textContent = "Vui lòng nhập Google Apps Script Web App URL.";
+        els.connErrorBox.classList.remove("hidden");
+        return;
+      }
+      els.btnTestAndConnect.disabled = true;
+      els.btnTestAndConnect.textContent = "Đang kiểm tra...";
+      try {
+        await apiAdapter.pingBridge(bridgeUrl, bridgeToken);
+      } catch (err) {
+        els.connErrorBox.textContent = `Không kết nối được Bridge: ${err.message}`;
+        els.connErrorBox.classList.remove("hidden");
+        els.btnTestAndConnect.disabled = false;
+        els.btnTestAndConnect.textContent = "Lưu & Kết nối";
+        return;
+      }
+      els.btnTestAndConnect.disabled = false;
+      els.btnTestAndConnect.textContent = "Lưu & Kết nối";
+    }
+
+    state.conn = { source, judgeName, bridgeUrl, bridgeToken };
+    saveStoredConn();
+    updateConnectionButton();
+    els.connectionModal.classList.remove("open");
+    await loadSheetData();
+  });
+
+  els.btnCopyShareLink.addEventListener("click", async () => {
+    const bridgeUrl = els.connBridgeUrl.value.trim();
+    const bridgeToken = els.connBridgeToken.value.trim();
+    let textToCopy = "";
+    if (!IS_FILE_PROTOCOL) {
+      const share = new URL(window.location.href);
+      if (bridgeUrl) share.searchParams.set("bridge", bridgeUrl);
+      if (bridgeToken) share.searchParams.set("token", bridgeToken);
+      textToCopy = share.toString();
+    } else {
+      textToCopy = `Bridge URL: ${bridgeUrl}\nPasscode: ${bridgeToken}`;
+    }
+    await navigator.clipboard.writeText(textToCopy);
+    const old = els.btnCopyShareLink.textContent;
+    els.btnCopyShareLink.textContent = "Đã copy!";
+    setTimeout(() => { els.btnCopyShareLink.textContent = old; }, 1400);
+  });
+
+  els.btnCloseConflict.addEventListener("click", () => {
+    state.pendingConflict = null;
+    els.conflictModal.classList.remove("open");
+  });
+  els.btnConflictUseServer.addEventListener("click", () => {
+    if (!state.pendingConflict) return;
+    const serverRow = state.pendingConflict.serverRow;
+    state.rows[serverRow.row_index] = serverRow;
+    snapshotRow(serverRow);
+    state.pendingConflict = null;
+    els.conflictModal.classList.remove("open");
+    recomputeProgressFromRows();
+    renderSidebarList();
+    renderSingleRow();
+    if (state.viewMode === "compare") renderCompareView();
+    refreshSaveButtons();
+    setSaveBadge("saved", `Đã tải bản mới nhất #${serverRow.row_index + 1}`);
+  });
+  els.btnConflictForceMine.addEventListener("click", async () => {
+    if (!state.pendingConflict) return;
+    const localRow = state.pendingConflict.localRow;
+    state.pendingConflict = null;
+    els.conflictModal.classList.remove("open");
+    await saveRowPatch(localRow, { force: true });
+  });
+
+  function closeUnsavedModal() {
+    state.pendingNavigation = null;
+    els.unsavedModal.classList.remove("open");
+  }
+  els.btnUnsavedClose.addEventListener("click", closeUnsavedModal);
+  els.btnUnsavedStay.addEventListener("click", closeUnsavedModal);
+  els.unsavedModal.addEventListener("click", (ev) => {
+    if (ev.target === els.unsavedModal) closeUnsavedModal();
+  });
+  els.btnUnsavedDiscard.addEventListener("click", () => {
+    const pending = state.pendingNavigation;
+    closeUnsavedModal();
+    if (!pending) return;
+    for (const idx of pending.dirtyIds) {
+      revertRowToClean(idx);
+    }
+    recomputeProgressFromRows();
+    renderSidebarList();
+    refreshSaveButtons();
+    pending.proceedFn();
+  });
+  els.btnUnsavedSaveProceed.addEventListener("click", async () => {
+    const pending = state.pendingNavigation;
+    closeUnsavedModal();
+    if (!pending) return;
+    const ok = await saveRowsSequentially(pending.dirtyIds);
+    if (ok) {
+      pending.proceedFn();
+    }
+  });
+
+  window.addEventListener("beforeunload", (ev) => {
+    if (getAllDirtyIndices().length > 0 || state.savingRows.size > 0) {
+      ev.preventDefault();
+      ev.returnValue = "";
+    }
+  });
+
+  document.addEventListener("keydown", (ev) => {
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === "s") {
+      ev.preventDefault();
+      saveActiveChanges();
+    } else if (ev.altKey && ev.key === "ArrowLeft") {
+      ev.preventDefault();
+      guardUnsaved(getActiveDirtyIndices(), () => stepFilteredRow(-1));
+    } else if (ev.altKey && ev.key === "ArrowRight") {
+      ev.preventDefault();
+      guardUnsaved(getActiveDirtyIndices(), () => stepFilteredRow(1));
+    } else if (ev.altKey && ev.key.toLowerCase() === "n") {
+      ev.preventDefault();
+      guardUnsaved(getActiveDirtyIndices(), jumpToNextUnscored);
+    }
+  });
+
+  loadInitialData();
+})();
+</script>
+</body>
+</html>

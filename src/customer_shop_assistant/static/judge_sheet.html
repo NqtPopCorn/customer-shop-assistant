@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tier-2 Judge Sheet — Đánh giá & Chỉnh sửa CSV</title>
+  <style>
+    :root {
+      --bg: #f4f6f9;
+      --surface: #ffffff;
+      --surface-alt: #f8fafc;
+      --border: #e2e8f0;
+      --border-strong: #cbd5e1;
+      --text: #0f172a;
+      --text-muted: #475569;
+      --text-soft: #64748b;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --primary-soft: #eff6ff;
+      --success: #059669;
+      --success-soft: #ecfdf5;
+      --warning: #d97706;
+      --warning-soft: #fffbeb;
+      --danger: #dc2626;
+      --danger-soft: #fef2f2;
+      --purple: #7c3aed;
+      --purple-soft: #f5f3ff;
+      --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.08);
+      --radius: 10px;
+      --radius-sm: 6px;
+      --font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      --font-mono: "Cascadia Code", "JetBrains Mono", Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      font-family: var(--font-sans);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.5;
+    }
+
+    .app-shell {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* Header */
+    .topbar {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 10px 16px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      z-index: 20;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .brand {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      min-width: 220px;
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .brand-file {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-soft);
+      word-break: break-all;
+    }
+
+    .progress-box {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      min-width: 200px;
+      flex: 0 1 260px;
+    }
+
+    .progress-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-muted);
+    }
+
+    .progress-track {
+      height: 8px;
+      border-radius: 999px;
+      background: var(--border);
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--primary), var(--success));
+      transition: width 0.25s ease;
+      width: 0%;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--surface-alt);
+      padding: 4px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border);
+    }
+
+    .tab-btn {
+      border: none;
+      background: transparent;
+      color: var(--text-muted);
+      padding: 6px 12px;
+      border-radius: 5px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text);
+      background: rgba(15, 23, 42, 0.04);
+    }
+
+    .tab-btn.active {
+      background: var(--surface);
+      color: var(--primary);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .toolbar {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      border-radius: var(--radius-sm);
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      text-decoration: none;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--surface-alt);
+      border-color: #94a3b8;
+    }
+
+    .btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--primary-hover);
+      border-color: var(--primary-hover);
+    }
+
+    .btn-active-toggle {
+      background: var(--purple-soft);
+      border-color: var(--purple);
+      color: var(--purple);
+    }
+
+    /* Main Layout */
+    .workspace {
+      display: flex;
+      flex: 1;
+      min-height: 0;
+      overflow: hidden;
+    }
+
+    /* Sidebar */
+    .sidebar {
+      width: 320px;
+      min-width: 280px;
+      background: var(--surface);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
+    }
+
+    .sidebar-filters {
+      padding: 12px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--surface-alt);
+    }
+
+    .input, .select, .textarea {
+      width: 100%;
+      padding: 7px 10px;
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-sm);
+      font-family: inherit;
+      font-size: 13px;
+      color: var(--text);
+      background: var(--surface);
+    }
+
+    .input:focus, .select:focus, .textarea:focus {
+      outline: 2px solid rgba(37, 99, 235, 0.2);
+      border-color: var(--primary);
+    }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+    }
+
+    .sidebar-count {
+      padding: 6px 12px;
+      font-size: 11.5px;
+      font-weight: 600;
+      color: var(--text-soft);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sidebar-list {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .nav-item {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      cursor: pointer;
+      background: var(--surface);
+      transition: all 0.12s ease;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-item:hover {
+      border-color: #94a3b8;
+      background: var(--surface-alt);
+    }
+
+    .nav-item.active {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+      box-shadow: inset 3px 0 0 var(--primary);
+    }
+
+    .nav-item-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .nav-item-question {
+      font-size: 12px;
+      color: var(--text-muted);
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .nav-item-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    .dots {
+      display: inline-flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 999px;
+      background: #cbd5e1;
+      display: inline-block;
+    }
+
+    .dot.complete { background: var(--success); }
+    .dot.partial { background: var(--warning); }
+    .dot.unrated { background: #cbd5e1; }
+
+    /* Content Area */
+    .main-pane {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 40px;
+      min-width: 0;
+    }
+
+    .empty-state {
+      background: var(--surface);
+      border: 1px dashed var(--border-strong);
+      border-radius: var(--radius);
+      padding: 40px 24px;
+      text-align: center;
+      color: var(--text-muted);
+      margin-top: 24px;
+    }
+
+    /* Scenario Header Banner */
+    .scenario-banner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      margin-bottom: 14px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .scenario-banner-top {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
+
+    .scenario-question {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text);
+      margin: 0;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      align-items: center;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+      font-weight: 600;
+      border: 1px solid var(--border);
+      background: var(--surface-alt);
+      color: var(--text-muted);
+    }
+
+    .badge-blue {
+      background: var(--primary-soft);
+      border-color: #bfdbfe;
+      color: #1e40af;
+    }
+
+    .badge-green {
+      background: var(--success-soft);
+      border-color: #a7f3d0;
+      color: #065f46;
+    }
+
+    .badge-amber {
+      background: var(--warning-soft);
+      border-color: #fde68a;
+      color: #92400e;
+    }
+
+    .badge-red {
+      background: var(--danger-soft);
+      border-color: #fecaca;
+      color: #991b1b;
+    }
+
+    .badge-purple {
+      background: var(--purple-soft);
+      border-color: #ddd6fe;
+      color: #5b21b6;
+    }
+
+    /* Compare Grid */
+    .compare-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      align-items: start;
+    }
+
+    .compare-grid.stacked {
+      grid-template-columns: 1fr;
+    }
+
+    @media (max-width: 1320px) {
+      .compare-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Focus Split View */
+    .focus-layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1.45fr) minmax(340px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    @media (max-width: 1100px) {
+      .focus-layout {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    /* Row Card */
+    .row-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow-sm);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .row-card-header {
+      padding: 10px 14px;
+      background: var(--surface-alt);
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .row-card-body {
+      padding: 12px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .save-status {
+      font-size: 11.5px;
+      font-weight: 600;
+      padding: 2px 8px;
+      border-radius: 999px;
+    }
+
+    .save-status.saved {
+      color: var(--success);
+      background: var(--success-soft);
+    }
+
+    .save-status.saving {
+      color: var(--warning);
+      background: var(--warning-soft);
+    }
+
+    .save-status.error {
+      color: var(--danger);
+      background: var(--danger-soft);
+    }
+
+    .save-status.idle {
+      color: var(--text-soft);
+      background: var(--surface);
+      border: 1px solid var(--border);
+    }
+
+    /* Reply Box */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .section-title {
+      font-size: 12px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+      color: var(--text-soft);
+    }
+
+    .reply-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: #fcfcfd;
+      padding: 12px;
+      max-height: 360px;
+      overflow-y: auto;
+      font-size: 13.5px;
+      line-height: 1.55;
+    }
+
+    .focus-layout .reply-box {
+      max-height: 520px;
+    }
+
+    .reply-box.raw {
+      white-space: pre-wrap;
+      font-family: var(--font-mono);
+      font-size: 12.5px;
+    }
+
+    .md-content h1, .md-content h2, .md-content h3, .md-content h4 {
+      margin: 10px 0 6px;
+      font-size: 14px;
+      color: var(--text);
+    }
+
+    .md-content h1:first-child, .md-content h2:first-child, .md-content h3:first-child {
+      margin-top: 0;
+    }
+
+    .md-content p {
+      margin: 0 0 8px;
+    }
+
+    .md-content p:last-child {
+      margin-bottom: 0;
+    }
+
+    .md-content ul, .md-content ol {
+      margin: 4px 0 8px;
+      padding-left: 20px;
+    }
+
+    .md-content li {
+      margin-bottom: 3px;
+    }
+
+    .md-content hr {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 10px 0;
+    }
+
+    .md-content code {
+      font-family: var(--font-mono);
+      font-size: 12px;
+      background: #e2e8f0;
+      padding: 1px 4px;
+      border-radius: 4px;
+    }
+
+    /* Grounding lists */
+    .trace-box {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 9px 11px;
+      background: var(--surface-alt);
+      font-size: 12.5px;
+    }
+
+    .trace-list {
+      margin: 4px 0 0;
+      padding-left: 18px;
+    }
+
+    .trace-list li {
+      margin-bottom: 3px;
+      word-break: break-word;
+    }
+
+    /* Scoring Panel */
+    .scoring-panel {
+      border-top: 1px solid var(--border);
+      padding-top: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .metric-row {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .metric-label {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 8px;
+      font-size: 12.5px;
+      font-weight: 700;
+    }
+
+    .metric-hint {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-soft);
+    }
+
+    .pill-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 5px;
+      align-items: center;
+    }
+
+    .score-pill {
+      border: 1px solid var(--border-strong);
+      background: var(--surface);
+      color: var(--text);
+      padding: 5px 10px;
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.12s ease;
+    }
+
+    .score-pill:hover {
+      border-color: var(--primary);
+      background: var(--primary-soft);
+    }
+
+    .score-pill.selected {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: #ffffff;
+    }
+
+    .score-pill.selected-good {
+      background: var(--success);
+      border-color: var(--success);
+      color: #ffffff;
+    }
+
+    .score-pill.selected-bad {
+      background: var(--danger);
+      border-color: var(--danger);
+      color: #ffffff;
+    }
+
+    .score-clear {
+      border: 1px dashed var(--border-strong);
+      background: transparent;
+      color: var(--text-soft);
+      padding: 4px 8px;
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .score-clear:hover {
+      color: var(--danger);
+      border-color: var(--danger);
+    }
+
+    /* Edit CSV Drawer */
+    details.edit-drawer {
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-alt);
+    }
+
+    details.edit-drawer > summary {
+      padding: 8px 10px;
+      font-size: 12.5px;
+      font-weight: 700;
+      cursor: pointer;
+      color: var(--text-muted);
+      user-select: none;
+    }
+
+    .edit-drawer-body {
+      padding: 10px;
+      border-top: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      background: var(--surface);
+    }
+
+    .edit-field-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .edit-field {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .edit-field.full {
+      grid-column: 1 / -1;
+    }
+
+    .edit-field label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-soft);
+    }
+
+    /* Table & Stats */
+    .table-wrap {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 12.5px;
+    }
+
+    th, td {
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--border);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: var(--surface-alt);
+      font-weight: 700;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    tr.clickable:hover td {
+      background: var(--primary-soft);
+      cursor: pointer;
+    }
+
+    .sticky-card {
+      position: sticky;
+      top: 0;
+    }
+
+    /* Toast */
+    .toast {
+      position: fixed;
+      right: 18px;
+      bottom: 18px;
+      background: #0f172a;
+      color: #ffffff;
+      padding: 10px 14px;
+      border-radius: var(--radius-sm);
+      font-size: 13px;
+      font-weight: 600;
+      box-shadow: var(--shadow-md);
+      z-index: 100;
+      opacity: 0;
+      transform: translateY(10px);
+      pointer-events: none;
+      transition: all 0.2s ease;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    .kbd-hint {
+      font-size: 11px;
+      color: var(--text-soft);
+    }
+
+    pre.md-preview {
+      background: #0f172a;
+      color: #e2e8f0;
+      padding: 12px;
+      border-radius: var(--radius-sm);
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      margin: 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-title">
+          <span>📋 Tier-2 Judge Sheet</span>
+          <span class="badge badge-blue" id="blindBadge" style="display:none;">Chế độ mù (Blind)</span>
+        </div>
+        <div class="brand-file" id="filePathText">Đang tải...</div>
+      </div>
+
+      <div class="progress-box">
+        <div class="progress-label">
+          <span>Tiến độ chấm</span>
+          <span id="progressText">0/0 đã chấm • 0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab-btn active" data-tab="compare">So sánh 3 Mode</button>
+        <button class="tab-btn" data-tab="focus">Chấm từng dòng</button>
+        <button class="tab-btn" data-tab="table">Bảng tổng quan</button>
+        <button class="tab-btn" data-tab="stats">Thống kê</button>
+      </nav>
+
+      <div class="toolbar">
+        <button class="btn" id="btnBlind" title="Ẩn tên mode và decision_source để chấm khách quan">
+          🕶️ Ẩn tên Mode
+        </button>
+        <button class="btn" id="btnBackup" title="Tạo file backup CSV có dấu thời gian">
+          💾 Tạo bản sao lưu
+        </button>
+        <a class="btn" href="/api/v1/judge-sheet/export/csv" download>
+          ⬇️ Tải CSV
+        </a>
+        <button class="btn" id="btnReload" title="Đọc lại dữ liệu mới nhất từ CSV">
+          🔄 Tải lại
+        </button>
+      </div>
+    </header>
+
+    <div class="workspace">
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar-filters">
+          <input
+            type="search"
+            id="searchInput"
+            class="input"
+            placeholder="Tìm scenario, câu hỏi, câu trả lời, ghi chú..."
+          />
+          <div class="filter-grid">
+            <select id="filterSuite" class="select" title="Lọc theo Suite">
+              <option value="">Suite: Tất cả</option>
+              <option value="contrastive">contrastive</option>
+              <option value="stratified">stratified</option>
+            </select>
+            <select id="filterMode" class="select" title="Lọc theo Mode">
+              <option value="">Mode: Tất cả</option>
+              <option value="IMMEDIATE_ANSWER">IMMEDIATE_ANSWER</option>
+              <option value="ALWAYS_CLARIFY">ALWAYS_CLARIFY</option>
+              <option value="CONDITIONAL_CLARIFICATION">CONDITIONAL_CLARIFICATION</option>
+            </select>
+            <select id="filterStatus" class="select" title="Lọc theo trạng thái chấm">
+              <option value="">Trạng thái: Tất cả</option>
+              <option value="unrated">Chưa chấm (0/5)</option>
+              <option value="partial">Chấm dở (1-4/5)</option>
+              <option value="complete">Đã xong (5/5)</option>
+            </select>
+            <select id="filterGrounding" class="select" title="Lọc theo Grounding">
+              <option value="">Grounding: Tất cả</option>
+              <option value="True">True</option>
+              <option value="False">False</option>
+            </select>
+          </div>
+        </div>
+        <div class="sidebar-count">
+          <span id="sidebarCountText">0 mục</span>
+          <span class="kbd-hint">[ / ] chuyển mục • Ctrl+S lưu</span>
+        </div>
+        <div class="sidebar-list" id="sidebarList"></div>
+      </aside>
+
+      <main class="main-pane" id="mainPane">
+        <div class="empty-state">Đang tải dữ liệu từ server...</div>
+      </main>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    (function () {
+      "use strict";
+
+      const MODE_LABELS = {
+        IMMEDIATE_ANSWER: "Mode A — Immediate",
+        ALWAYS_CLARIFY: "Mode B — Always Clarify",
+        CONDITIONAL_CLARIFICATION: "Mode C — Conditional",
+      };
+
+      const state = {
+        filePath: "",
+        columns: [],
+        rows: [],
+        summary: null,
+        activeTab: "compare", // compare | focus | table | stats
+        selectedScenarioKey: null,
+        selectedRowIndex: 0,
+        blindMode: false,
+        stackedCompare: false,
+        rawReplyByRow: {},
+        statsSuiteFilter: "",
+        filters: {
+          search: "",
+          suite: "",
+          mode: "",
+          status: "",
+          grounding: "",
+        },
+        saveStatusByRow: {}, // row_index -> { state: 'idle'|'saving'|'saved'|'error', text: string }
+        pendingNoteTimers: {}, // row_index -> timerId
+        pendingNotePayloads: {}, // row_index -> string
+      };
+
+      const el = {
+        filePathText: document.getElementById("filePathText"),
+        progressText: document.getElementById("progressText"),
+        progressFill: document.getElementById("progressFill"),
+        blindBadge: document.getElementById("blindBadge"),
+        btnBlind: document.getElementById("btnBlind"),
+        btnBackup: document.getElementById("btnBackup"),
+        btnReload: document.getElementById("btnReload"),
+        searchInput: document.getElementById("searchInput"),
+        filterSuite: document.getElementById("filterSuite"),
+        filterMode: document.getElementById("filterMode"),
+        filterStatus: document.getElementById("filterStatus"),
+        filterGrounding: document.getElementById("filterGrounding"),
+        sidebarCountText: document.getElementById("sidebarCountText"),
+        sidebarList: document.getElementById("sidebarList"),
+        mainPane: document.getElementById("mainPane"),
+        toast: document.getElementById("toast"),
+        tabBtns: Array.from(document.querySelectorAll(".tab-btn")),
+      };
+
+      function showToast(msg, isError = false) {
+        el.toast.textContent = msg;
+        el.toast.style.background = isError ? "#991b1b" : "#0f172a";
+        el.toast.classList.add("show");
+        clearTimeout(showToast._timer);
+        showToast._timer = setTimeout(() => {
+          el.toast.classList.remove("show");
+        }, 2800);
+      }
+
+      function escapeHtml(str) {
+        return String(str ?? "")
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#39;");
+      }
+
+      function formatInlineMd(escapedLine) {
+        let out = escapedLine;
+        out = out.replace(/`([^`]+)`/g, "<code>$1</code>");
+        out = out.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+        out = out.replace(/(^|[^*])\*([^*]+)\*/g, "$1<em>$2</em>");
+        return out;
+      }
+
+      function renderMarkdownSafe(rawText) {
+        const escaped = escapeHtml(rawText || "");
+        const lines = escaped.split(/\r?\n/);
+        const htmlParts = [];
+        let listType = null; // 'ul' | 'ol'
+
+        function closeList() {
+          if (listType) {
+            htmlParts.push(`</${listType}>`);
+            listType = null;
+          }
+        }
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed) {
+            closeList();
+            continue;
+          }
+          if (/^---+$/.test(trimmed)) {
+            closeList();
+            htmlParts.push("<hr />");
+            continue;
+          }
+          const headingMatch = trimmed.match(/^(#{1,4})\s+(.*)$/);
+          if (headingMatch) {
+            closeList();
+            const level = headingMatch[1].length;
+            htmlParts.push(`<h${level}>${formatInlineMd(headingMatch[2])}</h${level}>`);
+            continue;
+          }
+          const ulMatch = line.match(/^\s*[-*]\s+(.*)$/);
+          if (ulMatch) {
+            if (listType !== "ul") {
+              closeList();
+              listType = "ul";
+              htmlParts.push("<ul>");
+            }
+            htmlParts.push(`<li>${formatInlineMd(ulMatch[1])}</li>`);
+            continue;
+          }
+          const olMatch = line.match(/^\s*\d+\.\s+(.*)$/);
+          if (olMatch) {
+            if (listType !== "ol") {
+              closeList();
+              listType = "ol";
+              htmlParts.push("<ol>");
+            }
+            htmlParts.push(`<li>${formatInlineMd(olMatch[1])}</li>`);
+            continue;
+          }
+          closeList();
+          htmlParts.push(`<p>${formatInlineMd(trimmed)}</p>`);
+        }
+        closeList();
+        return htmlParts.join("") || '<p class="text-soft"><em>(Trống)</em></p>';
+      }
+
+      function rowStatus(row) {
+        if (row.is_complete) return "complete";
+        if (row.filled_metrics_count > 0) return "partial";
+        return "unrated";
+      }
+
+      function rowMatchesFilter(row) {
+        const f = state.filters;
+        if (f.suite && row.suite !== f.suite) return false;
+        if (f.mode && row.mode !== f.mode) return false;
+        if (f.status && rowStatus(row) !== f.status) return false;
+        if (f.grounding && row.grounding_ok.toLowerCase() !== f.grounding.toLowerCase()) {
+          return false;
+        }
+        if (f.search) {
+          const q = f.search.toLowerCase();
+          const haystack = [
+            row.scenario_id,
+            row.suite,
+            row.task_type,
+            row.question,
+            row.final_reply,
+            row.judge_notes,
+            row.products_summary,
+            row.outfits_summary,
+          ]
+            .join("\n")
+            .toLowerCase();
+          if (!haystack.includes(q)) return false;
+        }
+        return true;
+      }
+
+      function getFilteredRows() {
+        return state.rows.filter(rowMatchesFilter);
+      }
+
+      function getScenarioGroups(rows) {
+        const groupsMap = new Map();
+        for (const r of rows) {
+          const key = `${r.suite}::${r.scenario_id}`;
+          if (!groupsMap.has(key)) {
+            groupsMap.set(key, {
+              key,
+              suite: r.suite,
+              scenario_id: r.scenario_id,
+              task_type: r.task_type,
+              question: r.question,
+              rows: [],
+            });
+          }
+          groupsMap.get(key).rows.push(r);
+        }
+        return Array.from(groupsMap.values());
+      }
+
+      function hashString(str) {
+        let h = 2166136261;
+        for (let i = 0; i < str.length; i++) {
+          h ^= str.charCodeAt(i);
+          h = Math.imul(h, 16777619);
+        }
+        return h >>> 0;
+      }
+
+      function getBlindOrderedRows(scenarioGroup) {
+        if (!state.blindMode) return scenarioGroup.rows;
+        const copy = scenarioGroup.rows.slice();
+        copy.sort((a, b) => {
+          const ha = hashString(`${scenarioGroup.key}:${a.mode}`);
+          const hb = hashString(`${scenarioGroup.key}:${b.mode}`);
+          return ha - hb;
+        });
+        return copy;
+      }
+
+      function displayModeLabel(row, blindPosIndex = 0) {
+        if (state.blindMode) {
+          const letter = String.fromCharCode(65 + blindPosIndex);
+          return `Phương án ${letter}`;
+        }
+        return MODE_LABELS[row.mode] || row.mode;
+      }
+
+      function renderProgress() {
+        if (!state.summary) return;
+        const s = state.summary;
+        el.progressText.textContent =
+          `${s.completed_rows}/${s.total_rows} đã chấm • ${s.completion_pct.toFixed(1)}%`;
+        el.progressFill.style.width = `${s.completion_pct}%`;
+        el.filePathText.textContent = state.filePath;
+        el.blindBadge.style.display = state.blindMode ? "inline-flex" : "none";
+        el.btnBlind.classList.toggle("btn-active-toggle", state.blindMode);
+      }
+
+      function ensureSelectionValid() {
+        const filteredRows = getFilteredRows();
+        if (filteredRows.length === 0) return;
+
+        const groups = getScenarioGroups(filteredRows);
+        if (
+          !state.selectedScenarioKey ||
+          !groups.some((g) => g.key === state.selectedScenarioKey)
+        ) {
+          state.selectedScenarioKey = groups[0].key;
+        }
+
+        if (!filteredRows.some((r) => r.row_index === state.selectedRowIndex)) {
+          state.selectedRowIndex = filteredRows[0].row_index;
+        }
+      }
+
+      function renderSidebar() {
+        const filteredRows = getFilteredRows();
+        if (state.activeTab === "compare") {
+          const groups = getScenarioGroups(filteredRows);
+          el.sidebarCountText.textContent = `${groups.length} kịch bản (${filteredRows.length} dòng)`;
+          if (groups.length === 0) {
+            el.sidebarList.innerHTML =
+              '<div class="empty-state" style="padding:16px;margin:0;">Không có kịch bản khớp bộ lọc.</div>';
+            return;
+          }
+          el.sidebarList.innerHTML = groups
+            .map((g) => {
+              const active = g.key === state.selectedScenarioKey ? "active" : "";
+              const dots = g.rows
+                .map((r) => `<span class="dot ${rowStatus(r)}" title="${escapeHtml(state.blindMode ? "Phương án" : r.mode)}: ${r.filled_metrics_count}/5"></span>`)
+                .join("");
+              return `
+                <div class="nav-item ${active}" data-scenario-key="${escapeHtml(g.key)}">
+                  <div class="nav-item-top">
+                    <span>${escapeHtml(g.scenario_id)} <span style="font-weight:500;color:var(--text-soft);">(${escapeHtml(g.suite)})</span></span>
+                    <span class="dots">${dots}</span>
+                  </div>
+                  <div class="nav-item-question">${escapeHtml(g.question)}</div>
+                  <div class="nav-item-meta">
+                    <span>${escapeHtml(g.task_type)}</span>
+                    <span>${g.rows.filter((r) => r.is_complete).length}/${g.rows.length} xong</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join("");
+        } else {
+          el.sidebarCountText.textContent = `${filteredRows.length} / ${state.rows.length} dòng`;
+          if (filteredRows.length === 0) {
+            el.sidebarList.innerHTML =
+              '<div class="empty-state" style="padding:16px;margin:0;">Không có dòng khớp bộ lọc.</div>';
+            return;
+          }
+          el.sidebarList.innerHTML = filteredRows
+            .map((r) => {
+              const active = r.row_index === state.selectedRowIndex ? "active" : "";
+              const st = rowStatus(r);
+              const modeTxt = state.blindMode ? "Ẩn Mode" : r.mode;
+              return `
+                <div class="nav-item ${active}" data-row-index="${r.row_index}">
+                  <div class="nav-item-top">
+                    <span>#${r.row_index + 1} • ${escapeHtml(r.scenario_id)}</span>
+                    <span class="dot ${st}" title="${r.filled_metrics_count}/5"></span>
+                  </div>
+                  <div class="nav-item-question">${escapeHtml(r.question)}</div>
+                  <div class="nav-item-meta">
+                    <span>${escapeHtml(modeTxt)}</span>
+                    <span>${r.filled_metrics_count}/5</span>
+                  </div>
+                </div>
+              `;
+            })
+            .join("");
+        }
+      }
+
+      function renderSummaryList(raw, emptyLabel) {
+        const text = (raw || "").trim();
+        if (!text) {
+          return `<div style="color:var(--text-soft);font-style:italic;">${escapeHtml(emptyLabel)}</div>`;
+        }
+        const items = text.split(/\s*\|\s*/).filter(Boolean);
+        if (items.length <= 1) {
+          return `<div>${escapeHtml(text)}</div>`;
+        }
+        return `<ol class="trace-list">${items.map((it) => `<li>${escapeHtml(it)}</li>`).join("")}</ol>`;
+      }
+
+      function renderSaveBadge(rowIndex) {
+        const info = state.saveStatusByRow[rowIndex];
+        if (!info) {
+          return '<span class="save-status idle">Sẵn sàng</span>';
+        }
+        return `<span class="save-status ${info.state}">${escapeHtml(info.text)}</span>`;
+      }
+
+      function renderMetricButtons(row, field, options, semantic = "neutral") {
+        const current = row[field];
+        const btns = options
+          .map((opt) => {
+            const isSelected = current === opt.value;
+            let cls = "score-pill";
+            if (isSelected) {
+              if (semantic === "good-high") {
+                cls += opt.value === 1 || opt.value >= 4 ? " selected-good" : opt.value <= 2 && opt.value === 0 ? " selected-bad" : " selected";
+              } else if (semantic === "bad-high") {
+                cls += opt.value === 1 ? " selected-bad" : " selected-good";
+              } else {
+                cls += " selected";
+              }
+            }
+            return `<button type="button" class="${cls}" data-score-row="${row.row_index}" data-score-field="${field}" data-score-val="${opt.value}">${escapeHtml(opt.label)}</button>`;
+          })
+          .join("");
+        const clearBtn = `<button type="button" class="score-clear" title="Xoá điểm" data-score-row="${row.row_index}" data-score-field="${field}" data-score-val="">×</button>`;
+        return `<div class="pill-group">${btns}${clearBtn}</div>`;
+      }
+
+      function renderRowCard(row, blindPosIndex = 0, isFocus = false) {
+        const modeTitle = displayModeLabel(row, blindPosIndex);
+        const groundingTrue = row.grounding_ok.trim().toLowerCase() === "true";
+        const groundingFalse = row.grounding_ok.trim().toLowerCase() === "false";
+        const groundingBadgeClass = groundingFalse
+          ? "badge-red"
+          : groundingTrue
+            ? "badge-green"
+            : "";
+        const isRaw = !!state.rawReplyByRow[row.row_index];
+        const replyBody = isRaw
+          ? `<div class="reply-box raw">${escapeHtml(row.final_reply)}</div>`
+          : `<div class="reply-box md-content">${renderMarkdownSafe(row.final_reply)}</div>`;
+
+        const traceMetaPills = [
+          `<span class="badge">Turns: <strong>${escapeHtml(row.turns_to_completion || "-")}</strong></span>`,
+          `<span class="badge">Clarify: <strong>${escapeHtml(row.clarification_asked || "-")}</strong></span>`,
+          `<span class="badge ${groundingBadgeClass}">Grounding: <strong>${escapeHtml(row.grounding_ok || "-")}</strong></span>`,
+          row.tools_used
+            ? `<span class="badge badge-blue">Tools: ${escapeHtml(row.tools_used)}</span>`
+            : "",
+          row.asked_slots
+            ? `<span class="badge badge-amber">Asked slots: ${escapeHtml(row.asked_slots)}</span>`
+            : "",
+          !state.blindMode && row.decision_source
+            ? `<span class="badge badge-purple">Decision: ${escapeHtml(row.decision_source)}</span>`
+            : "",
+          !state.blindMode && row.reason_codes
+            ? `<span class="badge">Reasons: ${escapeHtml(row.reason_codes)}</span>`
+            : "",
+          row.applied_rule_ids
+            ? `<span class="badge">KG Rules: ${escapeHtml(row.applied_rule_ids)}</span>`
+            : "",
+        ]
+          .filter(Boolean)
+          .join("");
+
+        const editDrawer = `
+          <details class="edit-drawer">
+            <summary>✏️ Chỉnh sửa dữ liệu dòng CSV (#${row.row_index + 1})</summary>
+            <div class="edit-drawer-body" data-edit-form="${row.row_index}">
+              <div class="edit-field-grid">
+                <div class="edit-field full">
+                  <label>question</label>
+                  <input class="input" data-edit-field="question" value="${escapeHtml(row.question)}" />
+                </div>
+                <div class="edit-field full">
+                  <label>final_reply</label>
+                  <textarea class="textarea" rows="6" data-edit-field="final_reply">${escapeHtml(row.final_reply)}</textarea>
+                </div>
+                <div class="edit-field">
+                  <label>turns_to_completion</label>
+                  <input class="input" data-edit-field="turns_to_completion" value="${escapeHtml(row.turns_to_completion)}" />
+                </div>
+                <div class="edit-field">
+                  <label>task_type</label>
+                  <input class="input" data-edit-field="task_type" value="${escapeHtml(row.task_type)}" />
+                </div>
+                <div class="edit-field">
+                  <label>clarification_asked</label>
+                  <select class="select" data-edit-field="clarification_asked">
+                    <option value="True" ${row.clarification_asked === "True" ? "selected" : ""}>True</option>
+                    <option value="False" ${row.clarification_asked === "False" ? "selected" : ""}>False</option>
+                    <option value="" ${!row.clarification_asked ? "selected" : ""}>(Trống)</option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label>grounding_ok</label>
+                  <select class="select" data-edit-field="grounding_ok">
+                    <option value="True" ${row.grounding_ok === "True" ? "selected" : ""}>True</option>
+                    <option value="False" ${row.grounding_ok === "False" ? "selected" : ""}>False</option>
+                    <option value="" ${!row.grounding_ok ? "selected" : ""}>(Trống)</option>
+                  </select>
+                </div>
+                <div class="edit-field">
+                  <label>asked_slots</label>
+                  <input class="input" data-edit-field="asked_slots" value="${escapeHtml(row.asked_slots)}" />
+                </div>
+                <div class="edit-field">
+                  <label>tools_used</label>
+                  <input class="input" data-edit-field="tools_used" value="${escapeHtml(row.tools_used)}" />
+                </div>
+                <div class="edit-field">
+                  <label>decision_source</label>
+                  <input class="input" data-edit-field="decision_source" value="${escapeHtml(row.decision_source)}" />
+                </div>
+                <div class="edit-field">
+                  <label>reason_codes</label>
+                  <input class="input" data-edit-field="reason_codes" value="${escapeHtml(row.reason_codes)}" />
+                </div>
+                <div class="edit-field full">
+                  <label>applied_rule_ids</label>
+                  <input class="input" data-edit-field="applied_rule_ids" value="${escapeHtml(row.applied_rule_ids)}" />
+                </div>
+                <div class="edit-field full">
+                  <label>products_summary</label>
+                  <textarea class="textarea" rows="2" data-edit-field="products_summary">${escapeHtml(row.products_summary)}</textarea>
+                </div>
+                <div class="edit-field full">
+                  <label>outfits_summary</label>
+                  <textarea class="textarea" rows="2" data-edit-field="outfits_summary">${escapeHtml(row.outfits_summary)}</textarea>
+                </div>
+              </div>
+              <div style="display:flex;justify-content:flex-end;gap:8px;">
+                <button type="button" class="btn btn-primary" data-save-edit-row="${row.row_index}">
+                  Lưu chỉnh sửa dòng
+                </button>
+              </div>
+            </div>
+          </details>
+        `;
+
+        const scoringBlock = `
+          <div class="scoring-panel">
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>1. Recommendation Relevance (1–5)</span>
+                <span class="metric-hint">Độ phù hợp sản phẩm / phối đồ</span>
+              </div>
+              ${renderMetricButtons(
+                row,
+                "recommendation_relevance_1_5",
+                [1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) })),
+                "good-high"
+              )}
+            </div>
+
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>2. Explanation Faithfulness (1–5)</span>
+                <span class="metric-hint">Trung thực với catalog/KG & không bịa</span>
+              </div>
+              ${renderMetricButtons(
+                row,
+                "explanation_faithfulness_1_5",
+                [1, 2, 3, 4, 5].map((n) => ({ value: n, label: String(n) })),
+                "good-high"
+              )}
+            </div>
+
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>3. Task Completion (0 / 1)</span>
+                <span class="metric-hint">Hoàn thành hữu ích cho khách</span>
+              </div>
+              ${renderMetricButtons(
+                row,
+                "task_completion_0_1",
+                [
+                  { value: 0, label: "0 — Chưa đạt" },
+                  { value: 1, label: "1 — Đạt" },
+                ],
+                "good-high"
+              )}
+            </div>
+
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>4. Unnecessary Question (0 / 1)</span>
+                <span class="metric-hint">Hỏi làm rõ thừa?</span>
+              </div>
+              ${renderMetricButtons(
+                row,
+                "unnecessary_question_0_1",
+                [
+                  { value: 0, label: "0 — Không thừa" },
+                  { value: 1, label: "1 — Hỏi thừa" },
+                ],
+                "bad-high"
+              )}
+            </div>
+
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>5. Missed Clarification (0 / 1)</span>
+                <span class="metric-hint">Đáng lẽ cần hỏi nhưng bỏ qua?</span>
+              </div>
+              ${renderMetricButtons(
+                row,
+                "missed_clarification_0_1",
+                [
+                  { value: 0, label: "0 — Không sót" },
+                  { value: 1, label: "1 — Bỏ sót" },
+                ],
+                "bad-high"
+              )}
+            </div>
+
+            <div class="metric-row">
+              <div class="metric-label">
+                <span>Ghi chú (judge_notes)</span>
+                <button type="button" class="btn" style="padding:2px 8px;font-size:11px;" data-force-save-row="${row.row_index}">
+                  Lưu ngay
+                </button>
+              </div>
+              <textarea
+                class="textarea"
+                rows="3"
+                placeholder="Nhận xét sai sót grounding, câu hỏi thừa/thiếu, chất lượng phối đồ..."
+                data-note-row="${row.row_index}"
+              >${escapeHtml(state.pendingNotePayloads[row.row_index] ?? row.judge_notes)}</textarea>
+            </div>
+          </div>
+        `;
+
+        if (isFocus) {
+          return `
+            <div class="focus-layout">
+              <div class="row-card">
+                <div class="row-card-header">
+                  <div class="badge-row">
+                    <strong>#${row.row_index + 1} • ${escapeHtml(modeTitle)}</strong>
+                    <span class="badge">${row.filled_metrics_count}/5 điểm</span>
+                  </div>
+                  <div class="badge-row">
+                    <button type="button" class="btn" style="padding:3px 8px;font-size:11.5px;" data-toggle-raw="${row.row_index}">
+                      ${isRaw ? "Xem Markdown" : "Văn bản thô"}
+                    </button>
+                    <span id="save-badge-${row.row_index}">${renderSaveBadge(row.row_index)}</span>
+                  </div>
+                </div>
+                <div class="row-card-body">
+                  <div class="badge-row">${traceMetaPills}</div>
+                  <div>
+                    <div class="section-header">
+                      <span class="section-title">Câu trả lời cuối (final_reply)</span>
+                    </div>
+                    ${replyBody}
+                  </div>
+                  <div class="trace-box">
+                    <div class="section-title">Products Summary</div>
+                    ${renderSummaryList(row.products_summary, "Không có product summary")}
+                  </div>
+                  <div class="trace-box">
+                    <div class="section-title">Outfits Summary</div>
+                    ${renderSummaryList(row.outfits_summary, "Không có outfit summary")}
+                  </div>
+                  ${editDrawer}
+                </div>
+              </div>
+
+              <div class="row-card sticky-card">
+                <div class="row-card-header">
+                  <strong>Phiếu chấm điểm (Row #${row.row_index + 1})</strong>
+                  <span class="badge ${row.is_complete ? "badge-green" : "badge-amber"}">
+                    ${row.is_complete ? "Hoàn tất" : `${row.filled_metrics_count}/5`}
+                  </span>
+                </div>
+                <div class="row-card-body">
+                  ${scoringBlock}
+                </div>
+              </div>
+            </div>
+          `;
+        }
+
+        return `
+          <div class="row-card">
+            <div class="row-card-header">
+              <div class="badge-row">
+                <strong>${escapeHtml(modeTitle)}</strong>
+                <span class="badge">#${row.row_index + 1}</span>
+                <span class="badge ${row.is_complete ? "badge-green" : ""}">${row.filled_metrics_count}/5</span>
+              </div>
+              <div class="badge-row">
+                <button type="button" class="btn" style="padding:3px 8px;font-size:11.5px;" data-toggle-raw="${row.row_index}">
+                  ${isRaw ? "Markdown" : "Thô"}
+                </button>
+                <span id="save-badge-${row.row_index}">${renderSaveBadge(row.row_index)}</span>
+              </div>
+            </div>
+            <div class="row-card-body">
+              <div class="badge-row">${traceMetaPills}</div>
+              <div>
+                <div class="section-header">
+                  <span class="section-title">Final Reply</span>
+                </div>
+                ${replyBody}
+              </div>
+              <div class="trace-box">
+                <div class="section-title">Products Summary</div>
+                ${renderSummaryList(row.products_summary, "Không có product summary")}
+              </div>
+              <div class="trace-box">
+                <div class="section-title">Outfits Summary</div>
+                ${renderSummaryList(row.outfits_summary, "Không có outfit summary")}
+              </div>
+              ${scoringBlock}
+              ${editDrawer}
+            </div>
+          </div>
+        `;
+      }
+
+      function renderCompareView() {
+        const filteredRows = getFilteredRows();
+        const groups = getScenarioGroups(filteredRows);
+        const currentIndex = groups.findIndex((g) => g.key === state.selectedScenarioKey);
+        const group = currentIndex >= 0 ? groups[currentIndex] : null;
+        if (!group) {
+          el.mainPane.innerHTML = '<div class="empty-state">Không có kịch bản nào phù hợp bộ lọc hiện tại.</div>';
+          return;
+        }
+        const orderedRows = getBlindOrderedRows(group);
+        const gridCls = state.stackedCompare ? "compare-grid stacked" : "compare-grid";
+        el.mainPane.innerHTML = `
+          <div class="scenario-banner">
+            <div class="scenario-banner-top">
+              <div class="badge-row">
+                <span class="badge badge-blue">Kịch bản ${currentIndex + 1}/${groups.length}</span>
+                <span class="badge"><strong>${escapeHtml(group.scenario_id)}</strong></span>
+                <span class="badge">${escapeHtml(group.suite)}</span>
+                <span class="badge">${escapeHtml(group.task_type)}</span>
+              </div>
+              <div class="badge-row">
+                <button type="button" class="btn" id="btnToggleStacked">
+                  ${state.stackedCompare ? "📐 Xếp 3 cột" : "📄 Xếp dọc"}
+                </button>
+                <button type="button" class="btn" id="btnPrevItem" ${currentIndex <= 0 ? "disabled" : ""}>← Trước</button>
+                <button type="button" class="btn" id="btnNextItem" ${currentIndex >= groups.length - 1 ? "disabled" : ""}>Sau →</button>
+              </div>
+            </div>
+            <p class="scenario-question">“${escapeHtml(group.question)}”</p>
+          </div>
+          <div class="${gridCls}">
+            ${orderedRows.map((r, idx) => renderRowCard(r, idx, false)).join("")}
+          </div>
+        `;
+      }
+
+      function renderFocusView() {
+        const filteredRows = getFilteredRows();
+        const currentPos = filteredRows.findIndex((r) => r.row_index === state.selectedRowIndex);
+        const row = currentPos >= 0 ? filteredRows[currentPos] : null;
+        if (!row) {
+          el.mainPane.innerHTML = '<div class="empty-state">Không có dòng nào phù hợp bộ lọc hiện tại.</div>';
+          return;
+        }
+        el.mainPane.innerHTML = `
+          <div class="scenario-banner">
+            <div class="scenario-banner-top">
+              <div class="badge-row">
+                <span class="badge badge-blue">Dòng ${currentPos + 1}/${filteredRows.length} (CSV #${row.row_index + 1})</span>
+                <span class="badge"><strong>${escapeHtml(row.scenario_id)}</strong></span>
+                <span class="badge">${escapeHtml(row.suite)}</span>
+                <span class="badge">${escapeHtml(row.task_type)}</span>
+              </div>
+              <div class="badge-row">
+                <button type="button" class="btn" id="btnPrevItem" ${currentPos <= 0 ? "disabled" : ""}>← Trước</button>
+                <button type="button" class="btn" id="btnNextItem" ${currentPos >= filteredRows.length - 1 ? "disabled" : ""}>Sau →</button>
+              </div>
+            </div>
+            <p class="scenario-question">“${escapeHtml(row.question)}”</p>
+          </div>
+          ${renderRowCard(row, 0, true)}
+        `;
+      }
+
+      function fmtVal(val, suffix = "", digits = 1) {
+        if (val === null || val === undefined) return "-";
+        return `${Number(val).toFixed(digits)}${suffix}`;
+      }
+
+      function renderTableView() {
+        const filteredRows = getFilteredRows();
+        if (filteredRows.length === 0) {
+          el.mainPane.innerHTML = '<div class="empty-state">Không có dòng nào phù hợp bộ lọc.</div>';
+          return;
+        }
+        const rowsHtml = filteredRows
+          .map((r) => {
+            const gBadge =
+              r.grounding_ok.toLowerCase() === "true"
+                ? '<span class="badge badge-green">True</span>'
+                : r.grounding_ok.toLowerCase() === "false"
+                  ? '<span class="badge badge-red">False</span>'
+                  : "-";
+            const modeStr = state.blindMode ? "Ẩn Mode" : r.mode;
+            const notePreview = r.judge_notes
+              ? escapeHtml(r.judge_notes.slice(0, 60)) + (r.judge_notes.length > 60 ? "…" : "")
+              : '<span style="color:var(--text-soft)">-</span>';
+            return `
+              <tr class="clickable" data-open-focus-row="${r.row_index}">
+                <td>${r.row_index + 1}</td>
+                <td>${escapeHtml(r.suite)}</td>
+                <td><strong>${escapeHtml(r.scenario_id)}</strong></td>
+                <td>${escapeHtml(r.task_type)}</td>
+                <td><code>${escapeHtml(modeStr)}</code></td>
+                <td>${escapeHtml(r.turns_to_completion || "-")}</td>
+                <td>${gBadge}</td>
+                <td>${r.recommendation_relevance_1_5 ?? "-"}</td>
+                <td>${r.explanation_faithfulness_1_5 ?? "-"}</td>
+                <td>${r.task_completion_0_1 ?? "-"}</td>
+                <td>${r.unnecessary_question_0_1 ?? "-"}</td>
+                <td>${r.missed_clarification_0_1 ?? "-"}</td>
+                <td>${notePreview}</td>
+              </tr>
+            `;
+          })
+          .join("");
+
+        el.mainPane.innerHTML = `
+          <div class="scenario-banner" style="padding:10px 14px;">
+            <div class="scenario-banner-top" style="margin:0;">
+              <strong>Bảng tổng quan (${filteredRows.length} dòng — nhấn vào một dòng để mở chi tiết)</strong>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>#</th>
+                  <th>Suite</th>
+                  <th>Scenario</th>
+                  <th>Task Type</th>
+                  <th>Mode</th>
+                  <th>Turns</th>
+                  <th>Grounding</th>
+                  <th>Rel (1-5)</th>
+                  <th>Faith (1-5)</th>
+                  <th>Comp (0/1)</th>
+                  <th>Unnec (0/1)</th>
+                  <th>Missed (0/1)</th>
+                  <th>Ghi chú</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+        `;
+      }
+
+      function renderStatsView() {
+        if (!state.summary) return;
+        const suiteKeys = Object.keys(state.summary.by_suite_and_mode || {});
+        const statsList = state.statsSuiteFilter
+          ? state.summary.by_suite_and_mode[state.statsSuiteFilter] || []
+          : state.summary.by_mode || [];
+
+        const rowsHtml = statsList
+          .map(
+            (s) => `
+            <tr>
+              <td><strong>${escapeHtml(s.mode)}</strong></td>
+              <td>${s.completed_rows}/${s.total_rows}</td>
+              <td>${fmtVal(s.avg_turns, "", 2)}</td>
+              <td>${fmtVal(s.grounding_ok_rate, "%", 1)}</td>
+              <td>${fmtVal(s.clarification_rate, "%", 1)}</td>
+              <td>${fmtVal(s.avg_relevance, "", 2)}</td>
+              <td>${fmtVal(s.avg_faithfulness, "", 2)}</td>
+              <td>${fmtVal(s.task_completion_rate, "%", 1)}</td>
+              <td>${fmtVal(s.unnecessary_question_rate, "%", 1)}</td>
+              <td>${fmtVal(s.missed_clarification_rate, "%", 1)}</td>
+            </tr>`
+          )
+          .join("");
+
+        const suiteOptions = ['<option value="">Tất cả Suite</option>']
+          .concat(
+            suiteKeys.map(
+              (k) =>
+                `<option value="${escapeHtml(k)}" ${state.statsSuiteFilter === k ? "selected" : ""}>${escapeHtml(k)}</option>`
+            )
+          )
+          .join("");
+
+        el.mainPane.innerHTML = `
+          <div class="scenario-banner">
+            <div class="scenario-banner-top" style="margin:0;">
+              <div class="badge-row">
+                <strong>Thống kê tổng hợp theo Mode</strong>
+                <span class="badge badge-green">Hoàn tất: ${state.summary.completed_rows}</span>
+                <span class="badge badge-amber">Chấm dở: ${state.summary.partial_rows}</span>
+                <span class="badge">Chưa chấm: ${state.summary.unrated_rows}</span>
+              </div>
+              <div class="badge-row">
+                <select id="statsSuiteSelect" class="select" style="width:auto;">
+                  ${suiteOptions}
+                </select>
+                <button type="button" class="btn btn-primary" id="btnCopyMarkdown">
+                  📋 Copy bảng Markdown
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="table-wrap" style="margin-bottom:16px;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Mode</th>
+                  <th>Đã chấm</th>
+                  <th>Turns TB</th>
+                  <th>Grounding %</th>
+                  <th>Clarify %</th>
+                  <th>Relevance (1–5)</th>
+                  <th>Faithfulness (1–5)</th>
+                  <th>Task Completion %</th>
+                  <th>Unnecessary Q %</th>
+                  <th>Missed Clarify %</th>
+                </tr>
+              </thead>
+              <tbody>${rowsHtml}</tbody>
+            </table>
+          </div>
+
+          <div class="row-card">
+            <div class="row-card-header">
+              <strong>Xem trước Markdown Export</strong>
+            </div>
+            <div class="row-card-body">
+              <pre class="md-preview" id="mdPreviewBox">Đang tải Markdown...</pre>
+            </div>
+          </div>
+        `;
+        loadMarkdownPreview();
+      }
+
+      async function loadMarkdownPreview() {
+        const box = document.getElementById("mdPreviewBox");
+        if (!box) return;
+        const qs = state.statsSuiteFilter
+          ? `?suite=${encodeURIComponent(state.statsSuiteFilter)}`
+          : "";
+        try {
+          const res = await fetch(`/api/v1/judge-sheet/export/markdown${qs}`);
+          if (!res.ok) throw new Error(`HTTP ${res.status}`);
+          box.textContent = await res.text();
+        } catch (err) {
+          box.textContent = `Không tải được Markdown: ${err.message}`;
+        }
+      }
+
+      function renderAll() {
+        renderProgress();
+        ensureSelectionValid();
+        renderSidebar();
+
+        el.tabBtns.forEach((b) => {
+          b.classList.toggle("active", b.dataset.tab === state.activeTab);
+        });
+
+        if (state.activeTab === "compare") {
+          renderCompareView();
+        } else if (state.activeTab === "focus") {
+          renderFocusView();
+        } else if (state.activeTab === "table") {
+          renderTableView();
+        } else {
+          renderStatsView();
+        }
+      }
+
+      function updateSaveBadgeDom(rowIndex, statusState, text) {
+        state.saveStatusByRow[rowIndex] = { state: statusState, text };
+        const badgeWrap = document.getElementById(`save-badge-${rowIndex}`);
+        if (badgeWrap) {
+          badgeWrap.innerHTML = renderSaveBadge(rowIndex);
+        }
+      }
+
+      async function patchRow(rowIndex, payload, rerenderAfter = true) {
+        updateSaveBadgeDom(rowIndex, "saving", "Đang lưu...");
+        try {
+          const res = await fetch(`/api/v1/judge-sheet/rows/${rowIndex}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(payload),
+          });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          const idx = state.rows.findIndex((r) => r.row_index === rowIndex);
+          if (idx >= 0) {
+            state.rows[idx] = data.row;
+          }
+          state.summary = data.summary;
+          delete state.pendingNotePayloads[rowIndex];
+          updateSaveBadgeDom(rowIndex, "saved", "✓ Đã lưu");
+          renderProgress();
+          renderSidebar();
+          if (rerenderAfter) {
+            renderAll();
+          }
+          return true;
+        } catch (err) {
+          updateSaveBadgeDom(rowIndex, "error", "⚠ Lỗi lưu");
+          showToast(`Lỗi lưu dòng #${rowIndex + 1}: ${err.message}`, true);
+          return false;
+        }
+      }
+
+      async function flushPendingNotes(rerenderAfter = false) {
+        const entries = Object.entries(state.pendingNotePayloads);
+        for (const [rowIdxStr, noteVal] of entries) {
+          const rowIdx = Number(rowIdxStr);
+          if (state.pendingNoteTimers[rowIdx]) {
+            clearTimeout(state.pendingNoteTimers[rowIdx]);
+            delete state.pendingNoteTimers[rowIdx];
+          }
+          await patchRow(rowIdx, { judge_notes: noteVal }, rerenderAfter);
+        }
+      }
+
+      async function loadSheet(showSuccessToast = false) {
+        try {
+          const res = await fetch("/api/v1/judge-sheet");
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          state.filePath = data.file_path;
+          state.columns = data.columns;
+          state.rows = data.rows;
+          state.summary = data.summary;
+          renderAll();
+          if (showSuccessToast) {
+            showToast(`Đã tải ${data.rows.length} dòng từ CSV.`);
+          }
+        } catch (err) {
+          el.mainPane.innerHTML = `<div class="empty-state" style="color:var(--danger);">Lỗi tải CSV: ${escapeHtml(err.message)}</div>`;
+          showToast(`Lỗi tải CSV: ${err.message}`, true);
+        }
+      }
+
+      function stepNavigation(delta) {
+        const filteredRows = getFilteredRows();
+        if (state.activeTab === "compare") {
+          const groups = getScenarioGroups(filteredRows);
+          const cur = groups.findIndex((g) => g.key === state.selectedScenarioKey);
+          const next = cur + delta;
+          if (next >= 0 && next < groups.length) {
+            state.selectedScenarioKey = groups[next].key;
+            renderAll();
+            el.mainPane.scrollTop = 0;
+          }
+        } else if (state.activeTab === "focus") {
+          const cur = filteredRows.findIndex((r) => r.row_index === state.selectedRowIndex);
+          const next = cur + delta;
+          if (next >= 0 && next < filteredRows.length) {
+            state.selectedRowIndex = filteredRows[next].row_index;
+            renderAll();
+            el.mainPane.scrollTop = 0;
+          }
+        }
+      }
+
+      // Event Listeners
+      el.tabBtns.forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          await flushPendingNotes(false);
+          state.activeTab = btn.dataset.tab;
+          renderAll();
+        });
+      });
+
+      el.btnBlind.addEventListener("click", () => {
+        state.blindMode = !state.blindMode;
+        renderAll();
+      });
+
+      el.btnReload.addEventListener("click", async () => {
+        await flushPendingNotes(false);
+        await loadSheet(true);
+      });
+
+      el.btnBackup.addEventListener("click", async () => {
+        el.btnBackup.disabled = true;
+        try {
+          const res = await fetch("/api/v1/judge-sheet/backup", { method: "POST" });
+          if (!res.ok) {
+            const errData = await res.json().catch(() => ({}));
+            throw new Error(errData.detail || `HTTP ${res.status}`);
+          }
+          const data = await res.json();
+          showToast(`Đã tạo backup (${data.row_count} dòng): ${data.backup_path}`);
+        } catch (err) {
+          showToast(`Lỗi tạo backup: ${err.message}`, true);
+        } finally {
+          el.btnBackup.disabled = false;
+        }
+      });
+
+      el.searchInput.addEventListener("input", (e) => {
+        state.filters.search = e.target.value.trim();
+        renderAll();
+      });
+      el.filterSuite.addEventListener("change", (e) => {
+        state.filters.suite = e.target.value;
+        renderAll();
+      });
+      el.filterMode.addEventListener("change", (e) => {
+        state.filters.mode = e.target.value;
+        renderAll();
+      });
+      el.filterStatus.addEventListener("change", (e) => {
+        state.filters.status = e.target.value;
+        renderAll();
+      });
+      el.filterGrounding.addEventListener("change", (e) => {
+        state.filters.grounding = e.target.value;
+        renderAll();
+      });
+
+      el.sidebarList.addEventListener("click", async (e) => {
+        const scenItem = e.target.closest("[data-scenario-key]");
+        if (scenItem) {
+          await flushPendingNotes(false);
+          state.selectedScenarioKey = scenItem.dataset.scenarioKey;
+          renderAll();
+          el.mainPane.scrollTop = 0;
+          return;
+        }
+        const rowItem = e.target.closest("[data-row-index]");
+        if (rowItem) {
+          await flushPendingNotes(false);
+          state.selectedRowIndex = Number(rowItem.dataset.rowIndex);
+          if (state.activeTab !== "focus") {
+            state.activeTab = "focus";
+          }
+          renderAll();
+          el.mainPane.scrollTop = 0;
+        }
+      });
+
+      el.mainPane.addEventListener("click", async (e) => {
+        if (e.target.id === "btnPrevItem") {
+          stepNavigation(-1);
+          return;
+        }
+        if (e.target.id === "btnNextItem") {
+          stepNavigation(1);
+          return;
+        }
+        if (e.target.id === "btnToggleStacked") {
+          state.stackedCompare = !state.stackedCompare;
+          renderCompareView();
+          return;
+        }
+        if (e.target.id === "btnCopyMarkdown") {
+          const box = document.getElementById("mdPreviewBox");
+          if (box) {
+            try {
+              await navigator.clipboard.writeText(box.textContent);
+              showToast("Đã copy bảng Markdown vào clipboard!");
+            } catch {
+              showToast("Trình duyệt không cho phép copy tự động.", true);
+            }
+          }
+          return;
+        }
+
+        const rawBtn = e.target.closest("[data-toggle-raw]");
+        if (rawBtn) {
+          const rIdx = Number(rawBtn.dataset.toggleRaw);
+          state.rawReplyByRow[rIdx] = !state.rawReplyByRow[rIdx];
+          renderAll();
+          return;
+        }
+
+        const scoreBtn = e.target.closest("[data-score-row]");
+        if (scoreBtn) {
+          const rIdx = Number(scoreBtn.dataset.scoreRow);
+          const field = scoreBtn.dataset.scoreField;
+          const rawVal = scoreBtn.dataset.scoreVal;
+          const val = rawVal === "" ? null : Number(rawVal);
+          await patchRow(rIdx, { [field]: val }, true);
+          return;
+        }
+
+        const forceSaveBtn = e.target.closest("[data-force-save-row]");
+        if (forceSaveBtn) {
+          const rIdx = Number(forceSaveBtn.dataset.forceSaveRow);
+          const ta = el.mainPane.querySelector(`[data-note-row="${rIdx}"]`);
+          if (state.pendingNoteTimers[rIdx]) {
+            clearTimeout(state.pendingNoteTimers[rIdx]);
+            delete state.pendingNoteTimers[rIdx];
+          }
+          if (ta) {
+            await patchRow(rIdx, { judge_notes: ta.value }, true);
+          }
+          return;
+        }
+
+        const saveEditBtn = e.target.closest("[data-save-edit-row]");
+        if (saveEditBtn) {
+          const rIdx = Number(saveEditBtn.dataset.saveEditRow);
+          const form = el.mainPane.querySelector(`[data-edit-form="${rIdx}"]`);
+          if (!form) return;
+          const payload = {};
+          form.querySelectorAll("[data-edit-field]").forEach((input) => {
+            payload[input.dataset.editField] = input.value;
+          });
+          const ok = await patchRow(rIdx, payload, true);
+          if (ok) {
+            showToast(`Đã lưu chỉnh sửa CSV dòng #${rIdx + 1}.`);
+          }
+          return;
+        }
+
+        const tableRow = e.target.closest("[data-open-focus-row]");
+        if (tableRow) {
+          await flushPendingNotes(false);
+          state.selectedRowIndex = Number(tableRow.dataset.openFocusRow);
+          state.activeTab = "focus";
+          renderAll();
+          el.mainPane.scrollTop = 0;
+        }
+      });
+
+      el.mainPane.addEventListener("input", (e) => {
+        const noteArea = e.target.closest("[data-note-row]");
+        if (!noteArea) return;
+        const rIdx = Number(noteArea.dataset.noteRow);
+        state.pendingNotePayloads[rIdx] = noteArea.value;
+        updateSaveBadgeDom(rIdx, "saving", "Chờ lưu...");
+        if (state.pendingNoteTimers[rIdx]) {
+          clearTimeout(state.pendingNoteTimers[rIdx]);
+        }
+        state.pendingNoteTimers[rIdx] = setTimeout(() => {
+          delete state.pendingNoteTimers[rIdx];
+          patchRow(rIdx, { judge_notes: noteArea.value }, false);
+        }, 500);
+      });
+
+      el.mainPane.addEventListener("change", (e) => {
+        if (e.target.id === "statsSuiteSelect") {
+          state.statsSuiteFilter = e.target.value;
+          renderStatsView();
+        }
+      });
+
+      document.addEventListener("keydown", async (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+          e.preventDefault();
+          await flushPendingNotes(true);
+          showToast("Đã lưu mọi ghi chú đang chờ.");
+          return;
+        }
+        const tag = (document.activeElement && document.activeElement.tagName) || "";
+        if (["INPUT", "TEXTAREA", "SELECT"].includes(tag)) return;
+
+        if (e.key === "[" || (e.altKey && e.key === "ArrowLeft")) {
+          e.preventDefault();
+          stepNavigation(-1);
+        } else if (e.key === "]" || (e.altKey && e.key === "ArrowRight")) {
+          e.preventDefault();
+          stepNavigation(1);
+        }
+      });
+
+      // Boot
+      loadSheet(false);
+    })();
+  </script>
+</body>
+</html>
+
