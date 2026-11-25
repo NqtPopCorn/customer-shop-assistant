@@ -432,3 +432,38 @@ def test_size_advice_form_submit_preserves_intent_and_parses_ranges_cleanly() ->
         [history[0], history[1], HumanMessage(content="Tìm áo sơ mi nam")]
     )
     assert intent_switch == TurnIntent.PRODUCT_SEARCH
+
+
+def test_build_form_allows_provided_reconfirm_on_unfulfillable_constraints() -> None:
+    slots_col, intent_col = extract_conversation_slots(
+        [HumanMessage(content="Phối áo sơ mi nam màu xanh mint với quần âu đi làm.")]
+    )
+    assert slots_col.has("color")
+    assert (
+        build_clarification_form(
+            slots_col, intent_col, max_questions=1, target_slots=["color"]
+        ).questions
+        == []
+    )
+    reconfirm_col = build_clarification_form(
+        slots_col,
+        intent_col,
+        max_questions=1,
+        target_slots=["color"],
+        allow_provided=True,
+    )
+    assert [q.id for q in reconfirm_col.questions] == ["color"]
+
+    slots_bud, intent_bud = extract_conversation_slots(
+        [HumanMessage(content="Phối đồ đi tiệc cho nam dưới 100k")]
+    )
+    assert slots_bud.has("budget")
+    reconfirm_bud = build_clarification_form(
+        slots_bud,
+        intent_bud,
+        max_questions=1,
+        target_slots=["budget"],
+        allow_provided=True,
+    )
+    assert [q.id for q in reconfirm_bud.questions] == ["budget"]
+    assert "chưa có bộ phối phù hợp" in reconfirm_bud.questions[0].question

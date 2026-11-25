@@ -1,6 +1,5 @@
-"""Experiment E1 Benchmark: Clarification Modes, KG Ablations & Neo4j Live Eval."""
+"""Experiment E1 Benchmark: Clarification Modes, KG Ablations & Unified Reporting."""
 
-import asyncio
 import csv
 import json
 import math
@@ -12,21 +11,31 @@ from typing import Any, Literal
 from pydantic import BaseModel, Field
 
 from customer_shop_assistant.config import Settings, get_settings
+from customer_shop_assistant.eval.dataset import E1Scenario, GoldClarificationLabel
+from customer_shop_assistant.eval.e2e_benchmark import (
+    E2EAggregateMetrics,
+    E2EScenarioRunResult,
+    ServiceHealthStatus,
+    aggregate_e2e_results,
+    resolve_active_model_name,
+)
+from customer_shop_assistant.eval.metrics import compute_slot_accuracy
 from customer_shop_assistant.loaders.outfit_ontology import (
     get_cached_ontology,
     resolve_category_id,
+    resolve_color_id,
     resolve_occasion_id,
     resolve_style_id,
 )
 from customer_shop_assistant.schemas.chat import (
-    ChatRequest,
     ClarificationMode,
+    OutfitItem,
     OutfitSuggestion,
-    UserProfile,
 )
 from customer_shop_assistant.schemas.clarification import ClarificationDecision
 from customer_shop_assistant.schemas.outfit_kg import (
     CandidateOutcome,
+    ColorHarmonyAdvice,
     OutfitBlueprint,
     OutfitOntology,
     SlotImpactSignals,
@@ -67,24 +76,7 @@ from customer_shop_assistant.services.snapshot_catalog_index import (
     get_snapshot_catalog_index,
 )
 
-GoldClarificationLabel = Literal["must_clarify", "optional_clarify", "proceed"]
 AblationVariant = Literal["kg_plus_catalog", "catalog_only", "kg_only"]
-
-
-class E1Scenario(BaseModel):
-    """Single controlled scenario in the E1 Dev/Test benchmark."""
-
-    id: str
-    split: Literal["dev", "test"]
-    expected_intent: str
-    task_type: str
-    question: str
-    user_profile: UserProfile | None = None
-    gold_label: GoldClarificationLabel
-    gold_rationale: str = Field(..., min_length=1)
-    expected_clarify_slots: list[str] = Field(default_factory=list)
-    user_answers: dict[str, str] = Field(default_factory=dict)
-    hard_constraints: dict[str, Any] = Field(default_factory=dict)
 
 
 class E1ScenarioResult(BaseModel):
@@ -102,6 +94,10 @@ class E1ScenarioResult(BaseModel):
     clarification_turns: int
     question_count: int
     asked_slots: list[str] = Field(default_factory=list)
+    expected_clarify_slots: list[str] = Field(default_factory=list)
+    slot_precision: float | None = None
+    slot_recall: float | None = None
+    slot_exact_match: bool | None = None
     decision_source: str
     decision_reason: str
     reason_codes: list[str] = Field(default_factory=list)
@@ -133,6 +129,9 @@ class E1AggregateMetrics(BaseModel):
     avg_turns_to_completion: float
     policy_compliance_rate: float
     gold_alignment_rate: float
+    avg_slot_precision: float | None = None
+    avg_slot_recall: float | None = None
+    slot_exact_match_rate: float | None = None
     unnecessary_question_rate: float
     missed_necessary_rate: float
     constraint_satisfaction_rate: float | None = None
@@ -146,22 +145,25 @@ class E1AggregateMetrics(BaseModel):
     avg_total_latency_ms: float = 0.0
 
 
-class E1E2ESampleResult(BaseModel):
-    """End-to-end live LLM + Neo4j sample turn record."""
+class ColorRerankAblationMetrics(BaseModel):
+    """Metrics for one color-reranking variant (v1.2 blueprint-only vs v1.3)."""
 
-    scenario_id: str
-    task_type: str
-    mode: str
-    question: str
-    clarification_asked: bool
-    decision_source: str | None = None
-    tools_used: list[str] = Field(default_factory=list)
-    outfit_count: int = 0
-    latency_ms: float = 0.0
-    prompt_tokens: int = 0
-    completion_tokens: int = 0
-    total_tokens: int = 0
-    error: str | None = None
+    variant: str
+    total_scenarios: int
+    outfit_returned_rate: float
+    mean_color_score: float
+    mean_pair_harmony: float
+    mean_context_color_fit: float
+    color_harmony_rate: float
+
+
+class ColorRerankAblationResult(BaseModel):
+    """Direct comparison of v1.2 (blueprint-only) vs v1.3 (color-aware 70/30)."""
+
+    v12: ColorRerankAblationMetrics
+    v13: ColorRerankAblationMetrics
+    delta_color_score: float
+    delta_harmony_rate: float
 
 
 def load_e1_scenarios(
@@ -178,6 +180,20 @@ def load_e1_scenarios(
     if split is not None:
         return [s for s in items if s.split == split]
     return items
+
+
+def load_frozen_thresholds(
+    filepath: Path | str = Path("eval/frozen_thresholds.json"),
+) -> tuple[CounterfactualThresholds, list[dict[str, Any]], list[dict[str, Any]]]:
+    """Load frozen thresholds and calibration sweeps if file exists."""
+    target = Path(filepath)
+    if not target.exists():
+        return CounterfactualThresholds(), [], []
+    raw = json.loads(target.read_text(encoding="utf-8"))
+    thresh = CounterfactualThresholds.model_validate(raw.get("thresholds", {}))
+    sweep = list(raw.get("sweep") or [])
+    color_sweep = list(raw.get("color_sweep") or [])
+    return thresh, sweep, color_sweep
 
 
 def _resolve_anchor_category(
@@ -215,6 +231,24 @@ def _resolve_anchor_category(
     return anchor_cat_id, top_cat_id, bot_cat_id, anchor_pid
 
 
+def _resolve_color_slots(
+    slots: ConversationSlots, ontology: OutfitOntology
+) -> tuple[str | None, set[str]]:
+    color_raw = (
+        slots.value_of("top_color")
+        or slots.value_of("bottom_color")
+        or slots.value_of("color")
+    )
+    anchor_color_id = resolve_color_id(color_raw, ontology) if color_raw else None
+    disliked_raw = slots.value_of("disliked_colors") or []
+    disliked_ids = {
+        cid
+        for raw in disliked_raw
+        if (cid := resolve_color_id(str(raw), ontology)) is not None
+    }
+    return anchor_color_id, disliked_ids
+
+
 class CatalogOnlyCounterfactualPolicy:
     """Ablation evaluator: uses SnapshotCatalogIndex only (no KG blueprints)."""
 
@@ -231,19 +265,12 @@ class CatalogOnlyCounterfactualPolicy:
         self.thresholds = thresholds or CounterfactualThresholds()
         self.candidate_builder = candidate_builder or CandidateValueBuilder()
         self._cats_by_id = {c.id: c for c in self.ontology.categories}
-        self._inmem_occ_fallback = InMemoryOutfitKGRepository(self.ontology)
 
-    def _probe_raw_catalog(
+    def _category_pools(
         self,
-        *,
-        candidate_value: Any,
-        target_gender: str | None,
         top_category_id: str | None,
         bottom_category_id: str | None,
-        anchor_category_id: str | None,
-        min_price: float | None,
-        max_price: float | None,
-    ) -> CandidateOutcome:
+    ) -> tuple[list[str], list[str]]:
         top_cats = (
             [top_category_id]
             if top_category_id
@@ -262,6 +289,65 @@ class CatalogOnlyCounterfactualPolicy:
                 if c.supports_top_bottom_blueprint and c.role == "BOTTOM"
             ]
         )
+        return top_cats, bot_cats
+
+    def _has_catalog_color_match(
+        self,
+        *,
+        target_color_id: str,
+        target_gender: str | None,
+        top_category_id: str | None,
+        bottom_category_id: str | None,
+        disliked_color_ids: set[str],
+        min_price: float | None,
+        max_price: float | None,
+    ) -> bool:
+        if target_color_id in disliked_color_ids:
+            return False
+        top_cats, bot_cats = self._category_pools(top_category_id, bottom_category_id)
+        check_bot_side = bottom_category_id is not None and top_category_id is None
+        top_cols = None if check_bot_side else {target_color_id}
+        bot_cols = {target_color_id} if check_bot_side else None
+
+        tops = [
+            rec
+            for cid in top_cats
+            for rec in self.snapshot_index.query_products(
+                cid,
+                target_gender=target_gender,
+                color_ids=top_cols,
+                disliked_color_ids=disliked_color_ids,
+                min_price=min_price,
+                max_price=max_price,
+            )
+        ]
+        bots = [
+            rec
+            for cid in bot_cats
+            for rec in self.snapshot_index.query_products(
+                cid,
+                target_gender=target_gender,
+                color_ids=bot_cols,
+                disliked_color_ids=disliked_color_ids,
+                min_price=min_price,
+                max_price=max_price,
+            )
+        ]
+        return bool(tops and bots)
+
+    def _probe_raw_catalog(
+        self,
+        *,
+        candidate_value: Any,
+        target_gender: str | None,
+        top_category_id: str | None,
+        bottom_category_id: str | None,
+        anchor_category_id: str | None,
+        disliked_color_ids: set[str],
+        min_price: float | None,
+        max_price: float | None,
+    ) -> CandidateOutcome:
+        top_cats, bot_cats = self._category_pools(top_category_id, bottom_category_id)
 
         tops: list[SnapshotProductRecord] = []
         for cid in top_cats:
@@ -269,6 +355,7 @@ class CatalogOnlyCounterfactualPolicy:
                 self.snapshot_index.query_products(
                     cid,
                     target_gender=target_gender,
+                    disliked_color_ids=disliked_color_ids,
                     min_price=min_price,
                     max_price=max_price,
                 )
@@ -279,6 +366,7 @@ class CatalogOnlyCounterfactualPolicy:
                 self.snapshot_index.query_products(
                     cid,
                     target_gender=target_gender,
+                    disliked_color_ids=disliked_color_ids,
                     min_price=min_price,
                     max_price=max_price,
                 )
@@ -324,6 +412,7 @@ class CatalogOnlyCounterfactualPolicy:
         slots: ConversationSlots,
         clarification_turns: int,
     ) -> ClarificationDecision | None:
+        """Check catalog feasibility and requested color stockouts (no KG)."""
         if intent != TurnIntent.OUTFIT_ADVICE or clarification_turns >= 1:
             return None
         anchor_cat_id, top_cat_id, bot_cat_id, _ = _resolve_anchor_category(
@@ -334,15 +423,21 @@ class CatalogOnlyCounterfactualPolicy:
             and c.supports_top_bottom_blueprint
         ):
             return None
+        anchor_color_id, disliked_ids = _resolve_color_slots(slots, self.ontology)
         budget_val = slots.value_of("budget")
+        min_p = getattr(budget_val, "min_price", None) if budget_val else None
+        max_p = getattr(budget_val, "max_price", None) if budget_val else None
+        target_gender = slots.value_of("target_gender")
+
         outcome = self._probe_raw_catalog(
             candidate_value="baseline",
-            target_gender=slots.value_of("target_gender"),
+            target_gender=target_gender,
             top_category_id=top_cat_id,
             bottom_category_id=bot_cat_id,
             anchor_category_id=anchor_cat_id,
-            min_price=getattr(budget_val, "min_price", None) if budget_val else None,
-            max_price=getattr(budget_val, "max_price", None) if budget_val else None,
+            disliked_color_ids=disliked_ids,
+            min_price=min_p,
+            max_price=max_p,
         )
         if outcome.feasible_blueprint_count == 0:
             ask_target = "budget" if budget_val else "target_gender"
@@ -355,6 +450,28 @@ class CatalogOnlyCounterfactualPolicy:
                 reason_codes=["UNFULFILLABLE_HARD_CONSTRAINT"],
                 evidence_rule_ids=[],
             )
+        if anchor_color_id is not None and not self._has_catalog_color_match(
+            target_color_id=anchor_color_id,
+            target_gender=target_gender,
+            top_category_id=top_cat_id,
+            bottom_category_id=bot_cat_id,
+            disliked_color_ids=disliked_ids,
+            min_price=min_p,
+            max_price=max_p,
+        ):
+            return ClarificationDecision(
+                action="ASK",
+                target_slots=["color"],
+                max_questions=1,
+                decision_source="mode_c_counterfactual",
+                decision_reason=(
+                    "Catalog-only check found 0 in-stock items "
+                    f"for '{anchor_color_id}'."
+                ),
+                reason_codes=["UNFULFILLABLE_COLOR_CONSTRAINT"],
+                evidence_rule_ids=[],
+                question_intent="resolve_unfulfillable_color",
+            )
         return None
 
     def evaluate(
@@ -363,6 +480,7 @@ class CatalogOnlyCounterfactualPolicy:
         slots: ConversationSlots,
         clarification_turns: int,
     ) -> ClarificationDecision | None:
+        """Evaluate OUTFIT_ADVICE gray zone using catalog index only."""
         if intent != TurnIntent.OUTFIT_ADVICE:
             return None
         anchor_cat_id, top_cat_id, bot_cat_id, anchor_pid = _resolve_anchor_category(
@@ -383,6 +501,7 @@ class CatalogOnlyCounterfactualPolicy:
             return hc
 
         target_gender = slots.value_of("target_gender")
+        _, disliked_ids = _resolve_color_slots(slots, self.ontology)
         budget_val = slots.value_of("budget")
         min_p = getattr(budget_val, "min_price", None) if budget_val else None
         max_p = getattr(budget_val, "max_price", None) if budget_val else None
@@ -412,6 +531,7 @@ class CatalogOnlyCounterfactualPolicy:
                     top_category_id=top_cat_id,
                     bottom_category_id=bot_cat_id,
                     anchor_category_id=anchor_cat_id,
+                    disliked_color_ids=disliked_ids,
                     min_price=min_p,
                     max_price=max_p,
                 )
@@ -545,6 +665,7 @@ class KGOnlyCounterfactualPolicy:
         slots: ConversationSlots,
         clarification_turns: int,
     ) -> ClarificationDecision | None:
+        """Evaluate OUTFIT_ADVICE gray zone using category KG only."""
         if intent != TurnIntent.OUTFIT_ADVICE:
             return None
         anchor_cat_id, top_cat_id, bot_cat_id, _ = _resolve_anchor_category(
@@ -818,6 +939,7 @@ def evaluate_scenario_policy(
     violations: list[str] = []
 
     turn1_asked = False
+    turn1_asked_slots: list[str] = []
     turn1_source = ""
     turn1_reason = ""
     turn1_reason_codes: list[str] = []
@@ -881,16 +1003,24 @@ def evaluate_scenario_policy(
         if effective_action != "ASK":
             break
 
+        allow_reconfirm = any(
+            rc in ("UNFULFILLABLE_HARD_CONSTRAINT", "UNFULFILLABLE_COLOR_CONSTRAINT")
+            for rc in decision.reason_codes
+        )
         form = build_clarification_form(
             slots,
             intent,
             max_questions=decision.max_questions,
             target_slots=ask_targets or None,
+            allow_provided=allow_reconfirm,
         )
         if not form.questions:
             break
 
         q_ids = [q.id for q in form.questions]
+        if turn_idx == 1:
+            turn1_asked_slots = list(q_ids)
+
         if mode == ClarificationMode.ALWAYS_CLARIFY and len(q_ids) > 3:
             violations.append(f"Mode B form exceeded 3 questions: {len(q_ids)}")
         if (
@@ -925,7 +1055,7 @@ def evaluate_scenario_policy(
     ):
         violations.append(f"Mode C exceeded max conflict turn cap: {clar_turns}")
 
-    # Gold alignment on Turn 1
+    # Gold alignment & slot accuracy on Turn 1
     if scenario.gold_label == "must_clarify":
         gold_aligned = turn1_asked
         missed_necessary = not turn1_asked
@@ -938,6 +1068,15 @@ def evaluate_scenario_policy(
         gold_aligned = True
         unnecessary_question = False
         missed_necessary = False
+
+    if scenario.gold_label == "must_clarify" and scenario.expected_clarify_slots:
+        slot_acc = compute_slot_accuracy(
+            scenario.expected_clarify_slots, turn1_asked_slots
+        )
+    elif scenario.gold_label == "proceed" and turn1_asked_slots:
+        slot_acc = compute_slot_accuracy([], turn1_asked_slots)
+    else:
+        slot_acc = compute_slot_accuracy([], [])
 
     # Run Outfit Retrieval & Grounding check for OUTFIT_ADVICE
     outfit_returned: bool | None = None
@@ -1040,6 +1179,10 @@ def evaluate_scenario_policy(
         clarification_turns=clar_turns,
         question_count=total_questions,
         asked_slots=asked_slots_history,
+        expected_clarify_slots=list(scenario.expected_clarify_slots),
+        slot_precision=slot_acc.precision,
+        slot_recall=slot_acc.recall,
+        slot_exact_match=slot_acc.exact_match,
         decision_source=turn1_source,
         decision_reason=turn1_reason,
         reason_codes=turn1_reason_codes,
@@ -1059,6 +1202,295 @@ def evaluate_scenario_policy(
         outfits_summary=outfits_summary,
         probe_latency_ms=probe_latency_ms,
         total_latency_ms=total_latency_ms,
+    )
+
+
+def _retrieve_outfits_v12_baseline(
+    *,
+    kg_repo: OutfitKGRepository,
+    snapshot_index: SnapshotCatalogIndex,
+    ontology: OutfitOntology,
+    target_gender: str | None,
+    occasion: str | None,
+    style: str | None,
+    top_category: str | None,
+    bottom_category: str | None,
+    color: str | None,
+    top_color: str | None,
+    bottom_color: str | None,
+    disliked_colors: list[str] | None,
+    min_price: float | None,
+    max_price: float | None,
+    limit: int = 3,
+) -> list[OutfitSuggestion]:
+    """Simulate v1.2 blueprint-only retrieval (first in-stock color, no rerank)."""
+    top_cat_id = resolve_category_id(top_category, ontology)
+    bot_cat_id = resolve_category_id(bottom_category, ontology)
+    if top_cat_id is not None and bot_cat_id is None:
+        t_node = kg_repo.get_category(top_cat_id)
+        if t_node and t_node.role == "BOTTOM":
+            bot_cat_id, top_cat_id = top_cat_id, None
+            if bottom_color is None and top_color is not None:
+                bottom_color, top_color = top_color, None
+
+    occasion_id = resolve_occasion_id(occasion, ontology) if occasion else None
+    style_id = resolve_style_id(style, ontology) if style else None
+    disliked_ids = {
+        cid
+        for c in (disliked_colors or [])
+        if (cid := resolve_color_id(c, ontology)) is not None
+    }
+    colors_by_id = {c.id: c for c in ontology.colors}
+    palette = kg_repo.get_context_color_palette(
+        style_id=style_id, occasion_id=occasion_id
+    )
+    harmony_lookup: dict[str, ColorHarmonyAdvice] = {}
+
+    eff_top_col_id = resolve_color_id(top_color or color, ontology)
+    eff_bot_col_id = resolve_color_id(bottom_color, ontology)
+    if color and bot_cat_id is not None and top_cat_id is None and not bottom_color:
+        eff_bot_col_id = resolve_color_id(color, ontology)
+        eff_top_col_id = None
+
+    anchor_cat_id = top_cat_id or bot_cat_id
+    bps = kg_repo.get_outfit_blueprints(
+        style_id=style_id,
+        occasion_id=occasion_id,
+        anchor_category_id=anchor_cat_id,
+        limit=12,
+    )
+    if not bps and anchor_cat_id is not None:
+        bps = kg_repo.get_outfit_blueprints(anchor_category_id=anchor_cat_id, limit=12)
+    if top_cat_id and bot_cat_id:
+        bps = [
+            bp
+            for bp in bps
+            if bp.top_category_id == top_cat_id and bp.bottom_category_id == bot_cat_id
+        ]
+    if not bps:
+        return []
+
+    def _pick_v12_color(
+        rec: SnapshotProductRecord, req_cid: str | None
+    ) -> tuple[str, str, bool]:
+        if req_cid and req_cid not in disliked_ids:
+            if req_cid in rec.in_stock_color_ids:
+                return req_cid, rec.color_name_by_id.get(req_cid, req_cid), True
+        pool = sorted(c for c in rec.in_stock_color_ids if c not in disliked_ids)
+        if pool:
+            cid = pool[0]
+            return cid, rec.color_name_by_id.get(cid, cid), True
+        return "", "Tiêu chuẩn", rec.in_stock
+
+    def _to_item(rec: SnapshotProductRecord, label: str, stock: bool) -> OutfitItem:
+        cid = next((k for k, v in rec.color_name_by_id.items() if v == label), None)
+        price = rec.color_price_map.get(cid, rec.min_price) if cid else rec.min_price
+        return OutfitItem(
+            product_id=rec.deterministic_id,
+            name=rec.name,
+            slug=rec.slug,
+            category=rec.category_name,
+            color=label,
+            in_stock=stock,
+            image_url=rec.primary_image_url,
+            price=price,
+        )
+
+    eff_gender = target_gender.strip().upper() if target_gender else None
+    if eff_gender is None and bot_cat_id == "chan_vay":
+        eff_gender = "FEMALE"
+    genders = [eff_gender] if eff_gender else ["FEMALE", "MALE"]
+
+    picked: list[OutfitSuggestion] = []
+    used_pairs: set[tuple[int, int]] = set()
+    for g_filter in genders:
+        for bp in bps:
+            tops = snapshot_index.query_products(
+                bp.top_category_id,
+                target_gender=g_filter,
+                color_ids={eff_top_col_id} if eff_top_col_id else None,
+                disliked_color_ids=disliked_ids,
+                min_price=min_price,
+                max_price=max_price,
+            ) or snapshot_index.query_products(
+                bp.top_category_id,
+                target_gender=g_filter,
+                disliked_color_ids=disliked_ids,
+                min_price=min_price,
+                max_price=max_price,
+            )
+            bots = snapshot_index.query_products(
+                bp.bottom_category_id,
+                target_gender=g_filter,
+                color_ids={eff_bot_col_id} if eff_bot_col_id else None,
+                disliked_color_ids=disliked_ids,
+                min_price=min_price,
+                max_price=max_price,
+            ) or snapshot_index.query_products(
+                bp.bottom_category_id,
+                target_gender=g_filter,
+                disliked_color_ids=disliked_ids,
+                min_price=min_price,
+                max_price=max_price,
+            )
+            if not tops or not bots:
+                continue
+            for t_rec in tops[:2]:
+                for b_rec in bots[:2]:
+                    if t_rec.deterministic_id == b_rec.deterministic_id:
+                        continue
+                    pair_key = (t_rec.deterministic_id, b_rec.deterministic_id)
+                    if pair_key in used_pairs:
+                        continue
+                    used_pairs.add(pair_key)
+                    t_cid, t_lbl, t_stock = _pick_v12_color(t_rec, eff_top_col_id)
+                    b_cid, b_lbl, b_stock = _pick_v12_color(b_rec, eff_bot_col_id)
+                    brk, _ = OutfitRetrievalAndReranker._score_color_pair(
+                        top_cid=t_cid,
+                        top_label=t_lbl,
+                        bot_cid=b_cid,
+                        bot_label=b_lbl,
+                        palette=palette,
+                        colors_by_id=colors_by_id,
+                        harmony_lookup=harmony_lookup,
+                        get_harmony_fn=kg_repo.get_color_harmony,
+                        req_top_cid=eff_top_col_id,
+                        req_bot_cid=eff_bot_col_id,
+                        fav_ids=set(),
+                    )
+                    picked.append(
+                        OutfitSuggestion(
+                            top=_to_item(t_rec, t_lbl, t_stock),
+                            bottom=_to_item(b_rec, b_lbl, b_stock),
+                            score=round(bp.score, 4),
+                            blueprint_score=round(bp.score, 4),
+                            color_score_breakdown=brk,
+                            reasons=list(bp.reasons),
+                            applied_rule_ids=list(bp.applied_rule_ids),
+                        )
+                    )
+                    if len(picked) >= limit:
+                        return picked
+    return picked[:limit]
+
+
+def run_color_rerank_ablation(
+    scenarios: list[E1Scenario],
+    *,
+    kg_repo: OutfitKGRepository,
+    snapshot_index: SnapshotCatalogIndex,
+    ontology: OutfitOntology,
+) -> ColorRerankAblationResult:
+    """Compare v1.2 (blueprint-only) vs v1.3 (color-aware 70/30) on OUTFIT_ADVICE."""
+    retriever = OutfitRetrievalAndReranker(
+        kg_repo=kg_repo, snapshot_index=snapshot_index, ontology=ontology
+    )
+    target_scenarios = [
+        sc
+        for sc in scenarios
+        if sc.expected_intent == "OUTFIT_ADVICE"
+        and not sc.hard_constraints.get("out_of_scope")
+    ]
+
+    def _collect(use_v13: bool) -> ColorRerankAblationMetrics:
+        ret_cnt = 0
+        cs_vals: list[float] = []
+        ph_vals: list[float] = []
+        cf_vals: list[float] = []
+        harm_cnt = 0
+        outfit_cnt = 0
+
+        for sc in target_scenarios:
+            history = [sc.question]
+            for k, v in sc.user_answers.items():
+                if k != "_decline" and v:
+                    history.append(v)
+            slots, _, _ = extract_conversation_slots_with_lifecycle(
+                history, user_profile=sc.user_profile
+            )
+            top_cat = slots.value_of("top_category")
+            bot_cat = slots.value_of("bottom_category")
+            bval = slots.value_of("budget")
+            min_p = (
+                getattr(bval, "min_price", None)
+                if isinstance(bval, BudgetValue)
+                else None
+            )
+            max_p = (
+                getattr(bval, "max_price", None)
+                if isinstance(bval, BudgetValue)
+                else None
+            )
+
+            if use_v13:
+                outfits = retriever.retrieve_outfits(
+                    target_gender=slots.value_of("target_gender"),
+                    occasion=slots.value_of("occasion"),
+                    style=slots.value_of("style"),
+                    top_category=top_cat,
+                    bottom_category=bot_cat,
+                    color=slots.value_of("color"),
+                    top_color=slots.value_of("top_color"),
+                    bottom_color=slots.value_of("bottom_color"),
+                    disliked_colors=slots.value_of("disliked_colors"),
+                    min_price=min_p,
+                    max_price=max_p,
+                    limit=3,
+                ).outfits
+            else:
+                outfits = _retrieve_outfits_v12_baseline(
+                    kg_repo=kg_repo,
+                    snapshot_index=snapshot_index,
+                    ontology=ontology,
+                    target_gender=slots.value_of("target_gender"),
+                    occasion=slots.value_of("occasion"),
+                    style=slots.value_of("style"),
+                    top_category=top_cat,
+                    bottom_category=bot_cat,
+                    color=slots.value_of("color"),
+                    top_color=slots.value_of("top_color"),
+                    bottom_color=slots.value_of("bottom_color"),
+                    disliked_colors=slots.value_of("disliked_colors"),
+                    min_price=min_p,
+                    max_price=max_p,
+                    limit=3,
+                )
+
+            if outfits:
+                ret_cnt += 1
+            for o in outfits:
+                outfit_cnt += 1
+                if o.color_score_breakdown is not None:
+                    cs_vals.append(o.color_score_breakdown.color_score)
+                    ph_vals.append(o.color_score_breakdown.pair_harmony)
+                    cf_vals.append(o.color_score_breakdown.context_color_fit)
+                    if o.color_score_breakdown.harmony_kind is not None:
+                        harm_cnt += 1
+
+        n_sc = len(target_scenarios)
+        return ColorRerankAblationMetrics(
+            variant="v1.3 Color-aware (70/30)" if use_v13 else "v1.2 Blueprint-only",
+            total_scenarios=n_sc,
+            outfit_returned_rate=round(ret_cnt / n_sc * 100.0, 1) if n_sc else 0.0,
+            mean_color_score=round(sum(cs_vals) / len(cs_vals), 4) if cs_vals else 0.0,
+            mean_pair_harmony=round(sum(ph_vals) / len(ph_vals), 4) if ph_vals else 0.0,
+            mean_context_color_fit=round(sum(cf_vals) / len(cf_vals), 4)
+            if cf_vals
+            else 0.0,
+            color_harmony_rate=round(harm_cnt / outfit_cnt * 100.0, 1)
+            if outfit_cnt
+            else 0.0,
+        )
+
+    v12_m = _collect(False)
+    v13_m = _collect(True)
+    return ColorRerankAblationResult(
+        v12=v12_m,
+        v13=v13_m,
+        delta_color_score=round(v13_m.mean_color_score - v12_m.mean_color_score, 4),
+        delta_harmony_rate=round(
+            v13_m.color_harmony_rate - v12_m.color_harmony_rate, 1
+        ),
     )
 
 
@@ -1095,6 +1527,10 @@ def aggregate_e1_results(
     cs_res = [r for r in results if r.constraint_satisfied is not None]
     ev_cov = sum(1 for r in results if r.evidence_rule_ids or r.applied_rule_ids)
 
+    slot_p = [r.slot_precision for r in results if r.slot_precision is not None]
+    slot_r = [r.slot_recall for r in results if r.slot_recall is not None]
+    slot_ex = [r.slot_exact_match for r in results if r.slot_exact_match is not None]
+
     return E1AggregateMetrics(
         label=label,
         total=tot,
@@ -1110,6 +1546,17 @@ def aggregate_e1_results(
         ),
         gold_alignment_rate=round(
             sum(1 for r in results if r.gold_aligned) / tot * 100.0, 2
+        ),
+        avg_slot_precision=(
+            round(sum(slot_p) / len(slot_p) * 100.0, 1) if slot_p else None
+        ),
+        avg_slot_recall=(
+            round(sum(slot_r) / len(slot_r) * 100.0, 1) if slot_r else None
+        ),
+        slot_exact_match_rate=(
+            round(sum(1 for x in slot_ex if x) / len(slot_ex) * 100.0, 1)
+            if slot_ex
+            else None
         ),
         unnecessary_question_rate=round(
             sum(1 for r in results if r.unnecessary_question) / tot * 100.0, 2
@@ -1164,10 +1611,12 @@ def calibrate_thresholds_on_dev(
     kg_repo = _open_kg_repo(backend, cfg)
 
     sweep: list[dict[str, Any]] = []
+    color_sweep: list[dict[str, Any]] = []
     best_thresh = CounterfactualThresholds()
-    best_key = (-1.0, -999.0, -999.0)
+    best_key = (-1.0, -999.0, -1.0, -999.0)
 
     try:
+        # Stage A: Structural Jaccard & Min Viable Outfits sweep
         for jt in (0.25, 0.35, 0.45, 0.55, 0.65):
             for mvo in (1, 2):
                 thresh = CounterfactualThresholds(
@@ -1192,6 +1641,7 @@ def calibrate_thresholds_on_dev(
                         "jaccard_threshold": jt,
                         "min_viable_outfits": mvo,
                         "gold_alignment_rate": agg.gold_alignment_rate,
+                        "avg_slot_recall": agg.avg_slot_recall,
                         "missed_necessary_rate": agg.missed_necessary_rate,
                         "unnecessary_question_rate": agg.unnecessary_question_rate,
                         "policy_compliance_rate": agg.policy_compliance_rate,
@@ -1201,10 +1651,57 @@ def calibrate_thresholds_on_dev(
                 rank_key = (
                     agg.gold_alignment_rate,
                     -(agg.missed_necessary_rate + agg.unnecessary_question_rate),
+                    agg.avg_slot_recall or 0.0,
                     -abs(jt - 0.45),
                 )
                 if rank_key > best_key:
                     best_key = rank_key
+                    best_thresh = thresh
+
+        # Stage B: Color Quality & Color Gain sweep at Stage A winner
+        best_color_key = (-1.0, -999.0, -1.0, -999.0)
+        stage_a_jt = best_thresh.jaccard_threshold
+        stage_a_mvo = best_thresh.min_viable_outfits
+        for mcq in (0.65, 0.72, 0.80):
+            for cgt in (0.08, 0.12, 0.18):
+                thresh = CounterfactualThresholds(
+                    jaccard_threshold=stage_a_jt,
+                    min_viable_outfits=stage_a_mvo,
+                    min_color_quality=mcq,
+                    color_gain_threshold=cgt,
+                )
+                results = [
+                    evaluate_scenario_policy(
+                        sc,
+                        mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
+                        variant="kg_plus_catalog",
+                        kg_repo=kg_repo,
+                        snapshot_index=snapshot_index,
+                        ontology=ontology,
+                        thresholds=thresh,
+                    )
+                    for sc in dev_scenarios
+                ]
+                agg = aggregate_e1_results(f"mcq={mcq}_cgt={cgt}", results)
+                color_sweep.append(
+                    {
+                        "min_color_quality": mcq,
+                        "color_gain_threshold": cgt,
+                        "gold_alignment_rate": agg.gold_alignment_rate,
+                        "avg_slot_recall": agg.avg_slot_recall,
+                        "missed_necessary_rate": agg.missed_necessary_rate,
+                        "unnecessary_question_rate": agg.unnecessary_question_rate,
+                        "avg_probe_latency_ms": agg.avg_probe_latency_ms,
+                    }
+                )
+                c_key = (
+                    agg.gold_alignment_rate,
+                    -(agg.missed_necessary_rate + agg.unnecessary_question_rate),
+                    agg.avg_slot_recall or 0.0,
+                    -abs(mcq - 0.72) - abs(cgt - 0.12),
+                )
+                if c_key > best_color_key:
+                    best_color_key = c_key
                     best_thresh = thresh
     finally:
         _close_kg_repo(kg_repo)
@@ -1217,6 +1714,7 @@ def calibrate_thresholds_on_dev(
             "backend": backend,
             "thresholds": best_thresh.model_dump(),
             "sweep": sweep,
+            "color_sweep": color_sweep,
         }
         output_path.write_text(
             json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -1303,8 +1801,72 @@ def export_tier2_judge_sheet(
     scenarios: list[E1Scenario],
     output_path: Path = Path("eval/e1_tier2_judge_sheet.csv"),
     sample_size: int = 10,
+    e2e_results: list[E2EScenarioRunResult] | None = None,
 ) -> int:
-    """Export stratified 3-mode sample CSV with UTF-8 BOM for Tier-2 rating."""
+    """Export stratified 3-mode CSV with UTF-8 BOM for Tier-2 human judging."""
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+
+    if e2e_results:
+        rows = e2e_results
+        with output_path.open("w", encoding="utf-8-sig", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(
+                [
+                    "source",
+                    "suite",
+                    "scenario_id",
+                    "task_type",
+                    "mode",
+                    "turns_to_completion",
+                    "question",
+                    "final_reply",
+                    "clarification_asked",
+                    "asked_slots",
+                    "decision_source",
+                    "reason_codes",
+                    "tools_used",
+                    "applied_rule_ids",
+                    "products_summary",
+                    "outfits_summary",
+                    "grounding_ok",
+                    "recommendation_relevance_1_5",
+                    "unnecessary_question_0_1",
+                    "missed_clarification_0_1",
+                    "task_completion_0_1",
+                    "explanation_faithfulness_1_5",
+                    "judge_notes",
+                ]
+            )
+            for er in rows:
+                writer.writerow(
+                    [
+                        "tier2_e2e_llm",
+                        er.suite,
+                        er.scenario_id,
+                        er.task_type,
+                        er.mode,
+                        er.turns_to_completion,
+                        er.question,
+                        er.final_reply,
+                        er.clarification_asked_turn1,
+                        ",".join(er.asked_slots_turn1),
+                        er.decision_source_turn1 or "",
+                        ",".join(er.reason_codes_turn1),
+                        ",".join(er.tools_used),
+                        ",".join(er.applied_rule_ids),
+                        er.products_summary,
+                        er.outfits_summary,
+                        er.grounding_ok,
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                        "",
+                    ]
+                )
+        return len(rows)
+
     scen_map = {s.id: s for s in scenarios}
     selected_ids: list[str] = []
     by_task: dict[str, list[str]] = {}
@@ -1316,6 +1878,9 @@ def export_tier2_judge_sheet(
         for task_key in (
             "open",
             "anchor",
+            "color_implicit",
+            "color_ambiguous",
+            "color_constraint",
             "search",
             "size",
             "body_fit",
@@ -1332,11 +1897,11 @@ def export_tier2_judge_sheet(
     filtered = [
         r for r in results if r.scenario_id in id_set and r.variant == "kg_plus_catalog"
     ]
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8-sig", newline="") as f:
         writer = csv.writer(f)
         writer.writerow(
             [
+                "source",
                 "scenario_id",
                 "task_type",
                 "mode",
@@ -1359,6 +1924,7 @@ def export_tier2_judge_sheet(
             sc = scen_map.get(r.scenario_id)
             writer.writerow(
                 [
+                    "tier1_offline",
                     r.scenario_id,
                     r.task_type,
                     r.mode,
@@ -1380,170 +1946,94 @@ def export_tier2_judge_sheet(
     return len(filtered)
 
 
-async def run_e2e_llm_sample(
-    scenarios: list[E1Scenario],
-    *,
-    limit: int = 3,
-    backend: Literal["inmemory", "neo4j"] = "neo4j",
-    settings: Settings | None = None,
-    timeout_s: float = 45.0,
-) -> list[E1E2ESampleResult]:
-    """Run a small stratified live LLM + Neo4j end-to-end verification sample."""
-    from customer_shop_assistant.services.agent_service import ShopAssistantAgent
-
-    if limit <= 0:
-        return []
-
-    cfg = (settings or get_settings()).model_copy(update={"OUTFIT_KG_BACKEND": backend})
-    picks: list[E1Scenario] = []
-    for preferred_task in ("open", "anchor", "size", "non_shopping"):
-        match = next(
-            (s for s in scenarios if s.task_type == preferred_task and s not in picks),
-            None,
-        )
-        if match is not None:
-            picks.append(match)
-        if len(picks) >= limit:
-            break
-    for s in scenarios:
-        if len(picks) >= limit:
-            break
-        if s not in picks:
-            picks.append(s)
-
-    modes = (
-        ClarificationMode.IMMEDIATE_ANSWER,
-        ClarificationMode.ALWAYS_CLARIFY,
-        ClarificationMode.CONDITIONAL_CLARIFICATION,
-    )
-    agent = ShopAssistantAgent(settings=cfg)
-    samples: list[E1E2ESampleResult] = []
-
-    for sc in picks:
-        for mode in modes:
-            req = ChatRequest(
-                message=sc.question,
-                clarification_mode=mode,
-                user_profile=sc.user_profile,
-                session_id=f"e1-e2e-{sc.id}-{mode.value}",
-            )
-            t0 = time.perf_counter()
-            try:
-                res = await asyncio.wait_for(agent.chat(req), timeout=timeout_s)
-                lat = round((time.perf_counter() - t0) * 1000.0, 2)
-                raw_usage = (
-                    res.debug_meta.usage_metadata
-                    if isinstance(res.debug_meta, BaseModel)
-                    else (
-                        res.debug_meta.get("usage_metadata")
-                        if isinstance(res.debug_meta, dict)
-                        else None
-                    )
-                )
-                usage = (
-                    raw_usage.model_dump()
-                    if isinstance(raw_usage, BaseModel)
-                    else (raw_usage or {})
-                )
-                dec_src = (
-                    res.debug_meta.decision_source
-                    if isinstance(res.debug_meta, BaseModel)
-                    else (
-                        res.debug_meta.get("decision_source")
-                        if isinstance(res.debug_meta, dict)
-                        else None
-                    )
-                )
-                samples.append(
-                    E1E2ESampleResult(
-                        scenario_id=sc.id,
-                        task_type=sc.task_type,
-                        mode=mode.value,
-                        question=sc.question,
-                        clarification_asked=res.clarification_asked,
-                        decision_source=dec_src,
-                        tools_used=list(res.tools_used),
-                        outfit_count=len(res.outfits),
-                        latency_ms=lat,
-                        prompt_tokens=int(
-                            usage.get("input_tokens", usage.get("prompt_tokens", 0))
-                        ),
-                        completion_tokens=int(
-                            usage.get(
-                                "output_tokens", usage.get("completion_tokens", 0)
-                            )
-                        ),
-                        total_tokens=int(usage.get("total_tokens", 0)),
-                    )
-                )
-            except Exception as exc:
-                lat = round((time.perf_counter() - t0) * 1000.0, 2)
-                samples.append(
-                    E1E2ESampleResult(
-                        scenario_id=sc.id,
-                        task_type=sc.task_type,
-                        mode=mode.value,
-                        question=sc.question,
-                        clarification_asked=False,
-                        latency_ms=lat,
-                        error=f"{type(exc).__name__}: {exc}",
-                    )
-                )
-
-    return samples
-
-
 def _fmt_pct(val: float | None) -> str:
     return f"{val:.1f}%" if val is not None else "N/A"
 
 
-def write_e1_markdown_report(
+def _fmt_slot_triple(m: E1AggregateMetrics) -> str:
+    p = f"{m.avg_slot_precision:.0f}%" if m.avg_slot_precision is not None else "-"
+    r = f"{m.avg_slot_recall:.0f}%" if m.avg_slot_recall is not None else "-"
+    ex = (
+        f"{m.slot_exact_match_rate:.0f}%"
+        if m.slot_exact_match_rate is not None
+        else "-"
+    )
+    return f"{p}/{r}/{ex}"
+
+
+def write_unified_experiment_report(
     aggregates: dict[str, E1AggregateMetrics],
     all_results: list[E1ScenarioResult],
     *,
     thresholds: CounterfactualThresholds,
     dev_sweep: list[dict[str, Any]] | None = None,
-    e2e_samples: list[E1E2ESampleResult] | None = None,
+    color_sweep: list[dict[str, Any]] | None = None,
+    color_ablation: ColorRerankAblationResult | None = None,
+    e2e_contrastive: list[E2EScenarioRunResult] | None = None,
+    e2e_stratified: list[E2EScenarioRunResult] | None = None,
+    service_status: ServiceHealthStatus | None = None,
+    settings: Settings | None = None,
     backend: str = "inmemory",
-    dev_count: int = 24,
-    test_count: int = 48,
-    output_path: Path = Path("docs/research/e1_kg_clarification_report.md"),
+    dev_count: int = 28,
+    test_count: int = 56,
+    output_path: Path = Path("docs/research/experiment_report.md"),
 ) -> None:
-    """Write structured E1 benchmark report (SPEC v1.1 & v1.2)."""
+    """Write unified, data-driven research experiment report (Tier 1 + Tier 2)."""
+    cfg = settings or get_settings()
     now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+    active_model = resolve_active_model_name(cfg)
     primary_labels = (
         "IMMEDIATE_ANSWER",
         "ALWAYS_CLARIFY",
         "CONDITIONAL_CLARIFICATION (KG+Catalog)",
     )
 
+    be_note = (
+        f"`{'OK' if service_status.main_be_ok else 'OFFLINE'}` "
+        f"({service_status.main_be_detail})"
+        if service_status
+        else "Chưa kiểm tra"
+    )
+    neo_note = (
+        (
+            f"`{'OK' if service_status.neo4j_ok else 'OFFLINE'}` "
+            f"({service_status.neo4j_detail})"
+        )
+        if service_status and service_status.neo4j_ok is not None
+        else f"`{backend}`"
+    )
+
     lines: list[str] = [
-        "# Báo cáo Thực nghiệm E1: Clarification Strategy trên Outfit KG",
+        "# Báo cáo Thực nghiệm Nghiên cứu Trợ lý Chatbot Thời trang",
         "",
         f"- **Thời điểm chạy**: {now_str}",
-        f"- **KG Backend**: `{backend}` (`data/outfit_kg/ontology/`)",
+        f"- **LLM Cấu hình**: `{cfg.LLM_PROVIDER}` / `{active_model}`",
+        f"- **KG Backend**: `{backend}` (Neo4j: {neo_note}) | **Main BE**: {be_note}",
         "- **Snapshot**: `data/hm_seed_1000.json` (1,000 SP, 14 categories, 33 màu)",
         (
             f"- **Dataset**: `eval/e1_scenarios.json` "
-            f"(**{dev_count} Dev** / **{test_count} Frozen Test**)"
+            f"(**{dev_count} Dev** / **{test_count} Frozen Test**) "
+            "+ `eval/e1_contrastive_s1_s10.json` (12 nhánh S1–S10)"
         ),
         (
             "- **Ngưỡng đóng băng (`CounterfactualThresholds`)**: "
             f"`jaccard_threshold={thresholds.jaccard_threshold}`, "
             f"`min_viable_outfits={thresholds.min_viable_outfits}`, "
+            f"`min_color_quality={thresholds.min_color_quality}`, "
+            f"`color_gain_threshold={thresholds.color_gain_threshold}`, "
             f"`alternatives_max_branches={thresholds.alternatives_max_branches}`"
         ),
         "",
         "---",
         "",
-        "## 1. So sánh 3 Chiến lược trên Tập Frozen Test",
+        "## 1. Tầng 1 — So sánh 3 Chiến lược trên Tập Frozen Test",
         "",
         (
             "| Chế độ | Clarify (%) | Qs/Req | Turns | Policy (%) | Gold Align (%) | "
-            "Unnecessary (%) | Missed (%) | Constraint (%) | Color Score | "
-            "Harmony (%) | Probe TB (ms) |"
+            "Slot P/R/Exact | Unnecessary (%) | Missed (%) | Constraint (%) | "
+            "Color Score | Harmony (%) | Probe TB (ms) |"
         ),
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
     for lbl in primary_labels:
@@ -1557,6 +2047,7 @@ def write_e1_markdown_report(
             f"| `{m.label}` | {m.clarification_rate:.1f}% | "
             f"{m.avg_question_count:.2f} | {m.avg_turns_to_completion:.2f} | "
             f"{m.policy_compliance_rate:.1f}% | {m.gold_alignment_rate:.1f}% | "
+            f"{_fmt_slot_triple(m)} | "
             f"{m.unnecessary_question_rate:.1f}% | "
             f"{m.missed_necessary_rate:.1f}% | "
             f"{_fmt_pct(m.constraint_satisfaction_rate)} | "
@@ -1568,15 +2059,16 @@ def write_e1_markdown_report(
     lines.extend(
         [
             "",
-            "### 1.1 Phân rã theo nhóm tác vụ (`OPEN` vs `ANCHOR` vs `Other Intents`)",
+            "### 1.1 Phân rã theo nhóm tác vụ "
+            "(`OPEN` vs `ANCHOR` vs `COLOR` vs `Other`)",
             "",
+            (
+                "| Chế độ | Nhóm | Số ca | Clarify (%) | "
+                "Gold Align (%) | Slot Exact (%) | Unnecessary (%) | Missed (%) |"
+            ),
+            "|---|---|---:|---:|---:|---:|---:|---:|",
         ]
     )
-    lines.append(
-        "| Chế độ | Nhóm | Số ca | Clarify (%) | "
-        "Gold Align (%) | Unnecessary (%) | Missed (%) |"
-    )
-    lines.append("|---|---|---:|---:|---:|---:|---:|")
     for lbl in primary_labels:
         for group_name, pred in (
             ("OPEN", lambda r: r.task_type == "open"),
@@ -1610,6 +2102,7 @@ def write_e1_markdown_report(
             lines.append(
                 f"| `{lbl}` | {group_name} | {sm.total} | "
                 f"{sm.clarification_rate:.1f}% | {sm.gold_alignment_rate:.1f}% | "
+                f"{_fmt_pct(sm.slot_exact_match_rate)} | "
                 f"{sm.unnecessary_question_rate:.1f}% | "
                 f"{sm.missed_necessary_rate:.1f}% |"
             )
@@ -1619,18 +2112,19 @@ def write_e1_markdown_report(
         "CONDITIONAL_CLARIFICATION (KG-only)",
         "CONDITIONAL_CLARIFICATION (KG+Catalog)",
     )
+    if any(lbl in aggregates for lbl in ablation_labels[:2]) or color_ablation:
+        lines.extend(["", "## 2. Nghiên cứu Ablation", ""])
     if any(lbl in aggregates for lbl in ablation_labels[:2]):
         lines.extend(
             [
-                "",
-                "## 2. Nghiên cứu Ablation (`CONDITIONAL_CLARIFICATION`)",
+                "### 2.1 Ablation Chiến lược Hỏi lại (`CONDITIONAL_CLARIFICATION`)",
                 "",
                 (
-                    "| Biến thể | Clarify (%) | Gold Align (%) | "
+                    "| Biến thể | Clarify (%) | Gold Align (%) | Slot Exact (%) | "
                     "Unnecessary (%) | Missed (%) | Evidence Rule Cov (%) | "
                     "Probe TB (ms) |"
                 ),
-                "|---|---:|---:|---:|---:|---:|---:|",
+                "|---|---:|---:|---:|---:|---:|---:|---:|",
             ]
         )
         for lbl in ablation_labels:
@@ -1640,17 +2134,59 @@ def write_e1_markdown_report(
             lines.append(
                 f"| `{m.label}` | {m.clarification_rate:.1f}% | "
                 f"{m.gold_alignment_rate:.1f}% | "
+                f"{_fmt_pct(m.slot_exact_match_rate)} | "
                 f"{m.unnecessary_question_rate:.1f}% | "
                 f"{m.missed_necessary_rate:.1f}% | "
                 f"{m.evidence_rule_coverage_rate:.1f}% | "
                 f"{m.avg_probe_latency_ms:.2f} |"
             )
 
+    if color_ablation is not None:
+        v12 = color_ablation.v12
+        v13 = color_ablation.v13
+        lines.extend(
+            [
+                "",
+                "### 2.2 Ablation Color-aware Reranking (v1.2 Blueprint-only vs v1.3)",
+                "",
+                (
+                    "| Phiên bản | Số ca | Outfit Returned (%) | Mean Color Score | "
+                    "Pair Harmony | Context Color Fit | Color Harmony Rate (%) |"
+                ),
+                "|---|---:|---:|---:|---:|---:|---:|",
+                (
+                    f"| `{v12.variant}` | {v12.total_scenarios} | "
+                    f"{v12.outfit_returned_rate:.1f}% | {v12.mean_color_score:.4f} | "
+                    f"{v12.mean_pair_harmony:.4f} | "
+                    f"{v12.mean_context_color_fit:.4f} | "
+                    f"{v12.color_harmony_rate:.1f}% |"
+                ),
+                (
+                    f"| `{v13.variant}` | {v13.total_scenarios} | "
+                    f"{v13.outfit_returned_rate:.1f}% | {v13.mean_color_score:.4f} | "
+                    f"{v13.mean_pair_harmony:.4f} | "
+                    f"{v13.mean_context_color_fit:.4f} | "
+                    f"{v13.color_harmony_rate:.1f}% |"
+                ),
+                "",
+                (
+                    f"- **Chênh lệch (v1.3 − v1.2)**: "
+                    f"`Δ Mean Color Score = {color_ablation.delta_color_score:+.4f}`, "
+                    "`Δ Color Harmony Rate = "
+                    f"{color_ablation.delta_harmony_rate:+.1f}%`"
+                ),
+            ]
+        )
+
+    if dev_sweep or color_sweep:
+        lines.extend(
+            ["", "## 3. Hiệu chỉnh Ngưỡng trên Tập Dev (`calibrate_thresholds_on_dev`)"]
+        )
     if dev_sweep:
         lines.extend(
             [
                 "",
-                "## 3. Hiệu chỉnh Ngưỡng trên Tập Dev (`calibrate_thresholds_on_dev`)",
+                "### 3.1 Stage A — `jaccard_threshold` × `min_viable_outfits`",
                 "",
                 (
                     "| `jaccard_threshold` | `min_viable_outfits` | "
@@ -1667,26 +2203,124 @@ def write_e1_markdown_report(
                 f"{row['unnecessary_question_rate']:.1f}% | "
                 f"{row['avg_probe_latency_ms']:.2f} |"
             )
-
-    if e2e_samples:
+    if color_sweep:
         lines.extend(
             [
                 "",
-                "## 4. Mẫu Kiểm thử End-to-End (Local LLM + Live Neo4j)",
+                "### 3.2 Stage B — `min_color_quality` × `color_gain_threshold`",
                 "",
                 (
-                    "| Scenario | Mode | Clarified | Source | Tools | "
-                    "Outfits | Latency (ms) | Total Tokens | Status |"
+                    "| `min_color_quality` | `color_gain_threshold` | "
+                    "Gold Align (%) | Missed (%) | Unnecessary (%) | Probe TB (ms) |"
                 ),
-                "|---|---|---:|---|---|---:|---:|---:|---|",
+                "|---:|---:|---:|---:|---:|---:|",
             ]
         )
-        for s in e2e_samples:
-            status = s.error or "OK"
+        for row in color_sweep:
             lines.append(
-                f"| `{s.scenario_id}` | `{s.mode}` | {s.clarification_asked} | "
-                f"`{s.decision_source or '-'}` | `{','.join(s.tools_used) or '-'}` | "
-                f"{s.outfit_count} | {s.latency_ms:.1f} | {s.total_tokens} | {status} |"
+                f"| {row['min_color_quality']} | {row['color_gain_threshold']} | "
+                f"{row['gold_alignment_rate']:.1f}% | "
+                f"{row['missed_necessary_rate']:.1f}% | "
+                f"{row['unnecessary_question_rate']:.1f}% | "
+                f"{row['avg_probe_latency_ms']:.2f} |"
+            )
+
+    if dev_sweep and all(r.get("gold_alignment_rate") == 100.0 for r in dev_sweep):
+        lines.extend(
+            [
+                "",
+                (
+                    "> *Ghi chú độ vững (Robustness)*: Toàn bộ lưới hiệu chuẩn "
+                    "Dev đạt **100.0%** `Gold Align`, cho thấy ngưỡng quyết định "
+                    "vững trên tập Dev; cơ chế tie-break chọn cấu hình mặc định "
+                    "trung tâm."
+                ),
+            ]
+        )
+
+    all_e2e = [*(e2e_contrastive or []), *(e2e_stratified or [])]
+    lines.extend(["", "## 4. Tầng 2 — Kiểm thử End-to-End Đa lượt với Local LLM", ""])
+    if not all_e2e:
+        lines.append(
+            "- Chạy ở chế độ `--tier1-only`; chưa chạy Tầng 2 E2E LLM trong phiên này."
+        )
+    else:
+        if e2e_contrastive:
+            lines.extend(
+                [
+                    "### 4.1 Ma trận Đối chứng 3 Chế độ (S1–S10)",
+                    "",
+                    (
+                        "| Scenario | Mode A (`IMMEDIATE`) | Mode B (`ALWAYS`) | "
+                        "Mode C (`CONDITIONAL`) |"
+                    ),
+                    "|---|---|---|---|",
+                ]
+            )
+            by_sid: dict[str, dict[str, E2EScenarioRunResult]] = {}
+            for item in e2e_contrastive:
+                by_sid.setdefault(item.scenario_id, {})[item.mode] = item
+
+            def _cell(rec: E2EScenarioRunResult | None) -> str:
+                if rec is None:
+                    return "-"
+                tag = "PASS" if rec.passed else "FAIL"
+                act = "ASK" if rec.clarification_asked_turn1 else "PROCEED"
+                src = rec.decision_source_turn1 or "-"
+                return f"{tag} ({act}, `{src}`, {rec.turns_to_completion}t)"
+
+            for sid, mode_map in by_sid.items():
+                lines.append(
+                    f"| `{sid}` | "
+                    f"{_cell(mode_map.get('IMMEDIATE_ANSWER'))} | "
+                    f"{_cell(mode_map.get('ALWAYS_CLARIFY'))} | "
+                    f"{_cell(mode_map.get('CONDITIONAL_CLARIFICATION'))} |"
+                )
+
+        def _append_e2e_summary_table(
+            heading: str, subset: list[E2EScenarioRunResult]
+        ) -> None:
+            e2e_agg = aggregate_e2e_results(subset)
+            lines.extend(
+                [
+                    "",
+                    heading,
+                    "",
+                    (
+                        "| Chế độ | Số ca | Errors | Pass (%) | Turns TB | "
+                        "Clarify (%) | Mode Comp (%) | Grounding (%) | "
+                        "Task Comp (%) | Tokens (In/Out/Tot) | Latency TB (ms) |"
+                    ),
+                    "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+                ]
+            )
+            for m_name in (
+                "IMMEDIATE_ANSWER",
+                "ALWAYS_CLARIFY",
+                "CONDITIONAL_CLARIFICATION",
+            ):
+                em: E2EAggregateMetrics | None = e2e_agg.get(m_name)
+                if em is None:
+                    continue
+                lines.append(
+                    f"| `{em.mode}` | {em.total} | {em.error_count} | "
+                    f"{em.pass_rate:.1f}% | "
+                    f"{em.avg_turns:.2f} | {em.clarification_rate:.1f}% | "
+                    f"{em.mode_compliance_rate:.1f}% | {em.grounding_rate:.1f}% | "
+                    f"{em.task_completion_rate:.1f}% | "
+                    f"{em.avg_input_tokens:.0f}/{em.avg_output_tokens:.0f}/"
+                    f"{em.avg_total_tokens:.0f} | {em.avg_latency_ms:.1f} |"
+                )
+
+        if e2e_contrastive:
+            _append_e2e_summary_table(
+                "### 4.2 Tổng hợp E2E — Bộ Đối chứng S1–S10 (Stress-test)",
+                e2e_contrastive,
+            )
+        if e2e_stratified:
+            _append_e2e_summary_table(
+                "### 4.3 Tổng hợp E2E — Bộ Stratified Frozen Test (Đại diện)",
+                e2e_stratified,
             )
 
     misses = [
@@ -1696,20 +2330,74 @@ def write_e1_markdown_report(
         and r.mode == "CONDITIONAL_CLARIFICATION"
         and not r.gold_aligned
     ]
-    lines.extend(
-        ["", "## 5. Phân tích Sai lệch (`CONDITIONAL_CLARIFICATION KG+Catalog`)", ""]
-    )
-    if not misses:
-        lines.append(
-            "- **0** trường hợp lệch nhãn gold (`gold_alignment_rate = 100.0%`)."
-        )
+    slot_misses = [
+        r
+        for r in all_results
+        if r.variant == "kg_plus_catalog"
+        and r.mode == "CONDITIONAL_CLARIFICATION"
+        and r.slot_exact_match is False
+    ]
+    e2e_failures = [r for r in all_e2e if not r.passed]
+
+    lines.extend(["", "## 5. Phân tích Sai lệch tự động (Error Analysis)", ""])
+    if not misses and not slot_misses and not e2e_failures:
+        lines.append("- **0** sai lệch ở cả Tầng 1 và Tầng 2 trong lần chạy này.")
     else:
-        for r in misses:
+        if misses:
             lines.append(
-                f"- `{r.scenario_id}` (gold=`{r.gold_label}`, "
-                f"asked={r.clarification_asked}, "
-                f"source=`{r.decision_source}`, reason_codes=`{r.reason_codes}`)"
+                "### 5.1 Sai lệch Nhãn Gold ở Tầng 1 (`CONDITIONAL_CLARIFICATION`)"
             )
+            for r in misses:
+                lines.append(
+                    f"- `{r.scenario_id}` (gold=`{r.gold_label}`, "
+                    f"asked={r.clarification_asked}, "
+                    f"source=`{r.decision_source}`, reason_codes=`{r.reason_codes}`)"
+                )
+        if slot_misses:
+            lines.append("")
+            lines.append(
+                "### 5.2 Sai lệch Slot hỏi ở Tầng 1 (`CONDITIONAL_CLARIFICATION`)"
+            )
+            for r in slot_misses:
+                lines.append(
+                    f"- `{r.scenario_id}`: asked=`{r.asked_slots}`, "
+                    f"expected=`{r.expected_clarify_slots}` "
+                    f"(P={r.slot_precision}, R={r.slot_recall})"
+                )
+        if e2e_failures:
+            lines.append("")
+            lines.append("### 5.3 Lỗi Runtime / Grounding / Tool bắt được ở Tầng 2 E2E")
+            for ef in e2e_failures:
+                lines.append(
+                    f"- `[{ef.suite}] {ef.scenario_id}` (`{ef.mode}`): "
+                    f"{'; '.join(ef.failure_reasons)}"
+                )
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+
+def write_e1_markdown_report(
+    aggregates: dict[str, E1AggregateMetrics],
+    all_results: list[E1ScenarioResult],
+    *,
+    thresholds: CounterfactualThresholds,
+    dev_sweep: list[dict[str, Any]] | None = None,
+    e2e_samples: list[E2EScenarioRunResult] | None = None,
+    backend: str = "inmemory",
+    dev_count: int = 28,
+    test_count: int = 56,
+    output_path: Path = Path("docs/research/experiment_report.md"),
+) -> None:
+    """Compatibility wrapper writing unified experiment report."""
+    write_unified_experiment_report(
+        aggregates,
+        all_results,
+        thresholds=thresholds,
+        dev_sweep=dev_sweep,
+        e2e_stratified=e2e_samples,
+        backend=backend,
+        dev_count=dev_count,
+        test_count=test_count,
+        output_path=output_path,
+    )

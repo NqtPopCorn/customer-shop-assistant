@@ -110,8 +110,9 @@ SUPPORT_RULES = """QUY ĐỊNH HỖ TRỢ KHÁC:
 - Tư vấn size: khi đã có số đo, gọi `recommend_size`; nếu chưa có số đo trong chế độ \
 IMMEDIATE_ANSWER thì trả bảng size chuẩn để tự đối chiếu, không hỏi lại số đo.
 - Chính sách bán hàng: dùng `search_policy` cho đổi trả, vận chuyển, freeship, \
-VietQR/COD; bắt buộc trích nguồn `[tên_tệp: tiêu_đề_mục]`; không có trong tài liệu \
-thì nói rõ chưa có thông tin, không suy diễn.
+VietQR/COD; bắt buộc trích nguồn đúng tên tệp dạng `[tên_tệp: tiêu_đề_mục]` \
+(VD: `[shipping.md: Biểu phí vận chuyển]`, `[returns.md: Quy định đổi size]`); \
+không có trong tài liệu thì nói rõ chưa có thông tin, không suy diễn.
 - Hồ sơ cá nhân: số đo và sở thích chỉ lưu tạm trong phiên hiện tại; CHỈ gọi \
 `update_customer_preference` khi khách đã đăng nhập và CHỦ ĐỘNG yêu cầu lưu; khi \
 khách nói cảm ơn chỉ đáp lịch sự, TUYỆT ĐỐI KHÔNG gọi tool lưu; khách vãng lai \

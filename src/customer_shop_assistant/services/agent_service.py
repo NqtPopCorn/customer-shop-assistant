@@ -355,6 +355,26 @@ class ShopAssistantAgent:
                 "tư vấn chính xác",
                 "cung cấp thêm",
                 "một số thông tin",
+                "thông tin thêm",
+                "thông tin chi tiết",
+                "vài thông tin",
+            )
+        )
+
+    @staticmethod
+    def _llm_deferred_tool_promise(text: str) -> bool:
+        """Detect when an AI reply promises to search later without product IDs."""
+        if not text or _extract_product_ids_from_text(text):
+            return False
+        lower_reply = text.lower()
+        return any(
+            cue in lower_reply
+            for cue in (
+                "mình sẽ tìm kiếm",
+                "tôi sẽ tìm kiếm",
+                "để mình tìm kiếm",
+                "sẽ tìm kiếm các sản phẩm",
+                "mình sẽ tìm các sản phẩm",
             )
         )
 
@@ -567,10 +587,38 @@ class ShopAssistantAgent:
                     tool_res = await size_tool.ainvoke(args, config=config)
                     if "recommend_size" not in tools_used:
                         tools_used.append("recommend_size")
+                    combined_ctx = str(tool_res)
+                    size_match = re.search(
+                        r"Size đề xuất:\s*(XXL|XL|XS|[SML]|2[89]|3[0-6])\b",
+                        combined_ctx,
+                        re.IGNORECASE,
+                    )
+                    if size_match and "search_products" in self.tools_by_name:
+                        primary_size = size_match.group(1).upper()
+                        search_args = self._build_immediate_search_args(
+                            slots, state["messages"]
+                        )
+                        search_args["size"] = primary_size
+                        search_args["limit"] = 4
+                        try:
+                            search_res = await self.tools_by_name[
+                                "search_products"
+                            ].ainvoke(search_args, config=config)
+                            if "search_products" not in tools_used:
+                                tools_used.append("search_products")
+                            combined_ctx = (
+                                f"{combined_ctx}\n\n"
+                                f"SẢN PHẨM GỢI Ý CÓ SẴN SIZE {primary_size}:\n"
+                                f"{search_res}"
+                            )
+                        except Exception as search_exc:
+                            logger.warning(
+                                "Prefetch size search_products failed: %s", search_exc
+                            )
                     return {
                         "tools_used": tools_used,
                         "prefetched_tool": "recommend_size",
-                        "prefetched_context": str(tool_res),
+                        "prefetched_context": combined_ctx,
                     }
                 except Exception as exc:
                     logger.warning("Prefetch recommend_size failed: %s", exc)
@@ -1151,18 +1199,16 @@ class ShopAssistantAgent:
                 decision.decision_reason,
             )
 
-        if (
-            intent
-            in (
-                TurnIntent.PRODUCT_SEARCH,
-                TurnIntent.OUTFIT_ADVICE,
-                TurnIntent.BODY_FIT_ADVICE,
-            )
-            and can_check_ungrounded
+        if intent in (
+            TurnIntent.PRODUCT_SEARCH,
+            TurnIntent.OUTFIT_ADVICE,
+            TurnIntent.BODY_FIT_ADVICE,
         ):
             raw_text = last_text or agent_reply.reply
-            has_ungrounded = self._has_ungrounded_product_listing(
-                raw_text, prior_messages=grounded_refs
+            has_ungrounded = can_check_ungrounded and (
+                self._has_ungrounded_product_listing(
+                    raw_text, prior_messages=grounded_refs
+                )
             )
             cited_ids = set(_extract_product_ids_from_text(raw_text))
             grounded_ids = {str(p.id) for p in products}
@@ -1172,6 +1218,9 @@ class ShopAssistantAgent:
             )
             has_phantom_form = self._has_phantom_form_reference(raw_text)
             if has_ungrounded or tried_clarify or has_phantom_form:
+                eff_prefetched = prefetched_tool or (
+                    tools_used[0] if not can_check_ungrounded and tools_used else None
+                )
                 outfits, products, maybe_reply = await self._attach_or_build_fallback(
                     intent=intent,
                     slots=slots,
@@ -1182,7 +1231,7 @@ class ShopAssistantAgent:
                     outfits=outfits,
                     products=products,
                     replace_reply=True,
-                    prefetched_tool=prefetched_tool,
+                    prefetched_tool=eff_prefetched,
                     config=config,
                 )
                 agent_reply.product_ids = [str(p.id) for p in products]
@@ -1219,11 +1268,17 @@ class ShopAssistantAgent:
         """Mode B (ALWAYS_CLARIFY): 2-turn interview form & card-safe PROCEED."""
         if decision.action == "ASK":
             agent_reply.needs_clarification = True
+            allow_reconfirm = any(
+                rc
+                in ("UNFULFILLABLE_HARD_CONSTRAINT", "UNFULFILLABLE_COLOR_CONSTRAINT")
+                for rc in decision.reason_codes
+            )
             form = build_clarification_form(
                 slots,
                 intent,
                 max_questions=decision.max_questions or 3,
                 target_slots=decision.target_slots,
+                allow_provided=allow_reconfirm,
             )
             asked_slots: list[str] = []
             if form.questions:
@@ -1281,14 +1336,13 @@ class ShopAssistantAgent:
             has_ungrounded = self._has_ungrounded_product_listing(
                 raw_text, prior_messages=grounded_refs
             )
-            is_form_submit = self._latest_human_text(messages).startswith("Mình chọn:")
             is_clarify_loop = (
                 not self._user_requested_questions(messages)
-                and self._llm_tried_to_clarify(raw_text)
+                and not outfits
+                and not products
                 and (
-                    clarification_turns >= MAX_MODE_B_TURNS
-                    or decision.use_fallback
-                    or is_form_submit
+                    self._llm_tried_to_clarify(raw_text)
+                    or self._llm_deferred_tool_promise(raw_text)
                 )
             )
             has_phantom_form = self._has_phantom_form_reference(raw_text)
@@ -1363,11 +1417,17 @@ class ShopAssistantAgent:
 
         if decision.action == "ASK":
             agent_reply.needs_clarification = True
+            allow_reconfirm = any(
+                rc
+                in ("UNFULFILLABLE_HARD_CONSTRAINT", "UNFULFILLABLE_COLOR_CONSTRAINT")
+                for rc in decision.reason_codes
+            )
             form = build_clarification_form(
                 slots,
                 intent,
                 max_questions=decision.max_questions or 2,
                 target_slots=decision.target_slots,
+                allow_provided=allow_reconfirm,
             )
             asked_slots: list[str] = []
             if form.questions:
@@ -1411,9 +1471,22 @@ class ShopAssistantAgent:
                 and can_check_ungrounded
             ):
                 raw_text = last_text or agent_reply.reply
-                if self._has_ungrounded_product_listing(
-                    raw_text, prior_messages=grounded_refs
-                ) or self._has_phantom_form_reference(raw_text):
+                is_clarify_loop = (
+                    not self._user_requested_questions(messages)
+                    and not outfits
+                    and not products
+                    and (
+                        self._llm_tried_to_clarify(raw_text)
+                        or self._llm_deferred_tool_promise(raw_text)
+                    )
+                )
+                if (
+                    self._has_ungrounded_product_listing(
+                        raw_text, prior_messages=grounded_refs
+                    )
+                    or is_clarify_loop
+                    or self._has_phantom_form_reference(raw_text)
+                ):
                     (
                         outfits,
                         products,

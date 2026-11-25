@@ -1,3 +1,5 @@
+"""Automated benchmark runner for the Functional Golden Evaluation Suite."""
+
 import argparse
 import asyncio
 import datetime
@@ -11,7 +13,10 @@ from langchain_core.messages import AIMessage
 
 from customer_shop_assistant.config import Settings, get_settings
 from customer_shop_assistant.eval.dataset import EvaluationCase, load_golden_set
-from customer_shop_assistant.eval.heuristics import classify_intent
+from customer_shop_assistant.eval.e2e_benchmark import (
+    check_eval_services,
+    resolve_active_model_name,
+)
 from customer_shop_assistant.eval.metrics import (
     EvaluationMetricResult,
     evaluate_response,
@@ -19,10 +24,8 @@ from customer_shop_assistant.eval.metrics import (
 from customer_shop_assistant.schemas.chat import ChatRequest, ClarificationMode
 from customer_shop_assistant.services.agent_service import ShopAssistantAgent
 
-# Ensure terminal colors and UTF-8 output
-if sys.platform == "win32":
-    if hasattr(sys.stdout, "reconfigure"):
-        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+if sys.platform == "win32" and hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8", errors="replace")
 
 GREEN = "\033[92m"
 RED = "\033[91m"
@@ -53,7 +56,7 @@ def create_dry_run_agent(case: EvaluationCase) -> ShopAssistantAgent:
     elif gt.should_clarify:
         content = (
             f"Bạn có thể chia sẻ thêm thông tin về {kw} để shop tư vấn "
-            "chuẩn xác nhất được không ạ?"
+            "chuẩn xác nhất nhé."
         )
     elif gt.expected_policy_doc:
         content = (
@@ -84,6 +87,10 @@ class EvalRunner:
     ) -> None:
         self.settings = settings or get_settings()
         self.dry_run = dry_run
+        self.provider = "mock" if dry_run else self.settings.LLM_PROVIDER
+        self.model_name = (
+            "dry-run-fake" if dry_run else resolve_active_model_name(self.settings)
+        )
 
     async def run_case(
         self,
@@ -92,10 +99,11 @@ class EvalRunner:
     ) -> EvaluationMetricResult:
         """Run a single test case through the assistant and score it."""
         if agent is None:
-            if self.dry_run:
-                agent = create_dry_run_agent(case)
-            else:
-                agent = ShopAssistantAgent(settings=self.settings)
+            agent = (
+                create_dry_run_agent(case)
+                if self.dry_run
+                else ShopAssistantAgent(settings=self.settings)
+            )
 
         req = ChatRequest(
             message=case.question,
@@ -116,11 +124,7 @@ class EvalRunner:
         ):
             tools_used = [case.ground_truth.expected_tool]
 
-        # Estimate token count (~1 token per 3.5 chars)
-        total_chars = len(case.question) + len(res.reply)
-        estimated_tokens = max(1, int(total_chars / 3.5))
-
-        intent = classify_intent(case.question)
+        intent = res.intent or "UNKNOWN"
 
         return evaluate_response(
             case=case,
@@ -129,8 +133,13 @@ class EvalRunner:
             tools_used=tools_used,
             clarification_asked=res.clarification_asked,
             latency_ms=latency_ms,
-            estimated_tokens=estimated_tokens,
             outfits=res.outfits,
+            products=res.products,
+            clarification_form=res.clarification_form,
+            debug_meta=res.debug_meta,
+            provider=self.provider,
+            model_name=self.model_name,
+            allow_token_estimate=self.dry_run,
         )
 
     async def run_suite(
@@ -140,12 +149,31 @@ class EvalRunner:
     ) -> list[EvaluationMetricResult]:
         """Execute a list of evaluation cases sequentially."""
         print(f"\n{CYAN}{BOLD}{'=' * 72}{RESET}")
-        title = "   CUSTOMER SHOP ASSISTANT — BENCHMARK EVALUATION RUNNER"
+        title = "   CUSTOMER SHOP ASSISTANT — FUNCTIONAL REGRESSION RUNNER"
         print(f"{CYAN}{BOLD}{title}{RESET}")
         print(f"{CYAN}{BOLD}{'=' * 72}{RESET}")
-        prov = "MOCK (Dry Run)" if self.dry_run else self.settings.LLM_PROVIDER
+        prov = (
+            "MOCK (Dry Run)" if self.dry_run else f"{self.provider} / {self.model_name}"
+        )
         print(f"{DIM}  • Provider : {RESET}{YELLOW}{prov}{RESET}")
-        print(f"{DIM}  • Total    : {RESET}{BOLD}{len(cases)}{RESET} cases\n")
+        print(f"{DIM}  • Total    : {RESET}{BOLD}{len(cases)}{RESET} cases")
+
+        if not self.dry_run:
+            health = await check_eval_services(
+                self.settings, backend=self.settings.OUTFIT_KG_BACKEND
+            )
+            be_col = GREEN if health.main_be_ok else RED
+            be_txt = (
+                f"{'ONLINE' if health.main_be_ok else 'OFFLINE'} "
+                f"({health.main_be_detail})"
+            )
+            print(f"{DIM}  • Main BE  : {RESET}{be_col}{be_txt}{RESET}")
+            if not health.main_be_ok and any(c.requires_main_be for c in cases):
+                print(
+                    f"{YELLOW}  ! Warning: Main BE is offline; cases requiring live "
+                    f"catalog/vouchers may fail.{RESET}"
+                )
+        print()
 
         results: list[EvaluationMetricResult] = []
 
@@ -167,12 +195,13 @@ class EvalRunner:
             except Exception as exc:
                 print(f"{RED}ERROR: {exc}{RESET}")
 
-        # Write results to JSONL log
         if output_file is None:
             now_str = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
             log_dir = Path("logs")
             log_dir.mkdir(exist_ok=True)
             output_file = log_dir / f"eval_{now_str}.jsonl"
+        else:
+            output_file.parent.mkdir(parents=True, exist_ok=True)
 
         with output_file.open("w", encoding="utf-8") as f:
             for r in results:
@@ -195,7 +224,7 @@ class EvalRunner:
         passed = sum(1 for r in results if r.passed)
         pass_rate = (passed / total) * 100.0 if total > 0 else 0.0
         avg_latency = sum(r.latency_ms for r in results) / total if total > 0 else 0.0
-        total_tokens = sum(r.estimated_tokens for r in results)
+        total_tokens = sum(r.total_tokens for r in results)
 
         print(f"\n{CYAN}{BOLD}{'=' * 72}{RESET}")
         print(f"{CYAN}{BOLD}                    EVALUATION SUMMARY REPORT{RESET}")
@@ -204,7 +233,7 @@ class EvalRunner:
         stat = f"{col}{BOLD}{pass_rate:.1f}%{RESET} ({passed}/{total} passed)"
         print(f"  • Overall Pass Rate : {stat}")
         print(f"  • Average Latency   : {BOLD}{avg_latency:.1f} ms{RESET}")
-        print(f"  • Total Est. Tokens : {BOLD}{total_tokens:,}{RESET}")
+        print(f"  • Total Tokens      : {BOLD}{total_tokens:,}{RESET}")
         print(f"  • Telemetry Output  : {DIM}{log_path}{RESET}")
         outfit_cases = [r for r in results if r.outfit_returned is not None]
         if outfit_cases:
@@ -225,7 +254,6 @@ class EvalRunner:
             print(f"  • Rule Violations   : {BOLD}{avg_viol:.1f}%{RESET}")
         print(f"{CYAN}{'-' * 72}{RESET}")
 
-        # Category breakdown
         categories: dict[str, list[EvaluationMetricResult]] = {}
         for r in results:
             categories.setdefault(r.category, []).append(r)
@@ -268,7 +296,7 @@ async def async_main() -> None:
         "--mode",
         type=str,
         default=None,
-        help="Override clarification mode (immediate, minimal, always)",
+        help="Override clarification mode (immediate, conditional, always)",
     )
     parser.add_argument(
         "--dry-run", action="store_true", help="Run with mock model (no LLM calls)"
@@ -292,7 +320,7 @@ async def async_main() -> None:
         elif "alw" in m_lower:
             mode_override = ClarificationMode.ALWAYS_CLARIFY
         else:
-            mode_override = ClarificationMode.MINIMAL_CLARIFICATION
+            mode_override = ClarificationMode.CONDITIONAL_CLARIFICATION
         for c in cases:
             c.clarification_mode = mode_override
 

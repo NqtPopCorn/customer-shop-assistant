@@ -367,12 +367,16 @@ def _build_conflict_question(
             allow_custom=False,
         )
     if slot_name == "budget":
+        budget_q = (
+            "Khoảng giá bạn nêu đang mâu thuẫn, "
+            "bạn chọn lại ngân sách ưu tiên giúp mình nhé?"
+            if slots.is_conflicting("budget")
+            else "Khoảng giá bạn nêu hiện chưa có bộ phối phù hợp, "
+            "bạn chọn lại ngân sách ưu tiên giúp mình nhé?"
+        )
         return ClarificationQuestion(
             id="budget",
-            question=(
-                "Khoảng giá bạn nêu đang mâu thuẫn, "
-                "bạn chọn lại ngân sách ưu tiên giúp mình nhé?"
-            ),
+            question=budget_q,
             type="single",
             options=[
                 "Tiết kiệm (Dưới 300.000đ)",
@@ -433,6 +437,7 @@ def build_clarification_form(
     max_questions: int = 3,
     *,
     target_slots: list[str] | None = None,
+    allow_provided: bool = False,
 ) -> ClarificationForm:
     """Build a non-redundant ClarificationForm from required or target slots."""
     effective_intent = (
@@ -446,7 +451,7 @@ def build_clarification_form(
             for s in target_slots
             if s not in not_applicable
             and not slots.is_declined(s)
-            and (slots.is_conflicting(s) or not slots.has(s))
+            and (allow_provided or slots.is_conflicting(s) or not slots.has(s))
         ]
     else:
         candidate_slots = get_missing_required_slots(effective_intent, slots)
@@ -455,7 +460,7 @@ def build_clarification_form(
     for slot_name in candidate_slots:
         if len(questions) >= max_questions:
             break
-        if slots.is_conflicting(slot_name):
+        if slots.is_conflicting(slot_name) or (allow_provided and slots.has(slot_name)):
             q = _build_conflict_question(slot_name, slots, effective_intent)
         else:
             q = _build_question_for_slot(slot_name, slots, effective_intent)

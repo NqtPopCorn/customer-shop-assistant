@@ -1,31 +1,1303 @@
-﻿scenario_id,task_type,mode,question,clarification_asked,asked_slots,decision_source,decision_reason,applied_rule_ids,outfits_summary,recommendation_relevance_1_5,unnecessary_question_0_1,missed_clarification_0_1,task_completion_0_1,explanation_faithfulness_1_5,judge_notes
-E1_TEST_OPEN_01,open,IMMEDIATE_ANSWER,Tư vấn set đồ đẹp giúp mình nhé.,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,"PW_THN_JNS,CH_DEN_TRG,CH_TRG_NVY",[11] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Beyonce (Đen) + [119] Quần jeans Nữ Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny (Trắng) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen),,,,,,
-E1_TEST_OPEN_02,open,IMMEDIATE_ANSWER,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,"PW_THN_JNS,CH_DEN_TRG,CH_TRG_NVY",[11] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Beyonce (Đen) + [119] Quần jeans Nữ Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny (Trắng) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen),,,,,,
-E1_TEST_ANCHOR_01,anchor,IMMEDIATE_ANSWER,Phối áo sơ mi đen với quần gì đẹp?,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,"PW_SMI_QAU,CH_DEN_XNH,CH_BES_DEN",[63] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Missy (Đen) + [186] Quần âu Nữ Tây Âu Xếp Ly Công Sở Kẻ Sọc Latte (Xám nhạt) | [53] Áo sơ mi Nam Oxford Công Sở Regular Fit Kẻ Caro Bryn (Đen) + [179] Quần âu Nam Slim Fit Tailored Lịch Lãm Trơn Basic Rawley (Be sữa),,,,,,
-E1_TEST_ANCHOR_02,anchor,IMMEDIATE_ANSWER,Áo thun trắng phối với quần nào trẻ trung?,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,"PW_THN_JNS,RC_CAS_THN,RC_CAS_JNS,CH_DEN_TRG,PC_CAS_TRG,PC_CAS_DEN",[11] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Beyonce (Trắng) + [121] Quần jeans Nữ Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Đen) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen),,,,,,
-E1_TEST_SEARCH_01,search,IMMEDIATE_ANSWER,Shop gợi ý cho mình mua vài món đồ với.,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,,,,,,,,
-E1_TEST_SEARCH_02,search,IMMEDIATE_ANSWER,Tìm quần mặc đi chơi giúp mình.,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,,,,,,,,
-E1_TEST_SIZE_01,size,IMMEDIATE_ANSWER,Quần jean nam này mình mặc size nào vừa?,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,,,,,,,,
-E1_TEST_SIZE_02,size,IMMEDIATE_ANSWER,Đầm nữ này thì lấy size gì vừa bạn?,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,,,,,,,,
-E1_TEST_BODY_01,body_fit,IMMEDIATE_ANSWER,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,False,,mode_a_immediate,IMMEDIATE_ANSWER enforces strict 0-clarification.,,,,,,,,
-E1_TEST_NONSHOP_01,non_shopping,IMMEDIATE_ANSWER,Phí ship đơn 300k là bao nhiêu vậy shop?,False,,non_shopping_bypass,Non-shopping intent bypasses clarification.,,,,,,,,
-E1_TEST_OPEN_01,open,ALWAYS_CLARIFY,Tư vấn set đồ đẹp giúp mình nhé.,True,"target_gender,occasion",mode_b_required_check,"Missing required slots: target_gender, occasion (turn 1/2).","PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NVY,OC_OFF_TRG,OC_OFF_NVY",[64] Áo sơ mi Nữ Lụa Mềm Thanh Lịch Trơn Basic Zidane (Trắng) + [185] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Kanta (Xanh navy) | [64] Áo sơ mi Nữ Lụa Mềm Thanh Lịch Trơn Basic Zidane (Trắng) + [186] Quần âu Nữ Tây Âu Xếp Ly Công Sở Kẻ Sọc Latte (Xanh navy),,,,,,
-E1_TEST_OPEN_02,open,ALWAYS_CLARIFY,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,True,"target_gender,occasion",mode_b_required_check,"Missing required slots: target_gender, occasion (turn 1/2).","PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG,CH_TRG_NVY",[3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [112] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Xanh navy),,,,,,
-E1_TEST_ANCHOR_01,anchor,ALWAYS_CLARIFY,Phối áo sơ mi đen với quần gì đẹp?,True,target_gender,mode_b_required_check,Missing required slots: target_gender (turn 1/2).,"PW_SMI_QAU,CH_BES_DEN",[53] Áo sơ mi Nam Oxford Công Sở Regular Fit Kẻ Caro Bryn (Đen) + [179] Quần âu Nam Slim Fit Tailored Lịch Lãm Trơn Basic Rawley (Be sữa) | [54] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Thời Trang Howie (Đen) + [179] Quần âu Nam Slim Fit Tailored Lịch Lãm Trơn Basic Rawley (Be sữa),,,,,,
-E1_TEST_ANCHOR_02,anchor,ALWAYS_CLARIFY,Áo thun trắng phối với quần nào trẻ trung?,True,target_gender,mode_b_required_check,Missing required slots: target_gender (turn 1/2).,"PW_THN_JNS,RC_CAS_THN,RC_CAS_JNS,CH_DEN_TRG,PC_CAS_TRG,PC_CAS_DEN",[11] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Beyonce (Trắng) + [121] Quần jeans Nữ Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Đen) | [13] Áo thun Nữ Regular Fit Cổ Tròn Trơn Basic Cora (Trắng) + [121] Quần jeans Nữ Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Đen),,,,,,
-E1_TEST_SEARCH_01,search,ALWAYS_CLARIFY,Shop gợi ý cho mình mua vài món đồ với.,True,"target_gender,category",mode_b_required_check,"Missing required slots: target_gender, category (turn 1/2).",,,,,,,,
-E1_TEST_SEARCH_02,search,ALWAYS_CLARIFY,Tìm quần mặc đi chơi giúp mình.,True,target_gender,mode_b_required_check,Missing required slots: target_gender (turn 1/2).,,,,,,,,
-E1_TEST_SIZE_01,size,ALWAYS_CLARIFY,Quần jean nam này mình mặc size nào vừa?,True,measurements,mode_b_required_check,Missing required slots: measurements (turn 1/2).,,,,,,,,
-E1_TEST_SIZE_02,size,ALWAYS_CLARIFY,Đầm nữ này thì lấy size gì vừa bạn?,True,measurements,mode_b_required_check,Missing required slots: measurements (turn 1/2).,,,,,,,,
-E1_TEST_BODY_01,body_fit,ALWAYS_CLARIFY,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,True,target_gender,mode_b_required_check,Missing required slots: target_gender (turn 1/2).,,,,,,,,
-E1_TEST_NONSHOP_01,non_shopping,ALWAYS_CLARIFY,Phí ship đơn 300k là bao nhiêu vậy shop?,False,,non_shopping_bypass,Non-shopping intent bypasses clarification.,,,,,,,,
-E1_TEST_OPEN_01,open,CONDITIONAL_CLARIFICATION,Tư vấn set đồ đẹp giúp mình nhé.,True,"target_gender,occasion",mode_c_hard_ask,Broad empty shopping inquiry lacks actionable anchor.,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NVY,OC_OFF_TRG,OC_OFF_NVY",[64] Áo sơ mi Nữ Lụa Mềm Thanh Lịch Trơn Basic Zidane (Trắng) + [185] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Kanta (Xanh navy) | [64] Áo sơ mi Nữ Lụa Mềm Thanh Lịch Trơn Basic Zidane (Trắng) + [186] Quần âu Nữ Tây Âu Xếp Ly Công Sở Kẻ Sọc Latte (Xanh navy),,,,,,
-E1_TEST_OPEN_02,open,CONDITIONAL_CLARIFICATION,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,True,"target_gender,occasion",mode_c_hard_ask,Broad empty shopping inquiry lacks actionable anchor.,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG,CH_TRG_NVY",[3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [112] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Xanh navy),,,,,,
-E1_TEST_ANCHOR_01,anchor,CONDITIONAL_CLARIFICATION,Phối áo sơ mi đen với quần gì đẹp?,False,,mode_c_counterfactual,Counterfactual evaluation confirmed item anchor or low sensitivity can be covered cleanly with grounded alternatives.,"PW_SMI_QAU,CH_DEN_XNH,CH_BES_DEN",[63] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Missy (Đen) + [186] Quần âu Nữ Tây Âu Xếp Ly Công Sở Kẻ Sọc Latte (Xám nhạt) | [53] Áo sơ mi Nam Oxford Công Sở Regular Fit Kẻ Caro Bryn (Đen) + [179] Quần âu Nam Slim Fit Tailored Lịch Lãm Trơn Basic Rawley (Be sữa),,,,,,
-E1_TEST_ANCHOR_02,anchor,CONDITIONAL_CLARIFICATION,Áo thun trắng phối với quần nào trẻ trung?,False,,mode_c_counterfactual,Counterfactual evaluation confirmed item anchor or low sensitivity can be covered cleanly with grounded alternatives.,"PW_THN_JNS,RC_CAS_THN,RC_CAS_JNS,CH_DEN_TRG,PC_CAS_TRG,PC_CAS_DEN",[11] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Beyonce (Trắng) + [121] Quần jeans Nữ Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Skinny (Đen) | [3] Áo thun Nam Slim Fit Co Giãn 4 Chiều Trơn Basic Tail (Trắng) + [111] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Sonny (Đen),,,,,,
-E1_TEST_SEARCH_01,search,CONDITIONAL_CLARIFICATION,Shop gợi ý cho mình mua vài món đồ với.,True,"target_gender,occasion",mode_c_hard_ask,Broad empty shopping inquiry lacks actionable anchor.,,,,,,,,
-E1_TEST_SEARCH_02,search,CONDITIONAL_CLARIFICATION,Tìm quần mặc đi chơi giúp mình.,True,target_gender,mode_c_llm,Gray zone: evaluating 4 clarification conditions via LLM.,,,,,,,,
-E1_TEST_SIZE_01,size,CONDITIONAL_CLARIFICATION,Quần jean nam này mình mặc size nào vừa?,True,measurements,mode_c_hard_ask,SIZE_ADVICE requires measurements before sizing.,,,,,,,,
-E1_TEST_SIZE_02,size,CONDITIONAL_CLARIFICATION,Đầm nữ này thì lấy size gì vừa bạn?,True,measurements,mode_c_hard_ask,SIZE_ADVICE requires measurements before sizing.,,,,,,,,
-E1_TEST_BODY_01,body_fit,CONDITIONAL_CLARIFICATION,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,True,target_gender,mode_c_llm,Gray zone: evaluating 4 clarification conditions via LLM.,,,,,,,,
-E1_TEST_NONSHOP_01,non_shopping,CONDITIONAL_CLARIFICATION,Phí ship đơn 300k là bao nhiêu vậy shop?,False,,non_shopping_bypass,Non-shopping intent bypasses clarification.,,,,,,,,
+﻿source,suite,scenario_id,task_type,mode,turns_to_completion,question,final_reply,clarification_asked,asked_slots,decision_source,reason_codes,tools_used,applied_rule_ids,products_summary,outfits_summary,grounding_ok,recommendation_relevance_1_5,unnecessary_question_0_1,missed_clarification_0_1,task_completion_0_1,explanation_faithfulness_1_5,judge_notes
+tier2_e2e_llm,contrastive,S1,b_over_asks_c_proceeds,IMMEDIATE_ANSWER,1,Phối áo sơ mi trắng với quần gì đẹp?,"Chào bạn! Để gợi ý những bộ quần áo đẹp nhất khi phối với áo sơ mi trắng, tôi đã cân nhắc cả giới tính Nữ và Nam cho bạn. Dưới đây là 3 bộ gợi ý hoàn chỉnh:
+
+**Bộ 1 (Điểm phù hợp: 0.97)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Trắng | Giá: 840,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Đen | Giá: 188,000đ
+*   **Lý do phối:** Đây là cặp màu đen-trắng kinh điển, tạo sự tương phản sắc nét nhưng vẫn giữ được vẻ tinh gọn và chuyên nghiệp.
+
+**Bộ 2 (Điểm phù hợp: 0.97)**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+*   **Lý do phối:** Phối với áo sơ mi linen trắng tạo cảm giác thư giãn và thoải mái.
+
+**Bộ 3 (Điểm phù hợp: 0.97)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Trắng | Giá: 840,000đ
+*   **Quần/Váy:** [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk | Màu: Đen | Giá: 320,000đ
+*   **Lý do phối:** Tạo sự tương phản mạnh mẽ giữa màu trắng của áo và đen của quần.
+
+Bạn có thể chọn bộ phù hợp nhất với phong cách bạn nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,CH_DEN_TRG",[486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise (840000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d),[486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise (Trắng) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Đen) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S1,b_over_asks_c_proceeds,ALWAYS_CLARIFY,2,Phối áo sơ mi trắng với quần gì đẹp?,"Chào bạn! Dựa trên tiêu chí **Áo sơ mi trắng** (trắng tinh tế) và **Quần âu**, mình đã gợi ý 3 bộ phối đồ hoàn chỉnh dưới đây để bạn tham khảo:
+
+---
+
+### **Bộ 1: Phong cách Công sở Tối giản & Chuyên nghiệp**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: **402,000đ**
+    *   *Đặc điểm:* Chất liệu linen thoáng mát, dáng thư giãn nhưng vẫn giữ vẻ sang trọng.
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: **340,000đ**
+    *   *Đặc điểm:* Cạp cao giúp tôn dáng, ống suông tạo sự gọn gàng.
+*   **Lý do phối:** Đây là bộ ""cặp đôi"" kinh điển nhất cho công sở. Màu đen – trắng tạo nên sự tương phản sắc nét nhưng vẫn rất tinh tế và dễ phối với nhiều loại giày dép khác nhau.
+
+### **Bộ 2: Phong cách Tây Âu & Lịch sự**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: **402,000đ**
+    *   *Đặc điểm:* Giữ được chất liệu linen nhưng dáng thiết kế hơi tối giản hơn.
+*   **Quần:** [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Đen | Giá: **179,000đ**
+    *   *Đặc điểm:* Dáng xếp ly giúp tạo chiều cao và dáng thẳng cho người cao.
+*   **Lý do phối:** Phù hợp với phong cách Tây Âu, lịch sự và sang trọng hơn bộ 1. Màu đen – trắng vẫn là cặp màu tối giản nhưng mang lại cảm giác ""thần thánh"" hơn.
+
+### **Bộ 3: Phong cách Hàn Quốc & Hiện đại**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: **402,000đ**
+    *   *Đặc điểm:* Chất liệu linen cùng dáng thư giãn.
+*   **Quần:** [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Đen | Giá: **433,000đ**
+    *   *Đặc điểm:* Thiết kế ống suông kết hợp cạp cao tạo sự gọn gàng và hiện đại.
+*   **Lý do phối:** Phù hợp với xu hướng Hàn Quốc, mang lại cảm giác trẻ trung nhưng vẫn giữ được sự trang trọng của bộ linen trắng.
+
+---
+
+**💡 Lưu ý nhỏ:** Bạn có thể cân nhắc thêm về màu sắc quần (ví dụ: Đen, Xanh Navy, Beige) để phù hợp hơn với phong cách cá nhân nhé!",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_QAU,CH_DEN_TRG",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S1,b_over_asks_c_proceeds,CONDITIONAL_CLARIFICATION,1,Phối áo sơ mi trắng với quần gì đẹp?,"Chào bạn! Để gợi ý những bộ quần áo đẹp nhất khi phối với áo sơ mi trắng, mình cân bằng cho cả Nữ và Nam nhé. Dưới đây là 3 bộ gợi ý hoàn chỉnh:
+
+**Bộ 1 (Cân bằng điểm số cao nhất)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Trắng | Giá: 840,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Đen | Giá: 188,000đ
+*   **Lý do phối:** Đây là cặp màu kinh điển tối giản, tạo nên sự tương phản sắc nét giữa trắng và đen. Bộ này rất phù hợp cho các buổi gặp khách hoặc dự tiệc công sở.
+
+**Bộ 2 (Phù hợp phong cách thư giãn)**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+*   **Lý do phối:** Bộ này mang phong cách nhẹ nhàng và thoải mái hơn. Màu trắng của áo sơ mi kết hợp với màu đen của quần tạo nên sự thanh lịch.
+
+**Bộ 3 (Phù hợp phong cách công sở)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Trắng | Giá: 840,000đ
+*   **Quần/Váy:** [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk | Màu: Đen | Giá: 320,000đ
+*   **Lý do phối:** Đây là lựa chọn an toàn và chuyên nghiệp nhất. Bộ này giúp bạn luôn trông lịch sự và phù hợp với mọi môi trường công sở.
+
+Bạn có muốn mình tư vấn thêm về size hay chi tiết nào khác không?",False,,mode_c_counterfactual,"COUNTERFACTUAL_PROCEED,COVERED_WITH_ALTERNATIVES",suggest_outfit,"PW_SMI_QAU,CH_DEN_TRG",[486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise (840000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d),[486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise (Trắng) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Đen) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S2,b_over_asks_c_proceeds,IMMEDIATE_ANSWER,1,Tìm áo cho nam,"Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:
+- [61] **Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange Ca** (Áo sơ mi | Nike) — Giá: 714,000đ
+- [442] **Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Skinfaxe** (Áo sơ mi | H&M) — Giá: 237,000đ
+- [57] **Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Td** (Áo sơ mi | H&M) — Giá: 410,000đ
+- [426] **Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Arthur** (Áo sơ mi | Zara) — Giá: 634,000đ
+- [438] **Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Oliver** (Áo sơ mi | Adidas) — Giá: 542,000đ
+- [81] **Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic New** (Áo sơ mi | H&M) — Giá: 378,000đ",False,,mode_a_immediate,MODE_A_STRICT_ZERO,search_products,,[61] Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange Ca (714000d) | [442] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Skinfaxe (237000d) | [57] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Td (410000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S2,b_over_asks_c_proceeds,ALWAYS_CLARIFY,2,Tìm áo cho nam,"Chào bạn! Để tìm ra những chiếc áo sơ mi phù hợp nhất với nhu cầu của bạn, mình sẽ lọc ngay từ đầu theo các tiêu chí: **Giới tính nam**, **Dịp công sở**, và **Ngân sách 300k - 600k**.
+
+Mình sẽ gợi ý cho bạn 4 mẫu áo sơ mi chất lượng cao, thiết kế tinh gọn và phù hợp với phong cách làm việc chuyên nghiệp. Dưới đây là danh sách sản phẩm:
+
+1. **[57] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Td | Giá từ: 410,000đ**
+   - *Đặc điểm:* Chất liệu 100% Cotton Oxford cao cấp đứng phom, form Regular Fit giúp tôn dáng cơ thể. Họa tiết trơn Basic, phù hợp với mọi occasion công sở.
+
+2. **[81] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic New | Giá từ: 378,000đ**
+   - *Đặc điểm:* Tương tự mẫu trên nhưng có thêm phiên bản mới (New), chất liệu và thiết kế vẫn giữ nguyên cao cấp, giá thành hợp lý trong ngân sách.
+
+3. **[438] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Oliver | Giá từ: 542,000đ**
+   - *Đặc điểm:* Mẫu Oliver nổi bật với thiết kế tinh tế hơn, chất liệu Cotton Oxford cao cấp, phù hợp cho những buổi họp quan trọng hoặc đi làm chuyên nghiệp.
+
+4. **[446] Áo sơ mi Nam Oxford Công Sở Regular Fit Kẻ Caro Nas | Giá từ: 304,000đ**
+   - *Đặc điểm:* Mẫu kẻ caro (Caro) mang phong cách thời trang hiện đại, vẫn giữ chất liệu Cotton Oxford cao cấp và form Regular Fit, phù hợp với những bạn thích sự khác biệt nhưng vẫn chuyên nghiệp.
+
+Bạn có muốn mình tư vấn thêm về kích thước phù hợp hay chi tiết nào khác không?",True,"category_subtype,occasion,budget",mode_b_required_check,BROAD_CATEGORY_REFINEMENT,search_products,,[57] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Td (410000d) | [81] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic New (378000d) | [438] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Oliver (542000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S2,b_over_asks_c_proceeds,CONDITIONAL_CLARIFICATION,1,Tìm áo cho nam,"Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:
+- [4] **Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Cameron** (Áo thun | H&M) — Giá: 214,000đ
+- [84] **Áo khoác Nam Gió Windbreaker Tráng PU Chống Nước Trơn Basic Manson** (Áo khoác | H&M) — Giá: 491,000đ
+- [89] **Áo khoác Nam Hoodie & Sweater Nỉ Bông Giữ Ấm Trơn Basic Oz** (Áo khoác | H&M) — Giá: 203,000đ
+- [38] **Áo polo Nam Thể Thao Co Giãn Thoáng Mát Trơn Basic Twister** (Áo polo | H&M) — Giá: 401,000đ",False,,mode_c_hard_answer,HARD_ANSWER_REQUIRED_COMPLETE,search_products,,[4] Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Cameron (214000d) | [84] Áo khoác Nam Gió Windbreaker Tráng PU Chống Nước Trơn Basic Manson (491000d) | [89] Áo khoác Nam Hoodie & Sweater Nỉ Bông Giữ Ấm Trơn Basic Oz (203000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S3,c_catches_catalog_constraint,IMMEDIATE_ANSWER,1,Phối áo sơ mi nam màu xanh mint với quần âu đi làm.,"Chào bạn! Tôi đã gợi ý được 3 bộ phối đồ hoàn chỉnh cho áo sơ mi nam màu **Xanh mint** đi làm. Tuy nhiên, hệ thống chỉ còn lại các mẫu áo màu **Trắng** trong kho hàng hiện tại để tạo combo này.
+
+Dưới đây là 3 bộ gợi ý:
+
+*   **Bộ 1:**
+    *   Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+    *   Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+    *   *Lý do:* Đây là bộ phối chuẩn mực cho môi trường công sở. Màu đen – trắng tạo sự tương phản sắc nét và tối giản.
+
+*   **Bộ 2:**
+    *   Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+    *   Quần/Váy: [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Đen | Giá: 179,000đ
+    *   *Lý do:* Phù hợp với phong cách trang phục công sở chuẩn mực.
+
+*   **Bộ 3:**
+    *   Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+    *   Quần/Váy: [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Đen | Giá: 433,000đ
+    *   *Lý do:* Tạo sự phong cách hơn với quần âu có cạp cao và dáng ống suông.
+
+**Lưu ý:** Bạn chưa chọn giới tính cụ thể cho bộ đồ này. Nếu bạn là nam, các sản phẩm trên đều phù hợp. Nếu bạn muốn tìm thêm gợi ý cho nữ hoặc unisex, hãy cho tôi biết nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_DEN_TRG,OC_OFF_TRG,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S3,c_catches_catalog_constraint,ALWAYS_CLARIFY,1,Phối áo sơ mi nam màu xanh mint với quần âu đi làm.,"Chào bạn! Dựa trên yêu cầu của bạn (áo sơ mi nam màu xanh mint, quần âu cho công sở), tôi đã gợi ý 3 bộ phối đồ hoàn chỉnh dưới đây. Lưu ý rằng hệ thống chưa có mẫu áo màu ""Xanh mint"" hiện hành, nên mình đã chọn các màu tương tự như **Trắng** để đảm bảo sự tinh tế và phù hợp với phong cách bạn yêu cầu.
+
+Dưới đây là 2-4 lựa chọn tốt nhất:
+
+### Bộ 1: Áo sơ mi Bamboo + Quần âu Basic Đen
+*   **Áo:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: **341.000đ**
+    *   *Đặc điểm:* Thiết kế slim fit, chất liệu chống nhăn, dáng cơ bản nhưng tinh tế.
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: **340.000đ**
+    *   *Đặc điểm:* Cạp cao, ống suông, dáng cơ bản, tạo sự chuyên nghiệp và gọn gàng.
+*   **Lý do phối:** Đây là bộ ""cặp đôi"" kinh điển nhất cho công sở. Màu trắng của áo tạo điểm nhấn nhẹ nhàng, trong khi màu đen của quần giúp bộ trang phục luôn gọn gàng và dễ phối với mọi loại giày dép.
+
+### Bộ 2: Áo sơ mi Bamboo + Quần âu Unisex Tây Âu
+*   **Áo:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: **341.000đ**
+    *   *Đặc điểm:* Chất liệu Bamboo, dáng Slim Fit, rất thoải mái khi di chuyển trong ngày làm việc.
+*   **Quần:** [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Đen | Giá: **179.000đ**
+    *   *Đặc điểm:* Dáng xếp ly (slim fit) nhưng rộng rãi hơn, phù hợp với nhiều loại giày tây khác nhau.
+*   **Lý do phối:** Bộ này cân bằng giữa sự chuyên nghiệp và thoải mái. Màu trắng của áo tạo cảm giác tươi sáng, trong khi màu đen của quần giúp bộ trang phục luôn gọn gàng và dễ phối.
+
+### Bộ 3: Áo sơ mi Bamboo + Quần âu Cạp Cao Lacey
+*   **Áo:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: **341.000đ**
+    *   *Đặc điểm:* Chất liệu Bamboo, dáng Slim Fit, rất thoải mái khi di chuyển trong ngày làm việc.
+*   **Quần:** [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Đen | Giá: **433.000đ**
+    *   *Đặc điểm:* Cạp cao, ống suông, dáng cơ bản nhưng có độ dài và chất lượng tốt hơn so với các bộ khác.
+*   **Lý do phối:** Bộ này phù hợp cho những bạn cần sự chuyên nghiệp cao hơn. Màu trắng của áo tạo điểm nhấn nhẹ nhàng, trong khi màu đen của quần giúp bộ trang phục luôn gọn gàng và dễ phối.
+
+**Lưu ý nhỏ:** Các bộ trên đều sử dụng màu **Trắng** cho áo sơ mi thay vì ""Xanh mint"" do hệ thống chưa có mẫu này. Bạn có thể cân nhắc đổi sang các màu khác như Beige, Nâu nhạt hoặc Xanh lá cây nếu muốn thay đổi hoàn toàn phong cách.
+
+Bạn có muốn tìm thêm gợi ý về giày dép đi kèm hay không?",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_DEN_TRG,OC_OFF_TRG,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S3,c_catches_catalog_constraint,CONDITIONAL_CLARIFICATION,2,Phối áo sơ mi nam màu xanh mint với quần âu đi làm.,"Chào bạn! Dựa trên thông tin bạn cung cấp (Áo sơ mi nam màu trắng, đi làm công sở), mình đã gợi ý 3 bộ phối đồ hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+*   *Lý do:* Đây là bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc. Áo sơ mi là lựa chọn chủ đạo cho môi trường chỉn chu; Quần âu đứng phom chuẩn mực. Cặp màu Đen – Trắng tạo nên sự tối giản nhưng vẫn có điểm tương phản sắc nét.
+
+**Bộ 2:**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần/Váy:** [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Đen | Giá: 179,000đ
+*   *Lý do:* Vẫn là bộ phối chuẩn mực cho công sở. Quần âu này có dáng xếp ly (tây Âu) giúp tạo cảm giác sang trọng và chuyên nghiệp hơn so với kiểu ống suông thông thường.
+
+**Bộ 3:**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần/Váy:** [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Đen | Giá: 433,000đ
+*   *Lý do:* Vẫn là bộ phối chuẩn mực cho công sở. Quần âu này có cạp cao và dáng ống suông, phù hợp với phong cách lịch lãm của bạn.
+
+Bạn có muốn xem thêm thông tin chi tiết về chất liệu vải hay kích thước cụ thể không?",True,color,mode_c_counterfactual,UNFULFILLABLE_COLOR_CONSTRAINT,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_DEN_TRG,OC_OFF_TRG,OC_OFF_DEN",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S4,c_catches_catalog_constraint,IMMEDIATE_ANSWER,1,Phối đồ đi tiệc cho nam dưới 100k,Hiện tại mình chưa tìm thấy bộ phối đồ nào khớp hoàn toàn với tiêu chí này trong cửa hàng. Bạn có thể thử dịp mặc hoặc màu sắc khác để mình gợi ý lại nhé!,False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S4,c_catches_catalog_constraint,ALWAYS_CLARIFY,1,Phối đồ đi tiệc cho nam dưới 100k,Hiện chưa tìm thấy bộ phối đồ phù hợp với tiêu chí này trong danh mục của cửa hàng.,False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S4,c_catches_catalog_constraint,CONDITIONAL_CLARIFICATION,2,Phối đồ đi tiệc cho nam dưới 100k,"Chào bạn! Dựa trên tiêu chí **độ phù hợp (0.87)** và ngân sách **500k - 1 triệu**, mình đã gợi ý được 3 bộ phối đồ hoàn chỉnh cho nam giới:
+
+---
+
+### **Bộ 1**
+*   **Áo:** [36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster | Màu: Xanh navy | Giá: **841,000đ**
+    *   *Đặc điểm:* Thiết kế bo cổ tinh tế, chất liệu trơn mềm mại, phù hợp với phong cách lịch sự nhưng vẫn trẻ trung.
+*   **Quần:** [569] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Slim | Màu: Đen | Giá: **806,000đ**
+    *   *Đặc điểm:*版型修身 (khéo léo), màu đen cổ điển kết hợp với vải denim wash tạo cảm giác sang trọng.
+
+> **Lý do phối:** Sự cân bằng giữa nét lịch sự có cổ và vẻ trẻ trung. Màu đen – xanh navy trầm lịch sự và an toàn, rất phù hợp cho các buổi tiệc formal hoặc gala.
+
+---
+
+### **Bộ 2**
+*   **Áo:** [36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster | Màu: Xanh navy | Giá: **841,000đ**
+    *   *Đặc điểm:* Thiết kế bo cổ tinh tế, chất liệu trơn mềm mại.
+*   **Quần:** [575] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Straight | Màu: Đen | Giá: **870,000đ**
+    *   *Đặc điểm:*版型修身 (khéo léo), màu đen cổ điển kết hợp với vải denim wash tạo cảm giác sang trọng.
+
+> **Lý do phối:** Sự cân bằng giữa nét lịch sự có cổ và vẻ trẻ trung. Màu đen – xanh navy trầm lịch sự và an toàn, rất phù hợp cho các buổi tiệc formal hoặc gala.
+
+---
+
+### **Bộ 3**
+*   **Áo:** [36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster | Màu: Xanh navy | Giá: **841,000đ**
+    *   *Đặc điểm:* Thiết kế bo cổ tinh tế, chất liệu trơn mềm mại.
+*   **Quần:** [578] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Clay | Màu: Đen | Giá: **678,000đ**
+    *   *Đặc điểm:*版型修身 (khéo léo), màu đen cổ điển kết hợp với vải denim wash tạo cảm giác sang trọng.
+
+> **Lý do phối:** Sự cân bằng giữa nét lịch sự có cổ và vẻ trẻ trung. Màu đen – xanh navy trầm lịch sự và an toàn, rất phù hợp cho các buổi tiệc formal hoặc gala.
+
+---
+
+**Lưu ý nhỏ:**
+*   Các sản phẩm trên đều thuộc dòng **Áo polo** (top) và **Quần jeans** (bottom).
+*   Nếu bạn muốn thay đổi phong cách (ví dụ: thay quần jeans bằng **quần âu**, **quần dài**, hoặc **quần short**), hãy cho mình biết nhé! Mình sẽ gợi ý lại ngay.",True,budget,mode_c_counterfactual,UNFULFILLABLE_HARD_CONSTRAINT,suggest_outfit,"PW_POL_JNS,CH_DEN_NVY,OC_PTY_NVY,OC_PTY_DEN",[36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster (841000d) | [569] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Slim (806000d) | [575] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Straight (870000d),[36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster (Xanh navy) + [569] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Slim (Đen) | [36] Áo polo Nam Phối Bo Cổ Smart-Casual Trơn Basic Aster (Xanh navy) + [575] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Straight (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S5,c_catches_catalog_constraint,IMMEDIATE_ANSWER,1,Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?,"Chào bạn, để gợi ý một bộ đồ đi làm cho nam (office) mà không biết chọn màu sáng hay tối, tôi sẽ giới thiệu 3 bộ combo hoàn chỉnh gồm Áo và Quần/Váy phù hợp với phong cách tinh gọn, trọng tâm và gu thẩm mỹ tốt. Bạn có thể tham khảo các lựa chọn dưới đây:
+
+**Bộ 1: Áo Polo Navy & Quần Jeans Khaki**
+*   **Áo:** `POLO-Navy-001` - Chất liệu cotton len, dáng O-neck cổ tròn, màu navy đen (tối)
+*   **Quần:** `JEANS-Khaki-002` - Vải denim chất lượng cao, dáng slim fit, màu khaki nhạt
+*   **Lý do phối:** Combo này tạo sự cân đối và chuyên nghiệp cho môi trường văn phòng. Màu tối của áo polo giúp trang trọng hơn, trong khi màu khaki nhẹ nhàng của quần jeans làm nổi bật cơ thể và tạo điểm nhấn tinh tế.
+
+**Bộ 2: Áo Polo Beige & Quần Jeans Navy**
+*   **Áo:** `POLO-Beige-003` - Chất liệu cotton len, dáng O-neck cổ tròn, màu be (sáng)
+*   **Quần:** `JEANS-Navy-004` - Vải denim chất lượng cao, dáng slim fit, màu navy đen (tối)
+*   **Lý do phối:** Sự tương phản giữa màu be và navy tạo nên phong cách ""smart casual"" vừa lịch sự vừa hiện đại. Màu sáng của áo polo giúp trông trẻ trung hơn cho các buổi họp sáng hoặc giao tiếp nội bộ.
+
+**Bộ 3: Áo Polo Grey & Quần Jeans Black**
+*   **Áo:** `POLO-Grey-005` - Chất liệu cotton len, dáng O-neck cổ tròn, màu xám (tối)
+*   **Quần:** `JEANS-Black-006` - Vải denim chất lượng cao, dáng slim fit, màu đen (tối)
+*   **Lý do phối:** Combo này mang lại vẻ ngoài rất nghiêm túc và chuyên nghiệp. Màu tối của cả hai món tạo nên sự đồng nhất và vững chãi cho phong cách đi làm.
+
+Bạn có thể chọn bộ phù hợp với sở thích hoặc ngân sách của mình nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S5,c_catches_catalog_constraint,ALWAYS_CLARIFY,1,Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.98):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [756] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden** — Màu: Đen — Giá: 340,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi là lựa chọn chủ đạo cho môi trường công sở chỉn chu.; Quần âu đứng phom chuẩn mực cho ngày làm việc văn phòng.; Đen – Trắng: cặp màu kinh điển tối giản, tương phản sắc nét.
+
+**Bộ 2** (Độ phù hợp: 0.98):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [758] **Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone** — Màu: Đen — Giá: 179,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi là lựa chọn chủ đạo cho môi trường công sở chỉn chu.; Quần âu đứng phom chuẩn mực cho ngày làm việc văn phòng.; Đen – Trắng: cặp màu kinh điển tối giản, tương phản sắc nét.
+
+**Bộ 3** (Độ phù hợp: 0.98):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [759] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey** — Màu: Đen — Giá: 433,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi là lựa chọn chủ đạo cho môi trường công sở chỉn chu.; Quần âu đứng phom chuẩn mực cho ngày làm việc văn phòng.; Đen – Trắng: cặp màu kinh điển tối giản, tương phản sắc nét.",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_DEN_TRG,OC_OFF_TRG,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S5,c_catches_catalog_constraint,CONDITIONAL_CLARIFICATION,2,Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?,"Chào bạn! Rất vui được hỗ trợ Fashion Shop. Tôi đã nắm rõ nhu cầu của bạn: **Nam giới**, muốn tìm đồ cho **môi trường làm việc (office)**, và thích màu sắc **Xanh navy**.
+
+Để giúp bạn chọn được bộ đồ phù hợp nhất, tôi cần một chút thông tin bổ sung về ngân sách mong muốn để tư vấn chính xác. Bạn có thể chia sẻ khoảng giá trị bạn sẵn sàng chi trả không?",True,color,mode_c_counterfactual,AMBIGUOUS_COLOR_PREFERENCE,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,PW_POL_KKI,SC_OFF_POL,SC_OFF_KKI,PW_SMI_KKI,PW_KHC_QAU,SC_OFF_KHC,PW_KHC_KKI,PW_POL_QAU",,,True,,,,,,
+tier2_e2e_llm,contrastive,S6A,multi_turn_3_modes_separate,IMMEDIATE_ANSWER,1,Tư vấn chọn size giúp mình với,"Dưới đây là bảng size chuẩn để bạn tự đối chiếu:
+
+**Áo Nam:**
+| Size | Chiều cao | Cân nặng | Vòng ngực |
+| --- | --- | --- | --- |
+| S | 155–165cm | 48–55kg | 84–88cm |
+| M | 165–172cm | 56–65kg | 88–92cm |
+| L | 170–178cm | 66–75kg | 92–96cm |
+| XL | 175–183cm | 76–84kg | 96–102cm |
+| XXL | 178–190cm | 85–95kg | 102–110cm |
+
+**Áo Nữ:**
+| Size | Chiều cao | Cân nặng | Vòng ngực |
+| --- | --- | --- | --- |
+| S | 150–158cm | 40–47kg | 78–82cm |
+| M | 156–164cm | 48–54kg | 82–86cm |
+| L | 162–170cm | 55–62kg | 86–92cm |
+| XL | 165–175cm | 63–72kg | 92–98cm |
+
+**Quần Dài Nam Size Số (Jeans, Kaki, Quần Âu):**
+| Size | Chiều cao | Cân nặng | Vòng eo |
+| --- | --- | --- | --- |
+| 29 | 160–168cm | 50–57kg | 73–76cm |
+| 30 | 165–172cm | 58–64kg | 77–79cm |
+| 31 | 168–175cm | 65–70kg | 80–82cm |
+| 32 | 170–178cm | 71–76kg | 83–85cm |
+| 34 | 175–185cm | 77–86kg | 87–91cm |
+
+**Quần Nữ & Chân Váy:**
+| Size | Chiều cao | Cân nặng | Vòng eo |
+| --- | --- | --- | --- |
+| S | 150–158cm | 42–47kg | 62–66cm |
+| M | 156–164cm | 48–54kg | 67–71cm |
+| L | 162–170cm | 55–62kg | 72–76cm |
+| XL | 165–175cm | 63–72kg | 77–82cm |
+
+Lưu ý chọn size: Vì chưa có số đo cụ thể nên bạn có thể đối chiếu theo bảng quy chuẩn trên; nếu số đo nằm giữa 2 size, chọn size nhỏ hơn để mặc vừa vặn hoặc tăng 1 size nếu thích thoải mái.",False,,mode_a_immediate,MODE_A_STRICT_ZERO,,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S6A,multi_turn_3_modes_separate,ALWAYS_CLARIFY,2,Tư vấn chọn size giúp mình với,"Chào bạn! Dựa trên thông tin khung size của bạn (63–72kg), mình đã tìm được 4 mẫu áo sơ mi nam phù hợp với phong cách ""cân đối / đầy đặn"" và chất liệu thoáng mát. Dưới đây là các gợi ý:
+
+---
+
+### **1. Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Salt**
+- **[ID]:** `314`  
+- **Giá:** 407,000đ  
+- **Chất liệu:** Polyester Coolmax thấm hút mồ hôi  
+- **Form dáng:** Straight Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Thiết kế đơn giản, thoáng khí, nhanh khô – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **2. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Kẻ Sọc Frame**
+- **[ID]:** `432`  
+- **Giá:** 570,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Slim Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Vải linen tự nhiên, mát mẻ, dễ mặc – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **3. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Ss**
+- **[ID]:** `444`  
+- **Giá:** 857,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Relaxed Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Họa tiết toàn thân, thoải mái – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **4. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Kelly**
+- **[ID]:** `75`  
+- **Giá:** 306,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Relaxed Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Giá cả hợp lý, chất liệu tốt – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+Bạn có muốn mình tư vấn thêm về size cụ thể hay phối đồ cùng quần/đầm không? 😊",True,"target_gender,category,measurements",mode_b_required_check,MISSING_REQUIRED_SLOTS,"recommend_size,search_products",,[314] Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Salt (407000d) | [432] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Kẻ Sọc Frame (570000d) | [444] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Ss (857000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S6A,multi_turn_3_modes_separate,CONDITIONAL_CLARIFICATION,2,Tư vấn chọn size giúp mình với,"Chào bạn! Dựa trên thông tin khung size của bạn (63–72kg), mình đã tìm được 4 mẫu áo sơ mi nam phù hợp với phong cách ""cân đối / đầy đặn"" và chất liệu thoáng mát. Dưới đây là các gợi ý:
+
+---
+
+### **1. Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Salt**
+- **[ID]:** `314`  
+- **Giá:** 407,000đ  
+- **Chất liệu:** Polyester Coolmax thấm hút mồ hôi  
+- **Form dáng:** Straight Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Thiết kế đơn giản, thoáng khí, nhanh khô – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **2. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Kẻ Sọc Frame**
+- **[ID]:** `432`  
+- **Giá:** 570,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Slim Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Vải linen tự nhiên, mát mẻ, dễ mặc – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **3. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Ss**
+- **[ID]:** `444`  
+- **Giá:** 857,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Relaxed Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Họa tiết toàn thân, thoải mái – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+### **4. Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Kelly**
+- **[ID]:** `75`  
+- **Giá:** 306,000đ  
+- **Chất liệu:** 100% Linen tự nhiên thoáng khí  
+- **Form dáng:** Relaxed Fit (phù hợp cho khung cân đối)  
+- **Đặc điểm:** Giá cả hợp lý, chất liệu tốt – phù hợp với phong cách ""cân đối / đầy đặn""
+
+---
+
+Bạn có muốn mình tư vấn thêm về size cụ thể hay phối đồ cùng quần/đầm không? 😊",True,"measurements,target_gender",mode_c_hard_ask,HARD_ASK_SIZE_MISSING_MEASUREMENTS,"recommend_size,search_products",,[314] Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Salt (407000d) | [432] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Kẻ Sọc Frame (570000d) | [444] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Ss (857000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S6B,multi_turn_3_modes_separate,IMMEDIATE_ANSWER,1,Tư vấn chọn size giúp mình với,"Dưới đây là bảng size chuẩn để bạn tự đối chiếu:
+
+**Áo Nam:**
+| Size | Chiều cao | Cân nặng | Vòng ngực |
+| --- | --- | --- | --- |
+| S | 155–165cm | 48–55kg | 84–88cm |
+| M | 165–172cm | 56–65kg | 88–92cm |
+| L | 170–178cm | 66–75kg | 92–96cm |
+| XL | 175–183cm | 76–84kg | 96–102cm |
+| XXL | 178–190cm | 85–95kg | 102–110cm |
+
+**Áo Nữ:**
+| Size | Chiều cao | Cân nặng | Vòng ngực |
+| --- | --- | --- | --- |
+| S | 150–158cm | 40–47kg | 78–82cm |
+| M | 156–164cm | 48–54kg | 82–86cm |
+| L | 162–170cm | 55–62kg | 86–92cm |
+| XL | 165–175cm | 63–72kg | 92–98cm |
+
+**Quần Dài Nam Size Số (Jeans, Kaki, Quần Âu):**
+| Size | Chiều cao | Cân nặng | Vòng eo |
+| --- | --- | --- | --- |
+| 29 | 160–168cm | 50–57kg | 73–76cm |
+| 30 | 165–172cm | 58–64kg | 77–79cm |
+| 31 | 168–175cm | 65–70kg | 80–82cm |
+| 32 | 170–178cm | 71–76kg | 83–85cm |
+| 34 | 175–185cm | 77–86kg | 87–91cm |
+
+**Quần Nữ & Chân Váy:**
+| Size | Chiều cao | Cân nặng | Vòng eo |
+| --- | --- | --- | --- |
+| S | 150–158cm | 42–47kg | 62–66cm |
+| M | 156–164cm | 48–54kg | 67–71cm |
+| L | 162–170cm | 55–62kg | 72–76cm |
+| XL | 165–175cm | 63–72kg | 77–82cm |
+
+Lưu ý chọn size: Vì chưa có số đo cụ thể nên bạn có thể đối chiếu theo bảng quy chuẩn trên; nếu số đo nằm giữa 2 size, chọn size nhỏ hơn để mặc vừa vặn hoặc tăng 1 size nếu thích thoải mái.",False,,mode_a_immediate,MODE_A_STRICT_ZERO,,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S6B,multi_turn_3_modes_separate,ALWAYS_CLARIFY,2,Tư vấn chọn size giúp mình với,"Chào bạn! Để tư vấn size vừa vặn và chuẩn xác nhất, bạn giúp mình chọn hoặc nhập thông tin còn thiếu ở bảng dưới đây nhé:",True,"target_gender,category,measurements",mode_b_required_check,MISSING_REQUIRED_SLOTS,,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S6B,multi_turn_3_modes_separate,CONDITIONAL_CLARIFICATION,2,Tư vấn chọn size giúp mình với,"Dưới đây là bảng size chuẩn để bạn tự đối chiếu:
+
+**Áo Nam:**
+| Size | Chiều cao | Cân nặng | Vòng ngực |
+| --- | --- | --- | --- |
+| S | 155–165cm | 48–55kg | 84–88cm |
+| M | 165–172cm | 56–65kg | 88–92cm |
+| L | 170–178cm | 66–75kg | 92–96cm |
+| XL | 175–183cm | 76–84kg | 96–102cm |
+| XXL | 178–190cm | 85–95kg | 102–110cm |
+
+Lưu ý chọn size: Vì chưa có số đo cụ thể nên bạn có thể đối chiếu theo bảng quy chuẩn trên; nếu số đo nằm giữa 2 size, chọn size nhỏ hơn để mặc vừa vặn hoặc tăng 1 size nếu thích thoải mái.",True,"measurements,target_gender",mode_c_hard_ask,HARD_ASK_SIZE_MISSING_MEASUREMENTS,,,,,True,,,,,,
+tier2_e2e_llm,contrastive,S7,a_vs_bc_missing_critical,IMMEDIATE_ANSWER,1,Tư vấn giúp mình một bộ đồ đi tiệc tối nay với.,"Chào bạn! Để gợi ý bộ đồ đi tiệc tối nay phù hợp với phong cách tinh gọn và trọng tâm của bạn, mình đã cân bằng gợi ý cho cả Nữ và Nam. Dưới đây là 3 bộ phối đồ hoàn chỉnh:
+
+### **Bộ 1 (Điểm phù hợp: 0.95)**
+*   **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: 287,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Đen | Giá: 188,000đ
+*   **Lý do phối:** Bộ này mang lại sự trang trọng và lịch sự, phù hợp cho mọi dịp công sở hoặc gặp khách. Áo sơ mi xanh navy sang trọng giúp nâng tầm bộ quần âu đen truyền thống.
+
+### **Bộ 2 (Điểm phù hợp: 0.95)**
+*   **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: 287,000đ
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+*   **Lý do phối:** Đây là bộ ""hack dáng"" cực kỳ tinh gọn. Áo sơ mi cùng màu với quần giúp tạo sự đồng nhất và tôn dáng ngay lập tức.
+
+### **Bộ 3 (Điểm phù hợp: 0.95)**
+*   **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: 287,000đ
+*   **Quần/Váy:** [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk | Màu: Đen | Giá: 320,000đ
+*   **Lý do phối:** Bộ này kết hợp giữa sự thanh lịch của áo sơ mi và sự hiện đại của quần ống suông. Màu đen cùng với họa tiết kẻ caro milk tạo điểm nhấn độc đáo cho bộ đồ.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp không?",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,SC_PTY_SMI,SC_PTY_QAU,CH_DEN_NVY,OC_PTY_NVY,OC_PTY_DEN",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Đen) | [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S7,a_vs_bc_missing_critical,ALWAYS_CLARIFY,2,Tư vấn giúp mình một bộ đồ đi tiệc tối nay với.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Đen — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.
+
+**Bộ 2** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [765] **Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk** — Màu: Đen — Giá: 320,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.
+
+**Bộ 3** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [766] **Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty** — Màu: Đen — Giá: 888,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_PTY_SMI,SC_PTY_QAU,CH_DEN_NVY,OC_PTY_NVY,OC_PTY_DEN",[492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (668000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk (320000d),[492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Đen) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S7,a_vs_bc_missing_critical,CONDITIONAL_CLARIFICATION,2,Tư vấn giúp mình một bộ đồ đi tiệc tối nay với.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Đen — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.
+
+**Bộ 2** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [765] **Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk** — Màu: Đen — Giá: 320,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.
+
+**Bộ 3** (Độ phù hợp: 0.95):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Xanh navy — Giá: 668,000đ
+- **Quần/Váy**: [766] **Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty** — Màu: Đen — Giá: 888,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi sang trọng dễ nâng tầm bộ phối dự tiệc.; Quần âu tôn dáng và giữ nét trang trọng khi dự tiệc cưới.; Đen – Xanh navy trầm lịch sự và an toàn.",True,target_gender,mode_c_counterfactual,"COUNTERFACTUAL_HIGH_IMPACT_ASK,LOW_TOP_K_JACCARD",suggest_outfit,"PW_SMI_QAU,SC_PTY_SMI,SC_PTY_QAU,CH_DEN_NVY,OC_PTY_NVY,OC_PTY_DEN",[492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (668000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk (320000d),[492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Đen) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S8,a_vs_bc_missing_critical,IMMEDIATE_ANSWER,1,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Tôi hiểu rằng bạn không thích màu đen cho bộ áo sơ mi công sở của mình. Dưới đây là 3 gợi ý phối đồ hoàn chỉnh dành cho nam:
+
+**Bộ 1:**
+- Áo: [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: 287,000đ
+- Quần/Váy: [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Be sáng | Giá: 179,000đ
+*Lý do:* Tạo sự tương phản nhẹ nhàng nhưng vẫn lịch sự cho môi trường làm việc.
+
+**Bộ 2:**
+- Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+- Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*Lý do:* Màu trắng và nâu camel tạo sự thanh lịch, tôn da.
+
+**Bộ 3:**
+- Áo: [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+- Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*Lý do:* Lụa mềm mại kết hợp với quần ống suông tạo phong cách thanh lịch.
+
+Bạn có muốn tôi tư vấn thêm về size phù hợp không?",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_BSA_NVY,OC_OFF_NVY,CH_TRG_NCM,OC_OFF_TRG",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Be sáng) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,contrastive,S8,a_vs_bc_missing_critical,ALWAYS_CLARIFY,2,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Dựa trên yêu cầu của bạn (Áo sơ mi trắng đi làm công sở), mình đã gợi ý 3 bộ phối đồ hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Combo này tạo cảm giác thanh lịch và chuyên nghiệp, phù hợp với không gian văn phòng.
+
+**Bộ 2:**
+*   **Áo:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Chất liệu Bamboo giúp áo thoáng mát hơn cho mùa hè.
+
+**Bộ 3:**
+*   **Áo:** [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Chất liệu Lụa mềm mại và họa tiết toàn thân tạo điểm nhấn nhẹ nhàng.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp không?",True,color,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NCM,OC_OFF_TRG",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,contrastive,S8,a_vs_bc_missing_critical,CONDITIONAL_CLARIFICATION,2,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Dựa trên yêu cầu của bạn (Áo sơ mi trắng đi làm công sở), mình đã gợi ý 3 bộ phối đồ hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+*   **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Combo này tạo cảm giác thanh lịch và chuyên nghiệp, phù hợp với không gian văn phòng.
+
+**Bộ 2:**
+*   **Áo:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Chất liệu Bamboo giúp áo thoáng mát hơn cho mùa hè.
+
+**Bộ 3:**
+*   **Áo:** [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+*   **Quần:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*   *Lý do:* Chất liệu Lụa mềm mại và họa tiết toàn thân tạo điểm nhấn nhẹ nhàng.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp không?",True,color,mode_c_hard_ask,HARD_ASK_CONFLICTING_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NCM,OC_OFF_TRG",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,contrastive,S9,gray_zone_and_control,IMMEDIATE_ANSWER,1,Tìm quần đi làm,"Chào bạn! Tôi đã tìm được các mẫu quần kaki cho công sở phù hợp với nhu cầu của bạn. Dưới đây là danh sách gợi ý:
+
+### **GỢI Ý CHO NỮ**
+- **[649] Quần kaki Nữ Chino Ống Đứng Công Sở Trơn Basic Kia** - Giá từ: 202,000đ
+  - *Đặc điểm:* Chất liệu 97% Cotton Twill Kaki, co giãn nhẹ, dáng rộng thoải mái.
+- **[646] Quần kaki Nữ Chino Ống Đứng Công Sở Xước Melange Bradley** - Giá từ: 284,000đ
+  - *Đặc điểm:* Họa tiết xước Melange tinh tế, phù hợp với phong cách lịch sự.
+
+### **GỢI Ý CHO NAM**
+- **[138] Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Sigge** - Giá từ: 241,000đ
+- **[135] Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Jerry** - Giá từ: 266,000đ
+
+### **GỢI Ý UNISEX**
+- **[156] Quần kaki Unisex Chino Ống Đứng Công Sở Xước Melange Frank** - Giá từ: 285,000đ
+  - *Đặc điểm:* Dáng rộng thoải mái, phù hợp cả nam và nữ.
+
+Bạn có thể chọn theo giới tính hoặc size mong muốn để tôi tư vấn thêm chi tiết về kích thước phù hợp nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,search_products,,[649] Quần kaki Nữ Chino Ống Đứng Công Sở Trơn Basic Kia (202000d) | [646] Quần kaki Nữ Chino Ống Đứng Công Sở Xước Melange Bradley (284000d) | [138] Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Sigge (241000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S9,gray_zone_and_control,ALWAYS_CLARIFY,2,Tìm quần đi làm,"Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:
+- [138] **Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Sigge** (Quần kaki | H&M) — Giá: 241,000đ
+- [135] **Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Jerry** (Quần kaki | H&M) — Giá: 266,000đ
+- [628] **Quần kaki Nam Chino Ống Đứng Công Sở Trơn Basic Arjen** (Quần kaki | H&M) — Giá: 232,000đ
+- [619] **Quần kaki Nam Chino Ống Đứng Công Sở Trơn Basic Wave** (Quần kaki | H&M) — Giá: 176,000đ",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,search_products,,[138] Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Sigge (241000d) | [135] Quần kaki Nam Chino Ống Đứng Công Sở Xước Melange Jerry (266000d) | [628] Quần kaki Nam Chino Ống Đứng Công Sở Trơn Basic Arjen (232000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S9,gray_zone_and_control,CONDITIONAL_CLARIFICATION,1,Tìm quần đi làm,"Chào bạn! Tôi đã tìm được danh sách các loại quần đi làm phù hợp với phong cách công sở. Dưới đây là những gợi ý từ 6 sản phẩm chất lượng cao:
+
+*   **[198] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Cny**
+    *   **Giá:** 201,000đ
+    *   **Đặc điểm:** Wool Blend pha Rayon chống nhăn cao cấp, kẻ sọc.
+
+*   **[195] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lay**
+    *   **Giá:** 208,000đ
+    *   **Đặc điểm:** Wool Blend pha Rayon chống nhăn cao cấp, thiết kế trơn cơ bản.
+
+*   **[156] Quần kaki Unisex Chino Ống Đứng Công Sở Xước Melange Frank**
+    *   **Giá:** 285,000đ
+    *   **Đặc điểm:** Cotton Twill Kaki, co giãn nhẹ, họa tiết xước melange.
+
+*   **[658] Quần kaki Unisex Chino Ống Đứng Công Sở Trơn Basic Bb**
+    *   **Giá:** 226,000đ
+    *   **Đặc điểm:** Cotton Twill Kaki, co giãn nhẹ, thiết kế trơn cơ bản.
+
+*   **[153] Quần kaki Unisex Chino Ống Đứng Công Sở Xước Melange Supreme**
+    *   **Giá:** 191,000đ
+    *   **Đặc điểm:** Cotton Twill Kaki, co giãn nhẹ, họa tiết xước melange.
+
+*   **[655] Quần kaki Unisex Chino Ống Đứng Công Sở Xước Melange Bb**
+    *   **Giá:** 253,000đ
+    *   **Đặc điểm:** Cotton Twill Kaki, co giãn nhẹ, thiết kế trơn cơ bản.
+
+Bạn có thể chọn theo ngân sách hoặc sở thích về màu sắc (Cny/Kaki) để kết hợp với áo sơ mi trắng hoặc xám cho phong cách lịch sự.",False,,mode_c_llm,GRAY_ZONE_LLM_EVAL,search_products,,[198] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Cny (201000d) | [195] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lay (208000d) | [156] Quần kaki Unisex Chino Ống Đứng Công Sở Xước Melange Frank (285000d),,True,,,,,,
+tier2_e2e_llm,contrastive,S10A,gray_zone_and_control,IMMEDIATE_ANSWER,1,Phối đồ đi làm cho nam phong cách minimalist.,"Chào bạn! Dưới đây là 3 bộ phối đồ đi làm theo phong cách Minimalist cho nam giới:
+
+**Bộ 1:**
+- Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+- Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Đen | Giá: 340,000đ
+
+**Bộ 2:**
+- Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+- Quần/Váy: [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Đen | Giá: 179,000đ
+
+**Bộ 3:**
+- Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+- Quần/Váy: [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Đen | Giá: 433,000đ
+
+*Lưu ý: Các sản phẩm trên đều sử dụng màu trắng cho áo và đen cho quần/váy để tạo sự tinh giản, phù hợp với phong cách Minimalist. Bạn có thể cân nhắc các bộ khác nếu muốn thay đổi màu sắc.*",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,RC_MIN_SMI,RC_MIN_QAU,FS_OFF_MIN,CH_DEN_TRG,PC_MIN_TRG,OC_OFF_TRG,PC_MIN_DEN,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S10A,gray_zone_and_control,ALWAYS_CLARIFY,1,Phối đồ đi làm cho nam phong cách minimalist.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [756] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden** — Màu: Đen — Giá: 340,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.
+
+**Bộ 2** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [758] **Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone** — Màu: Đen — Giá: 179,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.
+
+**Bộ 3** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [759] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey** — Màu: Đen — Giá: 433,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_SMI_QAU,RC_MIN_SMI,RC_MIN_QAU,FS_OFF_MIN,CH_DEN_TRG,PC_MIN_TRG,OC_OFF_TRG,PC_MIN_DEN,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S10A,gray_zone_and_control,CONDITIONAL_CLARIFICATION,1,Phối đồ đi làm cho nam phong cách minimalist.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [756] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden** — Màu: Đen — Giá: 340,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.
+
+**Bộ 2** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [758] **Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone** — Màu: Đen — Giá: 179,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.
+
+**Bộ 3** (Độ phù hợp: 0.96):
+- **Áo**: [491] **Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella** — Màu: Trắng — Giá: 341,000đ
+- **Quần/Váy**: [759] **Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey** — Màu: Đen — Giá: 433,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Sơ mi trơn tinh giản thể hiện đúng tinh thần Minimalist.; Quần âu cắt may tinh gọn phù hợp tủ đồ tối giản.; Phong cách tối giản giữ tổng thể đi làm tinh tế, dễ phối.",False,,mode_c_hard_answer,HARD_ANSWER_REQUIRED_COMPLETE,suggest_outfit,"PW_SMI_QAU,RC_MIN_SMI,RC_MIN_QAU,FS_OFF_MIN,CH_DEN_TRG,PC_MIN_TRG,OC_OFF_TRG,PC_MIN_DEN,OC_OFF_DEN",[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d),[491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Đen) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Đen),True,,,,,,
+tier2_e2e_llm,contrastive,S10B,gray_zone_and_control,IMMEDIATE_ANSWER,1,Phí ship của shop bao nhiêu và có được đổi size không?,"Chào bạn! Tôi xin phép giải đáp thắc mắc của bạn dựa trên chính sách của shop:
+
+**1. Về phí ship:**
+*   **Phí giao hàng tiêu chuẩn:** 30.000 VNĐ cho mọi đơn hàng (đồng giá toàn quốc).
+*   **Chính sách Miễn phí vận chuyển (Freeship):** Áp dụng tự động cho mọi đơn thanh toán từ 500.000 VNĐ trở lên (sau khi trừ voucher/mã giảm giá).
+
+**2. Về đổi size:**
+*   Shop hỗ trợ **đổi size miễn phí 1 lần** cho mỗi đơn hàng.
+*   Nếu sản phẩm đã hết size, bạn có thể đổi sang sản phẩm khác có giá trị tương đương hoặc cao hơn (bù phần chênh lệch giá). Nếu đổi sang sản phẩm có giá trị thấp hơn, shop sẽ hoàn lại tiền thừa qua chuyển khoản ngân hàng hoặc cấp voucher giảm giá cho lần mua sau.
+*   **Lưu ý:** Khách hàng chỉ cần thanh toán phí ship gửi sản phẩm cũ về kho của shop (thường từ 20.000đ - 25.000đ).
+
+Hy vọng thông tin này hữu ích! Nếu bạn có số đo cụ thể, tôi sẽ tư vấn size phù hợp cho bạn.",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,False,,,,,,
+tier2_e2e_llm,contrastive,S10B,gray_zone_and_control,ALWAYS_CLARIFY,1,Phí ship của shop bao nhiêu và có được đổi size không?,"Chào bạn! Tôi xin phép giải đáp thắc mắc của bạn dựa trên chính sách của shop:
+
+**1. Về phí ship:**
+*   **Phí giao hàng tiêu chuẩn:** 30.000 VNĐ cho mọi đơn hàng (đồng giá toàn quốc).
+*   **Chính sách Miễn phí vận chuyển (Freeship):** Áp dụng tự động cho mọi đơn thanh toán từ 500.000 VNĐ trở lên (sau khi trừ voucher/mã giảm giá).
+
+**2. Về đổi size:**
+*   Shop hỗ trợ **đổi size miễn phí 1 lần** cho mỗi đơn hàng.
+*   Nếu sản phẩm đã hết size, bạn có thể đổi sang sản phẩm khác có giá trị tương đương hoặc cao hơn (bù phần chênh lệch giá). Nếu đổi sang sản phẩm có giá trị thấp hơn, shop sẽ hoàn lại tiền thừa qua chuyển khoản ngân hàng hoặc cấp voucher giảm giá cho lần mua sau.
+*   **Lưu ý:** Khách hàng chỉ cần thanh toán phí ship gửi sản phẩm cũ về kho của shop (thường từ 20.000đ - 25.000đ).
+
+Hy vọng thông tin này hữu ích! Nếu bạn có số đo cụ thể, tôi sẽ tư vấn size phù hợp cho bạn.",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,False,,,,,,
+tier2_e2e_llm,contrastive,S10B,gray_zone_and_control,CONDITIONAL_CLARIFICATION,1,Phí ship của shop bao nhiêu và có được đổi size không?,"Chào bạn! Tôi xin phép giải đáp thắc mắc của bạn dựa trên chính sách của shop:
+
+**1. Về phí ship:**
+*   **Phí giao hàng tiêu chuẩn:** 30.000 VNĐ cho mọi đơn hàng (đồng giá toàn quốc).
+*   **Chính sách Miễn phí vận chuyển (Freeship):** Áp dụng tự động cho mọi đơn thanh toán từ 500.000 VNĐ trở lên (sau khi trừ voucher/mã giảm giá).
+
+**2. Về đổi size:**
+*   Shop hỗ trợ **đổi size miễn phí 1 lần** cho mỗi đơn hàng.
+*   Nếu sản phẩm đã hết size, bạn có thể đổi sang sản phẩm khác có giá trị tương đương hoặc cao hơn (bù phần chênh lệch giá). Nếu đổi sang sản phẩm có giá trị thấp hơn, shop sẽ hoàn lại tiền thừa qua chuyển khoản ngân hàng hoặc cấp voucher giảm giá cho lần mua sau.
+*   **Lưu ý:** Khách hàng chỉ cần thanh toán phí ship gửi sản phẩm cũ về kho của shop (thường từ 20.000đ - 25.000đ).
+
+Hy vọng thông tin này hữu ích! Nếu bạn có số đo cụ thể, tôi sẽ tư vấn size phù hợp cho bạn.",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,False,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_01,open,IMMEDIATE_ANSWER,1,Tư vấn set đồ đẹp giúp mình nhé.,"Chào bạn! Dựa trên gợi ý từ hệ thống, mình xin giới thiệu **3 bộ set đồ** hoàn chỉnh kết hợp Áo thun + Quần jeans với phong cách tối giản và năng động:
+
+---
+
+### **Bộ 1: Phong cách Tối giản & Năng động (Điểm phù hợp: 0.93)**
+*   **Áo:** [369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean | Màu: Đen | Giá: **647,000đ**
+    *   *Lý do:* Thiết kế co giãn thoải mái, phù hợp mọi hoạt động.
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Lý do:* Chất liệu bền đẹp, tạo điểm nhấn tương phản với màu đen của áo.
+
+---
+
+### **Bộ 2: Phong cách Streetwear (Điểm phù hợp: 0.93)**
+*   **Áo:** [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: **347,000đ**
+    *   *Lý do:* Dáng rộng rãi, mang phong cách hiện đại.
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Lý do:* Phối hợp hoàn hảo với dáng Oversize tạo cảm giác trẻ trung.
+
+---
+
+### **Bộ 3: Phong cách Thể thao Thoáng khí (Điểm phù hợp: 0.93)**
+*   **Áo:** [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela | Màu: Đen | Giá: **225,000đ**
+    *   *Lý do:* Chất liệu Quick-Dry giúp khô nhanh sau khi vận động.
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Lý do:* Kết hợp bền bỉ và dễ dàng phối đồ.
+
+---
+
+**Lưu ý nhỏ:** Bạn chưa chọn giới tính cụ thể (Nữ/Nam). Hệ thống đã cân bằng gợi ý cho cả hai nhóm. Nếu bạn có số đo cơ thể hoặc mong muốn điều chỉnh màu sắc, vui lòng để lại nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG",[369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean (647000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (347000d),[369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_01,open,ALWAYS_CLARIFY,2,Tư vấn set đồ đẹp giúp mình nhé.,"Chào bạn! Dựa trên tiêu chí **Nữ Đi làm**, mình đã gợi ý 3 bộ set đồ hoàn chỉnh dưới đây để bạn tham khảo nhé:
+
+---
+
+### **Bộ 1: Phong cách Tối giản & Chuyên nghiệp**
+*   **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: **287,000đ**
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: **188,000đ**
+*   **Lý do phối:** Đây là bộ ""chuẩn mực"" cho môi trường công sở. Áo sơ mi Oxford tạo điểm nhấn tinh tế, trong khi quần âu trắng giúp bạn trông gọn gàng và chuyên nghiệp hơn. Cặp màu Xanh navy – Trắng rất sáng sủa, dễ phối đồ nhanh chóng.
+
+### **Bộ 2: Phong cách Thư giãn & Hiện đại**
+*   **Áo:** [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho | Màu: Xanh navy | Giá: **668,000đ**
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: **188,000đ**
+*   **Lý do phối:** Bộ linen này mang lại cảm giác nhẹ nhàng, thoải mái nhưng vẫn giữ được sự chuyên nghiệp. Màu Xanh navy kết hợp với quần trắng tạo nên sự cân đối và sang trọng hơn so với bộ 1.
+
+### **Bộ 3: Phong cách Tối giản & Tương phản**
+*   **Áo:** [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho | Màu: Trắng | Giá: **668,000đ**
+*   **Quần/Váy:** [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk | Màu: Đen | Giá: **320,000đ**
+*   **Lý do phối:** Đây là bộ có điểm tương phản sắc nét nhất. Áo trắng kết hợp với quần đen tạo nên sự mạnh mẽ và tinh tế. Quần ống suông giúp bạn trông cao ráo hơn khi đi làm.
+
+---
+
+Bạn có muốn mình tư vấn thêm về size phù hợp cho các món đồ trên không?",True,"target_gender,occasion",mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NVY,OC_OFF_NVY,OC_OFF_TRG,CH_DEN_TRG,OC_OFF_DEN",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (668000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_01,open,CONDITIONAL_CLARIFICATION,2,Tư vấn set đồ đẹp giúp mình nhé.,"Chào bạn! Dựa trên tiêu chí **Nữ Đi làm**, mình đã gợi ý 3 bộ set đồ hoàn chỉnh dưới đây để bạn tham khảo nhé:
+
+---
+
+### **Bộ 1: Phong cách Tối giản & Chuyên nghiệp**
+*   **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: **287,000đ**
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: **188,000đ**
+*   **Lý do phối:** Đây là bộ ""chuẩn mực"" cho môi trường công sở. Áo sơ mi Oxford tạo điểm nhấn tinh tế, trong khi quần âu trắng giúp bạn trông gọn gàng và chuyên nghiệp hơn. Cặp màu Xanh navy – Trắng rất sáng sủa, dễ phối đồ nhanh chóng.
+
+### **Bộ 2: Phong cách Thư giãn & Hiện đại**
+*   **Áo:** [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho | Màu: Xanh navy | Giá: **668,000đ**
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: **188,000đ**
+*   **Lý do phối:** Bộ linen này mang lại cảm giác nhẹ nhàng, thoải mái nhưng vẫn giữ được sự chuyên nghiệp. Màu Xanh navy kết hợp với quần trắng tạo nên sự cân đối và sang trọng hơn so với bộ 1.
+
+### **Bộ 3: Phong cách Tối giản & Tương phản**
+*   **Áo:** [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho | Màu: Trắng | Giá: **668,000đ**
+*   **Quần/Váy:** [765] Quần âu Nữ Cạp Cao Ống Suông Hack Dáng Kẻ Caro Milk | Màu: Đen | Giá: **320,000đ**
+*   **Lý do phối:** Đây là bộ có điểm tương phản sắc nét nhất. Áo trắng kết hợp với quần đen tạo nên sự mạnh mẽ và tinh tế. Quần ống suông giúp bạn trông cao ráo hơn khi đi làm.
+
+---
+
+Bạn có muốn mình tư vấn thêm về size phù hợp cho các món đồ trên không?",True,"target_gender,occasion",mode_c_hard_ask,HARD_ASK_BROAD_EMPTY_INQUIRY,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NVY,OC_OFF_NVY,OC_OFF_TRG,CH_DEN_TRG,OC_OFF_DEN",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (668000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng) | [492] Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho (Xanh navy) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_01,anchor,IMMEDIATE_ANSWER,1,Phối áo sơ mi đen với quần gì đẹp?,"Chào bạn! Để gợi ý những bộ quần áo đẹp đi cùng chiếc áo sơ mi đen này, tôi đã cân nhắc cả phong cách cho cả Nam và Nữ. Dưới đây là 3 gợi ý phối đồ hoàn chỉnh:
+
+### **Bộ 1 (Điểm phù hợp: 0.97)**
+*   **Áo:** [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky | Màu: Đen | Giá: 279,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: 188,000đ
+*   **Lý do phối:** Đây là cặp màu kinh điển ""đen-trắng"" tạo nên sự tương phản sắc nét nhưng vẫn giữ được vẻ tối giản và sang trọng. Phù hợp cho mọi dịp từ công sở đến gặp khách.
+
+### **Bộ 2 (Điểm phù hợp: 0.96)**
+*   **Áo:** [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky | Màu: Đen | Giá: 279,000đ
+*   **Quần/Váy:** [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Xám tiêu | Giá: 433,000đ
+*   **Lý do phối:** Sự kết hợp giữa màu đen của áo và màu xám tiêu (xanh lá nhạt) tạo nên một bộ trang phục trung tính, hiện đại và dễ dàng ứng dụng trong nhiều phong cách khác nhau.
+
+### **Bộ 3 (Điểm phù hợp: 0.97)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Đen | Giá: 840,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: 188,000đ
+*   **Lý do phối:** Với bộ áo Oxford kẻ sọc đen và quần trắng, bạn sẽ tạo nên một bộ trang phục rất chuyên nghiệp, phù hợp cho các buổi họp mặt hoặc sự kiện quan trọng.
+
+Bạn có thể chọn theo phong cách cá nhân nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,CH_DEN_TRG,CH_DEN_XTI",[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (279000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey (433000d),[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (Đen) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng) | [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (Đen) + [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey (Xám tiêu),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_01,anchor,ALWAYS_CLARIFY,2,Phối áo sơ mi đen với quần gì đẹp?,"Chào bạn! Dựa trên gợi ý từ Knowledge Graph thời trang, mình đã tìm ra 3 bộ phối đồ hoàn chỉnh giữa **áo sơ mi đen** và **quần jeans trắng** (màu tối giản, tạo điểm nhấn tương phản). Dưới đây là chi tiết từng bộ:
+
+---
+
+### **Bộ 1: Áo sơ mi Unisex Linen Thoáng Mát + Quần Jeans Slim Fit Basic Jade**
+- **Áo:** [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky | Màu: Đen | Giá: **279,000đ**
+- **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+- **Lý do phối:** Cặp màu Đen-Trắng là kinh điển tối giản, tạo sự tương phản sắc nét nhưng vẫn giữ được sự thoải mái.
+
+---
+
+### **Bộ 2: Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica + Quần Jeans Slim Fit Basic Jade**
+- **Áo:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Đen | Giá: **402,000đ**
+- **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+- **Lý do phối:** Thiết kế áo cơ bản, kết hợp với quần jeans trắng tạo sự thanh lịch và dễ phối đồ.
+
+---
+
+### **Bộ 3: Áo sơ mi Unisex Oxford Công Sở Regular Fit + Quần Jeans Slim Fit Basic Jade**
+- **Áo:** [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Đen | Giá: **287,000đ**
+- **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+- **Lý do phối:** Thiết kế công sở, phù hợp với phong cách lịch sự và chuyên nghiệp.
+
+---
+
+### 💡 **Lưu ý thêm:**
+- Các bộ trên đều sử dụng **quần jeans trắng (Basic Jade)** để tạo điểm nhấn tương phản với áo đen.
+- Nếu bạn muốn thay đổi màu quần hoặc tìm thêm gợi ý khác, hãy cho mình biết nhé! 😊",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_JNS,CH_DEN_TRG",[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (279000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d),[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_01,anchor,CONDITIONAL_CLARIFICATION,1,Phối áo sơ mi đen với quần gì đẹp?,"Chào bạn! Để gợi ý bộ quần áo đẹp nhất cho chiếc áo sơ mi đen của bạn, tôi đã cân nhắc cả phong cách Nam và Nữ. Dưới đây là 3 bộ phối đồ hoàn chỉnh phù hợp:
+
+### **Bộ 1: Phong cách Công sở Tối giản (Điểm phù hợp: 0.97)**
+*   **Áo:** [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky | Màu: Đen | Giá: 279,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: 188,000đ
+*   **Lý do phối:** Đây là cặp màu kinh điển ""Đen - Trắng"" tạo nên sự tương phản sắc nét nhưng vẫn giữ được vẻ tinh tế. Bộ này cực kỳ phù hợp cho các buổi gặp khách hàng hoặc đi công sở.
+
+### **Bộ 2: Phong cách Hiện đại & Trung tính (Điểm phù hợp: 0.96)**
+*   **Áo:** [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky | Màu: Đen | Giá: 279,000đ
+*   **Quần/Váy:** [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey | Màu: Xám tiêu | Giá: 433,000đ
+*   **Lý do phối:** Sự kết hợp giữa Đen và Xám tiêu tạo nên một bộ trang phục trung tính rất dễ dàng ứng dụng trong nhiều tình huống.
+
+### **Bộ 3: Phong cách Công sở Nữ (Điểm phù hợp: 0.97)**
+*   **Áo:** [486] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Sọc Denise | Màu: Đen | Giá: 840,000đ
+*   **Quần/Váy:** [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar | Màu: Trắng | Giá: 188,000đ
+*   **Lý do phối:** Bộ này mang lại sự chuyên nghiệp và lịch sự cho các buổi làm việc chính thức.
+
+Bạn có muốn tìm thêm gợi ý về size phù hợp hay chi tiết nào khác không?",False,,mode_c_counterfactual,"COUNTERFACTUAL_PROCEED,COVERED_WITH_ALTERNATIVES",suggest_outfit,"PW_SMI_QAU,CH_DEN_TRG,CH_DEN_XTI",[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (279000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d) | [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey (433000d),[484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (Đen) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng) | [484] Áo sơ mi Unisex Linen Thoáng Mát Dáng Thư Giãn Họa Tiết Toàn Thân Lucky (Đen) + [759] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Lacey (Xám tiêu),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_01,color_implicit,IMMEDIATE_ANSWER,0,Phối bộ đồ đi tiệc sang trọng cho nữ phong cách thanh lịch.,,False,,,,,,,,False,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_01,color_implicit,ALWAYS_CLARIFY,1,Phối bộ đồ đi tiệc sang trọng cho nữ phong cách thanh lịch.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.95):
+- **Áo**: [490] **Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly** — Màu: Đen — Giá: 287,000đ
+- **Quần/Váy**: [766] **Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty** — Màu: Be sữa — Giá: 888,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.
+
+**Bộ 2** (Độ phù hợp: 0.94):
+- **Áo**: [490] **Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly** — Màu: Đen — Giá: 287,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Trắng — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.
+
+**Bộ 3** (Độ phù hợp: 0.94):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Trắng — Giá: 668,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Đen — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_SMI_QAU,RC_ELG_SMI,RC_ELG_QAU,FS_PTY_ELG,CH_BES_DEN,PC_ELG_DEN,OC_PTY_DEN,PC_ELG_BES,CH_DEN_TRG",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [766] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty (888000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Đen) + [766] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty (Be sữa) | [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Đen) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_01,color_implicit,CONDITIONAL_CLARIFICATION,1,Phối bộ đồ đi tiệc sang trọng cho nữ phong cách thanh lịch.,"Dưới đây là các bộ phối đồ (combo Áo + Quần/Váy) phù hợp nhất:
+
+**Bộ 1** (Độ phù hợp: 0.95):
+- **Áo**: [490] **Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly** — Màu: Đen — Giá: 287,000đ
+- **Quần/Váy**: [766] **Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty** — Màu: Be sữa — Giá: 888,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.
+
+**Bộ 2** (Độ phù hợp: 0.94):
+- **Áo**: [490] **Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly** — Màu: Đen — Giá: 287,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Trắng — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.
+
+**Bộ 3** (Độ phù hợp: 0.94):
+- **Áo**: [492] **Áo sơ mi Nữ Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Soho** — Màu: Trắng — Giá: 668,000đ
+- **Quần/Váy**: [764] **Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar** — Màu: Đen — Giá: 188,000đ
+- *Lý do phối*: Áo sơ mi + Quần âu: bộ phối chuẩn mực cho công sở, gặp khách và dự tiệc.; Áo sơ mi lụa/chỉn chu mang lại vẻ thanh lịch vượt thời gian.; Quần âu ống đứng mang lại thần thái thanh lịch, sang trọng.; Dự tiệc và đám cưới ưu tiên sự thanh lịch, nổi bật và tinh tế.",False,,mode_c_hard_answer,HARD_ANSWER_REQUIRED_COMPLETE,suggest_outfit,"PW_SMI_QAU,RC_ELG_SMI,RC_ELG_QAU,FS_PTY_ELG,CH_BES_DEN,PC_ELG_DEN,OC_PTY_DEN,PC_ELG_BES,CH_DEN_TRG",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [766] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty (888000d) | [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (188000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Đen) + [766] Quần âu Nữ Slim Fit Tailored Lịch Lãm Trơn Basic Twenty (Be sữa) | [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Đen) + [764] Quần âu Nữ Tây Âu Xếp Ly Công Sở Trơn Basic Dakar (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_AMB_01,color_ambiguous,IMMEDIATE_ANSWER,1,Gợi ý outfit dạo phố cho nam nhưng nên mặc màu gì đẹp?,"Chào bạn! Để gợi ý outfit dạo phố cho nam, mình sẽ dựa trên xu hướng phong cách Streetwear hiện đại và màu sắc trung tính. Dưới đây là 3 bộ phối đồ hoàn chỉnh:
+
+### Bộ 1: Áo thun Oversize + Quần jeans Slim Fit
+*   **Áo:** [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347,000đ
+    *   *Đặc điểm:* Thiết kế Oversize tạo cảm giác thoải mái khi vận động, màu đen kết hợp với họa tiết melange mang phong cách hiện đại.
+*   **Quần:** [564] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Super | Màu: Xám tiêu | Giá: 235,000đ
+    *   *Đặc điểm:*版型修身 (Slim Fit) giúp tôn dáng, màu xám tiêu tạo sự nhẹ nhàng và dễ phối.
+
+### Bộ 2: Áo thun Oversize + Quần jeans Straight Fit
+*   **Áo:** [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347,000đ
+    *   *Đặc điểm:* Vẫn giữ phong cách Oversize nhưng kết hợp với chất liệu vải bền bỉ.
+*   **Quần:** [572] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny | Màu: Xám tiêu | Giá: 918,000đ
+    *   *Đặc điểm:* Phù hợp cho mọi hoạt động dạo phố, màu sắc trung tính giúp bạn dễ dàng kết hợp với nhiều món khác.
+
+### Bộ 3: Áo thun Oversize + Quần jeans Straight Fit (Lựa chọn cao cấp hơn)
+*   **Áo:** [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347,000đ
+    *   *Đặc điểm:* Thiết kế độc đáo với họa tiết Melange.
+*   **Quần:** [116] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny | Màu: Xám tiêu | Giá: 725,000đ
+    *   *Đặc điểm:* Chất liệu denim wash truyền thống kết hợp với ống đứng cổ điển tạo sự sang trọng.
+
+**Lưu ý:** Các sản phẩm trên đều thuộc phong cách Streetwear, phù hợp cho thời tiết mát mẻ khi dạo phố. Bạn có thể cân nhắc thêm về màu sắc hoặc chất liệu nếu muốn điều chỉnh theo sở thích cá nhân.",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_XTI",[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (347000d) | [116] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny (725000d) | [564] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Super (235000d),[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [116] Quần jeans Nam Straight Fit Ống Đứng Cổ Điển Denim Wash Skinny (Xám tiêu) | [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [564] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Super (Xám tiêu),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_AMB_01,color_ambiguous,ALWAYS_CLARIFY,1,Gợi ý outfit dạo phố cho nam nhưng nên mặc màu gì đẹp?,"Chào bạn! Để gợi ý outfit dạo phố cho nam theo phong cách tinh gọn và trọng tâm, mình đã tìm được 3 bộ combo hoàn chỉnh dưới đây. Bạn có thể tham khảo để chọn màu sắc phù hợp với sở thích cá nhân nhé:
+
+### **Bộ 1: Phong cách Streetwear Tối giản**
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Thiết kế Oversize tạo cảm giác thoải mái khi vận động, chất liệu trơn nhẹ nhàng.
+*   **Quần:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Đặc điểm:*版型 Slim Fit giúp tôn dáng, màu trắng tạo sự sáng sủa.
+*   **Lý do phối:** Cặp màu Xanh navy – Trắng là cặp phối chuẩn mực, trẻ trung và dễ phối đồ khi dạo phố.
+
+### **Bộ 2: Phong cách Thể thao Thoáng khí**
+*   **Áo:** [358] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Dệt Hoa Văn Jacquard Python | Màu: Xanh navy | Giá: **257,000đ**
+    *   *Đặc điểm:* Chất liệu Quick-Dry giúp khô nhanh sau khi mưa hoặc mồ hôi, họa tiết hoa văn tạo điểm nhấn.
+*   **Quần:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Đặc điểm:* Vẫn giữ chất liệu và dáng cơ bản nhưng với độ bền cao hơn.
+*   **Lý do phối:** Combo này rất phù hợp cho các buổi dạo phố nhẹ nhàng hoặc khi thời tiết thay đổi.
+
+### **Bộ 3: Phong cách Họa tiết Năng động**
+*   **Áo:** [364] Áo thun Unisex Oversize Streetwear Họa Tiết Toàn Thân Lime | Màu: Xanh navy | Giá: **210,000đ**
+    *   *Đặc điểm:* Họa tiết toàn thân Lime tạo sự nổi bật và năng động.
+*   **Quần:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: **238,000đ**
+    *   *Đặc điểm:* Vẫn là bộ quần base màu trắng giúp cân bằng màu sắc.
+*   **Lý do phối:** Họa tiết Lime tạo điểm nhấn mạnh mẽ, kết hợp với chất liệu denim truyền thống rất dễ phối đồ.
+
+**💡 Lưu ý nhỏ:** Màu Trắng của quần jeans trong các bộ trên đang có mức tồn kho tốt. Nếu bạn muốn thay đổi màu quần sang một tông khác (ví dụ: Xanh đậm hoặc Đen), mình có thể gợi ý lại ngay nhé!",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_TRG_NVY",[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (585000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [358] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Dệt Hoa Văn Jacquard Python (257000d),[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [358] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Dệt Hoa Văn Jacquard Python (Xanh navy) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_AMB_01,color_ambiguous,CONDITIONAL_CLARIFICATION,2,Gợi ý outfit dạo phố cho nam nhưng nên mặc màu gì đẹp?,"Chào bạn! Dựa trên yêu cầu của bạn (nam, màu xanh navy, phong cách dạo phố), mình đã tìm được 3 bộ phối đồ hoàn chỉnh dưới đây. Tất cả đều sử dụng cùng một chiếc áo thun và các loại quần jean khác nhau để bạn dễ dàng lựa chọn:
+
+**Bộ 1:**
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: 585,000đ
+*   **Quần/Váy:** [579] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Cobalt | Màu: Xanh navy | Giá: 243,000đ
+*   *Lý do:* Cặp phối kinh điển trẻ trung, năng động. Áo thun thoáng mát, dễ vận động khi đi chơi dạo phố. Quần jeans bền đẹp, hợp mọi hoạt động đi chơi.
+
+**Bộ 2:**
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: 585,000đ
+*   **Quần/Váy:** [600] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Xanh navy | Giá: 208,000đ
+*   *Lý do:* Cặp phối kinh điển trẻ trung, năng động. Áo thun thoáng mát, dễ vận động khi đi chơi dạo phố. Quần jeans bền đẹp, hợp mọi hoạt động đi chơi.
+
+**Bộ 3:**
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: 585,000đ
+*   **Quần/Váy:** [606] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Boyfriend | Màu: Xanh navy | Giá: 210,000đ
+*   *Lý do:* Cặp phối kinh điển trẻ trung, năng động. Áo thun thoáng mát, dễ vận động khi đi chơi dạo phố. Quần jeans bền đẹp, hợp mọi hoạt động đi chơi.
+
+Bạn có thể chọn bộ phù hợp nhất với sở thích của mình nhé!",True,color,mode_c_counterfactual,AMBIGUOUS_COLOR_PREFERENCE,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS",[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (585000d) | [579] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Cobalt (243000d) | [600] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (208000d),[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [579] Quần jeans Nam Slim Fit Co Giãn Tôn Dáng Denim Wash Cobalt (Xanh navy) | [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [600] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Xanh navy),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_CON_01,color_constraint,IMMEDIATE_ANSWER,1,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Tôi hiểu rằng bạn không thích màu đen cho bộ áo sơ mi công sở của mình. Dưới đây là 3 gợi ý phối đồ hoàn chỉnh dành cho nam:
+
+**Bộ 1:**
+- Áo: [490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly | Màu: Xanh navy | Giá: 287,000đ
+- Quần/Váy: [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone | Màu: Be sáng | Giá: 179,000đ
+*Lý do:* Tạo sự tương phản nhẹ nhàng nhưng vẫn lịch sự cho môi trường làm việc.
+
+**Bộ 2:**
+- Áo: [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+- Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*Lý do:* Màu trắng và nâu camel tạo sự thanh lịch, tôn da.
+
+**Bộ 3:**
+- Áo: [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+- Quần/Váy: [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+*Lý do:* Lụa mềm mại kết hợp với quần ống suông tạo phong cách thanh lịch.
+
+Bạn có muốn tôi tư vấn thêm về size phù hợp không?",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_BSA_NVY,OC_OFF_NVY,CH_TRG_NCM,OC_OFF_TRG",[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (287000d) | [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (179000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[490] Áo sơ mi Unisex Oxford Công Sở Regular Fit Họa Tiết Toàn Thân Molly (Xanh navy) + [758] Quần âu Unisex Tây Âu Xếp Ly Công Sở Trơn Basic Lone (Be sáng) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_CON_01,color_constraint,ALWAYS_CLARIFY,2,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Dựa trên tiêu chí màu trắng mà bạn yêu cầu, mình đã gợi ý được 3 bộ phối đồ hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+*   **Áo sơ mi:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+    *   *Lý do:* Chất liệu linen thoáng mát, dáng thư giãn giúp bạn thoải mái khi làm việc.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+    *   *Lý do:* Màu nâu cameline tạo điểm nhấn thanh lịch và tôn da, kết hợp với áo trắng sẽ rất sang trọng.
+
+**Bộ 2:**
+*   **Áo sơ mi:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+    *   *Lý do:* Chất liệu bamboo chống nhăn giúp áo luôn phẳng phiu, dễ dàng ủi và giữ dáng.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+
+**Bộ 3:**
+*   **Áo sơ mi:** [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+    *   *Lý do:* Chất liệu lụa mềm mại, họa tiết toàn thân tạo cảm giác nhẹ nhàng và thanh lịch.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+
+Bạn có muốn mình tư vấn thêm về size phù hợp cho bộ trên không?",True,color,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NCM,OC_OFF_TRG",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_CON_01,color_constraint,CONDITIONAL_CLARIFICATION,2,Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.,"Chào bạn! Dựa trên tiêu chí màu trắng mà bạn yêu cầu, mình đã gợi ý được 3 bộ phối đồ hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+*   **Áo sơ mi:** [488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica | Màu: Trắng | Giá: 402,000đ
+    *   *Lý do:* Chất liệu linen thoáng mát, dáng thư giãn giúp bạn thoải mái khi làm việc.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+    *   *Lý do:* Màu nâu cameline tạo điểm nhấn thanh lịch và tôn da, kết hợp với áo trắng sẽ rất sang trọng.
+
+**Bộ 2:**
+*   **Áo sơ mi:** [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella | Màu: Trắng | Giá: 341,000đ
+    *   *Lý do:* Chất liệu bamboo chống nhăn giúp áo luôn phẳng phiu, dễ dàng ủi và giữ dáng.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+
+**Bộ 3:**
+*   **Áo sơ mi:** [493] Áo sơ mi Unisex Lụa Mềm Thanh Lịch Họa Tiết Toàn Thân Romance | Màu: Trắng | Giá: 215,000đ
+    *   *Lý do:* Chất liệu lụa mềm mại, họa tiết toàn thân tạo cảm giác nhẹ nhàng và thanh lịch.
+*   **Quần/Váy:** [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden | Màu: Nâu camel | Giá: 340,000đ
+
+Bạn có muốn mình tư vấn thêm về size phù hợp cho bộ trên không?",True,color,mode_c_hard_ask,HARD_ASK_CONFLICTING_SLOTS,suggest_outfit,"PW_SMI_QAU,SC_OFF_SMI,SC_OFF_QAU,CH_TRG_NCM,OC_OFF_TRG",[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (402000d) | [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (340000d) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (341000d),[488] Áo sơ mi Nam Linen Thoáng Mát Dáng Thư Giãn Trơn Basic Angelica (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel) | [491] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Trơn Basic Bella (Trắng) + [756] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Trơn Basic Camden (Nâu camel),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SEARCH_01,search,IMMEDIATE_ANSWER,1,Shop gợi ý cho mình mua vài món đồ với.,"Chào bạn! Để gợi ý phù hợp nhất với phong cách và ngân sách của bạn, mình sẽ chia ra theo 3 nhóm sản phẩm nổi bật dưới đây:
+
+### 🌟 **GỢI Ý CHO NỮ**
+1. **[700] Quần short Nữ Cạp Cao Tôn Dáng Trẻ Trung Xước Melange Hal** - Giá từ **885,000đ**
+   *   *Đặc điểm:* Chất liệu Kaki/Denim mềm đứng phom, phù hợp với phong cách trẻ trung và lịch sự.
+
+2. **[524] Áo khoác Nữ Hoodie & Sweater Nỉ Bông Giữ Ấm Xước Melange Sandra** - Giá từ **414,000đ**
+   *   *Đặc điểm:* Nỉ bông dày dặn, mềm mịn, tạo cảm giác ấm áp và thoải mái.
+
+### 👔 **GỢI Ý CHO NAM**
+1. **[671] Quần short Nam Chino Dạo Phố Trên Gối Xước Melange Wave** - Giá từ **261,000đ**
+   *   *Đặc điểm:* Cotton thoáng mát, thấm hút tốt, phong cách dạo phố hiện đại.
+
+2. **[381] Áo polo Nam Phối Bo Cổ Smart-Casual Xước Melange Polo** - Giá từ **590,000đ**
+   *   *Đặc điểm:* 100% Cotton Compact dệt kim, bo cổ tinh tế cho phong cách công sở nhẹ nhàng.
+
+### 👕 **GỢI Ý UNISEX**
+1. **[704] Quần short Unisex Chino Dạo Phố Trên Gối Xước Melange Tom** - Giá từ **181,000đ**
+   *   *Đặc điểm:* Cotton thoáng mát, phù hợp cho cả nam và nữ, giá trị cao với mức giá tốt.
+
+Bạn có muốn mình gợi ý thêm về phối đồ (ví dụ: Áo + Quần) hay tìm kiếm theo một màu sắc/dịp cụ thể không?",False,,mode_a_immediate,MODE_A_STRICT_ZERO,search_products,,[700] Quần short Nữ Cạp Cao Tôn Dáng Trẻ Trung Xước Melange Hal (885000d) | [524] Áo khoác Nữ Hoodie & Sweater Nỉ Bông Giữ Ấm Xước Melange Sandra (414000d) | [671] Quần short Nam Chino Dạo Phố Trên Gối Xước Melange Wave (261000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SEARCH_01,search,ALWAYS_CLARIFY,2,Shop gợi ý cho mình mua vài món đồ với.,"Chào bạn! Dựa trên yêu cầu của bạn (Nam - Áo thun), mình đã tìm được 4 mẫu áo thun nam chất lượng cao, phù hợp với phong cách tinh gọn và gu thẩm mỹ tốt. Dưới đây là các gợi ý chi tiết:
+
+**1. [319] Áo thun Nam Regular Fit Cổ Tròn Xước Melange Rneck | Giá từ: 196,000đ**
+*   **Đặc điểm nổi bật:** Thiết kế cổ tròn xẻng (r-neck) giúp dễ mặc và thoải mái, họa tiết xước Melange tạo điểm nhấn tinh tế. Chất liệu 100% Cotton Compact 250gsm đảm bảo độ mềm mại và thoáng mát.
+*   **Kích cỡ:** L, M, S, XL, XXL.
+
+**2. [5] Áo thun Nam Regular Fit Cổ Tròn Trơn Basic Rneck | Giá từ: 341,000đ**
+*   **Đặc điểm nổi bật:** Thiết kế cổ tròn xẻng (r-neck) cùng họa tiết cơ bản ""Trơn Basic"" mang lại sự đơn giản nhưng vẫn đầy đủ phong cách. Chất liệu cotton compact cao cấp giúp giữ hình dáng tốt.
+*   **Kích cỡ:** L, M, S, XL, XXL.
+
+**3. [9] Áo thun Nam Regular Fit Cổ Tròn Trơn Basic Zero | Giá từ: 753,000đ**
+*   **Đặc điểm nổi bật:** Đây là mẫu có giá cao nhất trong danh sách với thiết kế cổ tròn xẻng và họa tiết ""Trơn Basic Zero"". Chất liệu cotton compact cùng độ dày dặn giúp áo luôn phẳng phiu.
+*   **Kích cỡ:** L, M, S, XL, XXL.
+
+**4. [311] Áo thun Nam Regular Fit Cổ Tròn Trơn Basic Victor | Giá từ: 362,000đ**
+*   **Đặc điểm nổi bật:** Mẫu áo với thiết kế cổ tròn xẻng và họa tiết ""Trơn Basic"" nhưng mang tên thương hiệu ""Victor"", thể hiện sự sang trọng và tinh tế. Chất liệu cotton compact cao cấp đảm bảo độ bền.
+*   **Kích cỡ:** L, M, S, XL, XXL.
+
+Bạn có muốn mình tư vấn thêm về kích cỡ phù hợp với số đo của bạn không?",True,"target_gender,category",mode_b_required_check,MISSING_REQUIRED_SLOTS,search_products,,[319] Áo thun Nam Regular Fit Cổ Tròn Xước Melange Rneck (196000d) | [5] Áo thun Nam Regular Fit Cổ Tròn Trơn Basic Rneck (341000d) | [9] Áo thun Nam Regular Fit Cổ Tròn Trơn Basic Zero (753000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SEARCH_01,search,CONDITIONAL_CLARIFICATION,2,Shop gợi ý cho mình mua vài món đồ với.,"Chào bạn! Dựa trên tiêu chí **Nam** và các mẫu trang phục phổ biến, mình đã tìm ra 4 sản phẩm chất lượng cao phù hợp với phong cách tinh gọn, thời trang. Dưới đây là gợi ý chi tiết:
+
+### 🎯 Gợi ý bộ đồ nam (Áo + Quần/Váy)
+
+#### **Bộ 1: Phong cách Casual & Thảnh thơi**
+*   **Áo:** [86] Áo khoác Nam Bomber & Cardigan Thời Trang Xước Melange Vneck | Giá từ: **194.000đ**
+    *   *Đặc điểm:* Thiết kế xước melange nhẹ nhàng, chất liệu dù nylon kết hợp len dệt kim mềm mại, phù hợp cho ngày đi chơi hoặc làm việc văn phòng.
+*   **Quần:** [181] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Xước Melange Nick | Giá từ: **399.000đ**
+    *   *Đặc điểm:* Vải tuyết mưa dày dặn, không nhăn, dáng skinny fit tạo cảm giác gọn gàng và hiện đại.
+
+#### **Bộ 2: Phong cách Business Casual & Chuyên nghiệp**
+*   **Áo:** [102] Áo khoác Nam Bomber & Cardigan Thời Trang Trơn Basic Dorian | Giá từ: **305.000đ**
+    *   *Đặc điểm:* Thiết kế cơ bản, chất liệu dù nylon kết hợp len dệt kim mềm, phù hợp cho các buổi họp hoặc đi làm.
+*   **Quần:** [62] Áo sơ mi Nam Bamboo Chống Nhăn Slim Fit Thời Trang Frame | Giá từ: **182.000đ**
+    *   *Đặc điểm:* Sợi tre chống nhăn giúp giữ dáng, form slim fit tạo cảm giác gọn gàng và lịch sự.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp hay chi tiết nào khác không?",True,"target_gender,occasion",mode_c_hard_ask,HARD_ASK_BROAD_EMPTY_INQUIRY,search_products,,[86] Áo khoác Nam Bomber & Cardigan Thời Trang Xước Melange Vneck (194000d) | [181] Quần âu Nam Cạp Cao Ống Suông Hack Dáng Xước Melange Nick (399000d) | [102] Áo khoác Nam Bomber & Cardigan Thời Trang Trơn Basic Dorian (305000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SIZE_01,size,IMMEDIATE_ANSWER,1,Quần jean nam này mình mặc size nào vừa?,"Dưới đây là bảng size chuẩn để bạn tự đối chiếu:
+
+**Quần Dài Nam Size Số (Jeans, Kaki, Quần Âu):**
+| Size | Chiều cao | Cân nặng | Vòng eo |
+| --- | --- | --- | --- |
+| 29 | 160–168cm | 50–57kg | 73–76cm |
+| 30 | 165–172cm | 58–64kg | 77–79cm |
+| 31 | 168–175cm | 65–70kg | 80–82cm |
+| 32 | 170–178cm | 71–76kg | 83–85cm |
+| 34 | 175–185cm | 77–86kg | 87–91cm |
+
+Lưu ý chọn size: Vì chưa có số đo cụ thể nên bạn có thể đối chiếu theo bảng quy chuẩn trên; nếu số đo nằm giữa 2 size, chọn size nhỏ hơn để mặc vừa vặn hoặc tăng 1 size nếu thích thoải mái.",False,,mode_a_immediate,MODE_A_STRICT_ZERO,,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SIZE_01,size,ALWAYS_CLARIFY,2,Quần jean nam này mình mặc size nào vừa?,"Chào bạn! Với thông tin chiều cao 175cm, cân nặng 70kg và vòng eo 80cm, tôi sẽ tư vấn cho bạn bảng size chuẩn xác của quần jean nam theo từng loại hình để bạn dễ dàng lựa chọn nhé.
+
+**Bảng Size Chuẩn (Dựa trên dữ liệu cơ thể của bạn):**
+
+*   **Quần Jeans Slim Fit:**
+    *   **Size S:** Phù hợp với chiều cao 170-172cm, cân nặng dưới 65kg.
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+*   **Quần Jeans Regular Fit (Phù hợp dáng rộng):**
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+*   **Quần Jeans Skinny Fit (Tighter):**
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+**Lời khuyên thêm:**
+*   Nếu bạn mặc size **M**, hãy kiểm tra kỹ độ rộng của phần đùi và hông (hàng thường có thể hơi chật ở vùng eo nếu không chọn đúng loại).
+*   Nếu bạn muốn style **Slim Fit** nhưng cân nặng đang ở mức 70kg, bạn nên cân nhắc chuyển sang size **L** để tránh bị bó.
+
+Bạn có muốn tôi tìm kiếm các mẫu quần jean nam cụ thể nào trong danh sách này không?",True,measurements,mode_b_required_check,MISSING_REQUIRED_SLOTS,,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_SIZE_01,size,CONDITIONAL_CLARIFICATION,2,Quần jean nam này mình mặc size nào vừa?,"Chào bạn! Với thông tin chiều cao 175cm, cân nặng 70kg và vòng eo 80cm, tôi sẽ tư vấn cho bạn bảng size chuẩn xác của quần jean nam theo từng loại hình để bạn dễ dàng lựa chọn nhé.
+
+**Bảng Size Chuẩn (Dựa trên dữ liệu cơ thể của bạn):**
+
+*   **Quần Jeans Slim Fit:**
+    *   **Size S:** Phù hợp với chiều cao 170-172cm, cân nặng dưới 65kg.
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+*   **Quần Jeans Regular Fit (Phù hợp dáng rộng):**
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+*   **Quần Jeans Skinny Fit (Tighter):**
+    *   **Size M:** Phù hợp với chiều cao 173-175cm, cân nặng 65-70kg.
+    *   **Size L:** Phù hợp với chiều cao 176cm trở lên hoặc cân nặng trên 70kg.
+
+**Lời khuyên thêm:**
+*   Nếu bạn mặc size **M**, hãy kiểm tra kỹ độ rộng của phần đùi và hông (hàng thường có thể hơi chật ở vùng eo nếu không chọn đúng loại).
+*   Nếu bạn muốn style **Slim Fit** nhưng cân nặng đang ở mức 70kg, bạn nên cân nhắc chuyển sang size **L** để tránh bị bó.
+
+Bạn có muốn tôi tìm kiếm các mẫu quần jean nam cụ thể nào trong danh sách này không?",True,measurements,mode_c_hard_ask,HARD_ASK_SIZE_MISSING_MEASUREMENTS,,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_BODY_01,body_fit,IMMEDIATE_ANSWER,1,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,"Chào bạn! Để giúp người gầy mặc áo form không bị lộ điểm, mình gợi ý các loại **Regular Fit** (phom rộng) và **Slim Fit** (phom ôm) kết hợp với chất liệu cotton cao cấp. Dưới đây là một số mẫu phù hợp:
+
+*   **[462] Áo sơ mi Nữ Oxford Công Sở Regular Fit Trơn Basic Gyda**: Chất liệu 100% Cotton Oxford đứng phom, form Regular Fit giúp che khuyết điểm tốt.
+*   **[450] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Caro Amelie**: Thiết kế kẻ caro tinh tế, phù hợp với người gầy muốn thêm điểm nhấn.
+*   **[61] Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange Ca**: Form Regular Fit giúp che khuyết điểm, chất liệu cotton cao cấp đứng phom.
+*   **[442] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Skinfaxe**: Thiết kế đơn giản, form Regular Fit phù hợp với mọi vóc dáng.
+*   **[478] Áo sơ mi Unisex Oxford Công Sở Regular Fit Trơn Basic Piper**: Chất liệu cotton cao cấp đứng phom, form Regular Fit giúp che khuyết điểm tốt.
+
+Bạn có muốn mình tư vấn thêm về size hoặc phối đồ đi tiệc không?",False,,mode_a_immediate,MODE_A_STRICT_ZERO,search_products,,[462] Áo sơ mi Nữ Oxford Công Sở Regular Fit Trơn Basic Gyda (830000d) | [450] Áo sơ mi Nữ Oxford Công Sở Regular Fit Kẻ Caro Amelie (687000d) | [61] Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange Ca (714000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_BODY_01,body_fit,ALWAYS_CLARIFY,3,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,"Dưới đây là các mẫu trang phục phù hợp hiện có tại cửa hàng:
+- [4] **Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Cameron** (Áo thun | H&M) — Giá: 214,000đ
+- [84] **Áo khoác Nam Gió Windbreaker Tráng PU Chống Nước Trơn Basic Manson** (Áo khoác | H&M) — Giá: 491,000đ
+- [89] **Áo khoác Nam Hoodie & Sweater Nỉ Bông Giữ Ấm Trơn Basic Oz** (Áo khoác | H&M) — Giá: 203,000đ
+- [38] **Áo polo Nam Thể Thao Co Giãn Thoáng Mát Trơn Basic Twister** (Áo polo | H&M) — Giá: 401,000đ",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,search_products,,[4] Áo thun Nam Thể Thao Thoáng Khí Quick-Dry Trơn Basic Cameron (214000d) | [84] Áo khoác Nam Gió Windbreaker Tráng PU Chống Nước Trơn Basic Manson (491000d) | [89] Áo khoác Nam Hoodie & Sweater Nỉ Bông Giữ Ấm Trơn Basic Oz (203000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_BODY_01,body_fit,CONDITIONAL_CLARIFICATION,2,Mình người khá gầy nên mặc áo form gì cho đỡ gầy?,"Chào bạn! Với vóc dáng gầy, các mẫu **Áo sơ mi nam** dưới đây là những lựa chọn tuyệt vời để tạo cảm giác gọn gàng và tôn lên đường cong cơ thể một cách tinh tế hơn. Dưới đây là 3 mẫu nổi bật:
+
+### 1. Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange
+*   **[ID]:** `61`
+*   **Giá:** `714,000đ`
+*   **Đặc điểm:** Form Regular Fit (phom vừa vặn), họa tiết xước melange tạo điểm nhấn tinh tế. Chất liệu 100% Cotton Oxford cao cấp đứng phom giúp che khuyết điểm và tạo chiều cao ảo.
+
+### 2. Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic
+*   **[ID]:** `442`
+*   **Giá:** `237,000đ`
+*   **Đặc điểm:** Form Regular Fit (phom vừa vặn), họa tiết trơn Basic đơn giản. Chất liệu 100% Cotton Oxford cao cấp đứng phom giúp che khuyết điểm và tạo cảm giác nhẹ nhàng, dễ mặc.
+
+### 3. Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic
+*   **[ID]:** `57`
+*   **Giá:** `410,000đ`
+*   **Đặc điểm:** Form Regular Fit (phom vừa vặn), họa tiết trơn Basic. Chất liệu 100% Cotton Oxford cao cấp đứng phom giúp che khuyết điểm và tạo cảm giác thoải mái khi mặc nhiều lớp.
+
+Bạn có muốn mình tư vấn thêm về kích cỡ phù hợp với vóc dáng gầy không?",True,"target_gender,measurements",mode_c_llm,GRAY_ZONE_LLM_EVAL,search_products,,[61] Áo sơ mi Nam Oxford Công Sở Regular Fit Xước Melange Ca (714000d) | [442] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Skinfaxe (237000d) | [57] Áo sơ mi Nam Oxford Công Sở Regular Fit Trơn Basic Td (410000d),,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_NONSHOP_01,non_shopping,IMMEDIATE_ANSWER,1,Phí ship đơn 300k là bao nhiêu vậy shop?,"Phí ship tiêu chuẩn là **30.000 VNĐ** cho mọi đơn hàng trên toàn quốc, áp dụng đồng giá.
+
+Tuy nhiên, nếu tổng giá trị thanh toán (sau khi trừ các voucher/mã giảm giá) từ 500.000 VNĐ trở lên, bạn sẽ được miễn phí vận chuyển 100% [shipping.md: Biểu phí vận chuyển].",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_NONSHOP_01,non_shopping,ALWAYS_CLARIFY,1,Phí ship đơn 300k là bao nhiêu vậy shop?,"Phí ship tiêu chuẩn là **30.000 VNĐ** cho mọi đơn hàng trên toàn quốc, áp dụng đồng giá.
+
+Tuy nhiên, nếu tổng giá trị thanh toán (sau khi trừ các voucher/mã giảm giá) từ 500.000 VNĐ trở lên, bạn sẽ được miễn phí vận chuyển 100% [shipping.md: Biểu phí vận chuyển].",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_NONSHOP_01,non_shopping,CONDITIONAL_CLARIFICATION,1,Phí ship đơn 300k là bao nhiêu vậy shop?,"Phí ship tiêu chuẩn là **30.000 VNĐ** cho mọi đơn hàng trên toàn quốc, áp dụng đồng giá.
+
+Tuy nhiên, nếu tổng giá trị thanh toán (sau khi trừ các voucher/mã giảm giá) từ 500.000 VNĐ trở lên, bạn sẽ được miễn phí vận chuyển 100% [shipping.md: Biểu phí vận chuyển].",False,,non_shopping_bypass,NON_SHOPPING_BYPASS,search_policy,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_02,open,IMMEDIATE_ANSWER,1,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,"Chào bạn! Để gợi ý một bộ trang phục phù hợp cho mọi giới tính (Unisex), mình đã cân nhắc các lựa chọn dưới đây dựa trên phong cách tinh gọn và trọng tâm:
+
+**Bộ 1: Phong cách Tối giản & Năng động**
+*   **Áo:** [369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean | Màu: Đen | Giá: 647,000đ
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238,000đ
+*   **Lý do phối:** Đây là cặp màu Đen-Trắng kinh điển, tạo nên sự tương phản sắc nét nhưng vẫn giữ được vẻ tối giản. Cả hai đều chất liệu thoáng mát, dễ vận động khi đi dạo phố hoặc chơi thể thao nhẹ nhàng.
+
+**Bộ 2: Phong cách Streetwear & Năng động**
+*   **Áo:** [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347,000đ
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238,000đ
+*   **Lý do phối:** Sự kết hợp giữa áo Oversize và quần Slim Fit tạo nên sự cân bằng hoàn hảo. Áo melange mang phong cách hiện đại, trong khi quần jeans trắng vẫn giữ được vẻ bền đẹp và dễ phối với mọi hoạt động.
+
+**Bộ 3: Phong cách Thể thao & Thoáng khí**
+*   **Áo:** [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela | Màu: Đen | Giá: 225,000đ
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238,000đ
+*   **Lý do phối:** Đây là lựa chọn lý tưởng cho những buổi tập luyện hoặc đi chơi ngoài trời. Áo Quick-Dry giúp bạn nhanh khô sau khi vận động, còn quần jeans trắng vẫn đảm bảo sự thoải mái và bền bỉ.
+
+Bạn có thể tham khảo các bộ trên để bắt đầu tìm hiểu thêm về chất liệu và mẫu mã chi tiết của từng sản phẩm nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG",[369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean (647000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (347000d),[369] Áo thun Nữ Slim Fit Co Giãn 4 Chiều Trơn Basic Dean (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_02,open,ALWAYS_CLARIFY,2,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,"Chào bạn! Dựa trên yêu cầu của bạn (Nam, đi chơi, phong cách casual), mình đã gợi ý 3 bộ trang phục hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+- Áo: [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347.000đ
+- Quần/Váy: [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238.000đ
+
+**Bộ 2:**
+- Áo: [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela | Màu: Đen | Giá: 225.000đ
+- Quần/Váy: [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238.000đ
+
+**Bộ 3:**
+- Áo: [367] Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier | Màu: Xám tiêu | Giá: 243.000đ
+- Quần/Váy: [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: 456.000đ
+
+**Lý do phối:** Cả 3 bộ đều là cặp Áo thun + Quần Jeans, mang lại phong cách trẻ trung, năng động và thoải mái cho việc đi chơi dạo phố. Màu sắc đen-trắng hoặc xám-xám tạo nên sự tương phản tinh tế, dễ dàng ứng dụng trong nhiều tình huống.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp không?",True,"target_gender,occasion",mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG,CH_DEN_XTI",[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (347000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela (225000d),[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_OPEN_02,open,CONDITIONAL_CLARIFICATION,2,Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.,"Chào bạn! Dựa trên yêu cầu của bạn (Nam, đi chơi, phong cách casual), mình đã gợi ý 3 bộ trang phục hoàn chỉnh dưới đây:
+
+**Bộ 1:**
+- Áo: [368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker | Màu: Đen | Giá: 347.000đ
+- Quần/Váy: [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238.000đ
+
+**Bộ 2:**
+- Áo: [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela | Màu: Đen | Giá: 225.000đ
+- Quần/Váy: [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Trắng | Giá: 238.000đ
+
+**Bộ 3:**
+- Áo: [367] Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier | Màu: Xám tiêu | Giá: 243.000đ
+- Quần/Váy: [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: 456.000đ
+
+**Lý do phối:** Cả 3 bộ đều là cặp Áo thun + Quần Jeans, mang lại phong cách trẻ trung, năng động và thoải mái cho việc đi chơi dạo phố. Màu sắc đen-trắng hoặc xám-xám tạo nên sự tương phản tinh tế, dễ dàng ứng dụng trong nhiều tình huống.
+
+Bạn có muốn mình tư vấn thêm về size phù hợp không?",True,"target_gender,occasion",mode_c_hard_ask,HARD_ASK_BROAD_EMPTY_INQUIRY,suggest_outfit,"PW_THN_JNS,SC_HNG_THN,SC_HNG_JNS,CH_DEN_TRG,CH_DEN_XTI",[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (347000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d) | [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela (225000d),[368] Áo thun Nam Oversize Streetwear Xước Melange Bleeker (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng) | [370] Áo thun Unisex Thể Thao Thoáng Khí Quick-Dry Trơn Basic Pamela (Đen) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Trắng),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_02,anchor,IMMEDIATE_ANSWER,1,Áo thun trắng phối với quần nào trẻ trung?,"Chào bạn! Với phong cách trẻ trung và năng động, đây là 3 gợi ý tuyệt vời cho bộ áo thun trắng phối với quần jeans:
+
+**Bộ 1:**
+- **Áo:** [346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt | Màu: Trắng | Giá: 263,000đ
+- **Quần/Váy:** [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny | Màu: Đen | Giá: 282,000đ
+*Lý do:* Cặp phối trắng-trắng là kinh điển tối giản, tạo nên sự thanh lịch và dễ thương.
+
+**Bộ 2:**
+- **Áo:** [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy | Màu: Trắng | Giá: 450,000đ
+- **Quần/Váy:** [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: 456,000đ
+*Lý do:* Phong cách Oversize tạo cảm giác thoải mái và hiện đại.
+
+**Bộ 3:**
+- **Áo:** [346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt | Màu: Trắng | Giá: 263,000đ
+- **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Đen | Giá: 238,000đ
+*Lý do:* Màu xanh lá (Jade) tạo điểm nhấn nhẹ nhàng và tươi sáng.
+
+Bạn có thể chọn theo giới tính hoặc ngân sách mong muốn nhé!",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_THN_JNS,RC_CAS_THN,RC_CAS_JNS,CH_DEN_TRG,PC_CAS_TRG,PC_CAS_DEN",[346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt (263000d) | [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny (282000d) | [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy (450000d),[346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt (Trắng) + [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny (Đen) | [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy (Trắng) + [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Đen),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_02,anchor,ALWAYS_CLARIFY,2,Áo thun trắng phối với quần nào trẻ trung?,"Chào bạn! Để gợi ý các bộ set hoàn chỉnh phù hợp với phong cách trẻ trung và màu trắng của bạn, mình sẽ tìm kiếm các bộ **Áo thun + Quần short** nhé. Bạn có thể chọn một trong các bộ dưới đây:
+
+---
+
+### **Bộ 1: Áo thun trắng phối quần short đen - Phong cách Trẻ trung & Năng động**
+- **[ID]: TSH001-SH005**  
+  - **Tên sản phẩm:** Áo thun Oversize trắng  
+  - **Giá:** 295.000 VNĐ  
+  - **Chất liệu:** Vải cotton 100% mềm mại, thoáng mát  
+  - **Đặc điểm:** Dáng rộng rãi, cổ tròn, tay ngắn, dễ phối với nhiều loại quần short.  
+
+- **[ID]: TSH002-SH010**  
+  - **Tên sản phẩm:** Áo thun Basic trắng  
+  - **Giá:** 278.000 VNĐ  
+  - **Chất liệu:** Vải cotton pha lưới, thấm hút tốt  
+  - **Đặc điểm:** Dáng dáng chuẩn, cổ tròn, tay ngắn, phù hợp với mọi loại quần short.  
+
+- **[ID]: TSH003-SH015**  
+  - **Tên sản phẩm:** Áo thun Slim fit trắng  
+  - **Giá:** 320.000 VNĐ  
+  - **Chất liệu:** Vải cotton kỹ thuật, chống nhăn  
+  - **Đặc điểm:** Dáng dáng ôm sát, cổ tròn, tay ngắn, tạo cảm giác trẻ trung và hiện đại.  
+
+---
+
+### **Bộ 2: Áo thun trắng phối quần short xanh navy - Phong cách Trẻ trung & Năng động**
+- **[ID]: TSH004-SH020**  
+  - **Tên sản phẩm:** Áo thun Oversize trắng  
+  - **Giá:** 295.000 VNĐ  
+  - **Chất liệu:** Vải cotton 100% mềm mại, thoáng mát  
+  - **Đặc điểm:** Dáng rộng rãi, cổ tròn, tay ngắn, dễ phối với quần short màu tối.  
+
+- **[ID]: TSH005-SH025**  
+  - **Tên sản phẩm:** Áo thun Basic trắng  
+  - **Giá:** 278.000 VNĐ  
+  - **Chất liệu:** Vải cotton pha lưới, thấm hút tốt  
+  - **Đặc điểm:** Dáng dáng chuẩn, cổ tròn, tay ngắn, phù hợp với mọi loại quần short.  
+
+- **[ID]: TSH006-SH030**  
+  - **Tên sản phẩm:** Áo thun Slim fit trắng  
+  - **Giá:** 320.000 VNĐ  
+  - **Chất liệu:** Vải cotton kỹ thuật, chống nhăn  
+  - **Đặc điểm:** Dáng dáng ôm sát, cổ tròn, tay ngắn, tạo cảm giác trẻ trung và hiện đại.  
+
+---
+
+### **Bộ 3: Áo thun trắng phối quần short xám - Phong cách Trẻ trung & Năng động**
+- **[ID]: TSH007-SH035**  
+  - **Tên sản phẩm:** Áo thun Oversize trắng  
+  - **Giá:** 295.000 VNĐ  
+  - **Chất liệu:** Vải cotton 100% mềm mại, thoáng mát  
+  - **Đặc điểm:** Dáng rộng rãi, cổ tròn, tay ngắn, dễ phối với quần short màu trung tính.  
+
+- **[ID]: TSH008-SH040**  
+  - **Tên sản phẩm:** Áo thun Basic trắng  
+  - **Giá:** 278.000 VNĐ  
+  - **Chất liệu:** Vải cotton pha lưới, thấm hút tốt  
+  - **Đặc điểm:** Dáng dáng chuẩn, cổ tròn, tay ngắn, phù hợp với mọi loại quần short.  
+
+- **[ID]: TSH009-SH045**  
+  - **Tên sản phẩm:** Áo thun Slim fit trắng  
+  - **Giá:** 320.000 VNĐ  
+  - **Chất liệu:** Vải cotton kỹ thuật, chống nhăn  
+  - **Đặc điểm:** Dáng dáng ôm sát, cổ tròn, tay ngắn, tạo cảm giác trẻ trung và hiện đại.  
+
+---
+
+Bạn có muốn mình gợi ý thêm về **số đo phù hợp** cho từng bộ set không? Hoặc bạn cần tìm thêm các loại quần khác (ví dụ: váy, ống rộng) để phối với áo thun trắng nhé! 😊",True,target_gender,mode_b_required_check,MISSING_REQUIRED_SLOTS,suggest_outfit,,,,True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_ANCHOR_02,anchor,CONDITIONAL_CLARIFICATION,1,Áo thun trắng phối với quần nào trẻ trung?,"Chào bạn! Để gợi ý những bộ áo thun trắng phối hợp với quần trẻ trung và năng động nhất, mình đã cân nhắc cả phong cách cho cả Nam và Nữ. Dưới đây là 3 bộ combo hoàn chỉnh:
+
+### Bộ 1: Phong cách Casual Trẻ Trung - Đen Trắng
+*   **Áo:** [346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt | Màu: Trắng | Giá: 263,000đ
+*   **Quần/Váy:** [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny | Màu: Đen | Giá: 282,000đ
+*   **Lý do phối:** Đây là cặp màu kinh điển tối giản, tạo nên sự tương phản sắc nét giữa trắng và đen. Áo thun là lựa chọn cơ bản, dễ mặc nhất của phong cách Casual, còn quần jeans giúp bộ set trở nên linh hoạt trong mọi tình huống.
+
+### Bộ 2: Phong cách Streetwear Năng Động - Đen Trắng
+*   **Áo:** [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy | Màu: Trắng | Giá: 450,000đ
+*   **Quần/Váy:** [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: 456,000đ
+*   **Lý do phối:** Bộ này mang phong cách Streetwear hiện đại. Áo Oversize tạo cảm giác thoải mái và phóng khoáng, kết hợp cùng quần jeans ống rộng cạp cao giúp bộ set trông rất năng động và trẻ trung.
+
+### Bộ 3: Phong cách Casual Tối giản - Đen Trắng
+*   **Áo:** [346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt | Màu: Trắng | Giá: 263,000đ
+*   **Quần/Váy:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Đen | Giá: 238,000đ
+*   **Lý do phối:** Đây là bộ có giá thành hợp lý nhất. Áo thun thể thao kết hợp với quần jeans màu xanh lá (Jade) tạo nên sự tươi sáng và trẻ trung, phù hợp cho những ngày đi chơi hoặc làm việc văn phòng.
+
+Bạn có muốn tìm thêm gợi ý về size hay chi tiết nào khác không?",False,,mode_c_counterfactual,"COUNTERFACTUAL_PROCEED,COVERED_WITH_ALTERNATIVES",suggest_outfit,"PW_THN_JNS,RC_CAS_THN,RC_CAS_JNS,CH_DEN_TRG,PC_CAS_TRG,PC_CAS_DEN",[346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt (263000d) | [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny (282000d) | [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy (450000d),[346] Áo thun Nữ Thể Thao Thoáng Khí Quick-Dry Trơn Basic Nt (Trắng) + [612] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Denim Wash Skinny (Đen) | [356] Áo thun Nam Oversize Streetwear Trơn Basic Maddy (Trắng) + [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Đen),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_02,color_implicit,IMMEDIATE_ANSWER,1,Gợi ý set đồ dạo phố cho nam phong cách streetwear.,"Chào bạn! Dưới đây là 3 bộ set đồ dạo phố phong cách Streetwear dành cho nam:
+
+**Bộ 1:**
+*   **Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (Mã: [367], Màu: Xám tiêu, Giá: 243.000đ)**
+    *   Thiết kế phom rộng tạo cảm giác thoải mái và năng động, phù hợp với phong cách Streetwear.
+*   **Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Mã: [613], Màu: Đen, Giá: 456.000đ)**
+    *   Quần jeans bụi bặm, khỏe khoắn và ống rộng tạo điểm nhấn mạnh mẽ cho bộ set này.
+
+**Bộ 2:**
+*   **Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (Mã: [367], Màu: Xám tiêu, Giá: 243.000đ)**
+    *   Giữ nguyên item nền tảng của Streetwear.
+*   **Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Mã: [615], Màu: Đen, Giá: 238.000đ)**
+    *   Quần jeans cơ bản màu đen với độ co giãn tốt, tạo sự cân đối cho bộ set.
+
+**Bộ 3:**
+*   **Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (Mã: [367], Màu: Xám tiêu, Giá: 243.000đ)**
+    *   Giữ nguyên item nền tảng của Streetwear.
+*   **Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Nikki (Mã: [616], Màu: Đen, Giá: 274.000đ)**
+    *   Quần jeans cơ bản màu đen với độ co giãn tốt, tạo sự cân đối cho bộ set này.
+
+*Lưu ý: Các sản phẩm trên đều sử dụng chất liệu denim hoặc cotton cao cấp, dễ dàng giặt và giữ màu lâu dài.*",False,,mode_a_immediate,MODE_A_STRICT_ZERO,suggest_outfit,"PW_THN_JNS,RC_STR_THN,RC_STR_JNS,FS_HNG_STR,CH_DEN_XTI,PC_STR_XTI,PC_STR_DEN",[367] Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (243000d) | [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (456000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d),[367] Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (Xám tiêu) + [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Đen) | [367] Áo thun Unisex Regular Fit Cổ Tròn In Họa Tiết Điểm Nhấn Terrier (Xám tiêu) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Đen),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_02,color_implicit,ALWAYS_CLARIFY,1,Gợi ý set đồ dạo phố cho nam phong cách streetwear.,"Chào bạn! Dựa trên thông tin bạn cung cấp (nam, phong cách streetwear, dạo phố), mình đã gợi ý 3 bộ set đồ hoàn chỉnh dưới đây:
+
+### Bộ 1: Áo thun Oversize + Quần Jeans Cạp Cao
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Phom rộng tạo cảm giác thoải mái, phong cách streetwear hiện đại.
+*   **Quần:** [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: **456,000đ**
+    *   *Đặc điểm:* Khỏe khoắn, bụi bặm, phù hợp với tinh thần streetwear.
+
+### Bộ 2: Áo thun Oversize + Quần Jeans Slim Fit
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Nền tảng phong cách streetwear.
+*   **Quần:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Đen | Giá: **238,000đ**
+    *   *Đặc điểm:* Thiết kế tôn dáng, phù hợp với mọi cơ thể.
+
+### Bộ 3: Áo thun Oversize + Quần Jeans Cạp Cao (Trơn)
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Phong cách streetwear cơ bản.
+*   **Quần:** [616] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Nikki | Màu: Đen | Giá: **274,000đ**
+    *   *Đặc điểm:* Khỏe khoắn, phù hợp với phong cách bạn yêu thích.
+
+**Lưu ý:** Cả 3 bộ đều sử dụng màu **Xanh navy** cho áo và **Đen** cho quần, tạo sự tương phản đẹp mắt khi dạo phố. Bạn có muốn đổi màu hoặc thay đổi loại quần/váy không?",False,,mode_b_required_check,REQUIRED_SLOTS_COMPLETE,suggest_outfit,"PW_THN_JNS,RC_STR_THN,RC_STR_JNS,FS_HNG_STR,CH_DEN_NVY,PC_STR_DEN",[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (585000d) | [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (456000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d),[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Đen) | [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Đen),True,,,,,,
+tier2_e2e_llm,stratified,E1_TEST_COL_IMP_02,color_implicit,CONDITIONAL_CLARIFICATION,1,Gợi ý set đồ dạo phố cho nam phong cách streetwear.,"Chào bạn! Dựa trên thông tin bạn cung cấp (nam, phong cách streetwear, dạo phố), mình đã gợi ý 3 bộ set đồ hoàn chỉnh dưới đây:
+
+### Bộ 1: Áo thun Oversize + Quần Jeans Cạp Cao
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Phom rộng tạo cảm giác thoải mái, phong cách streetwear hiện đại.
+*   **Quần:** [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny | Màu: Đen | Giá: **456,000đ**
+    *   *Đặc điểm:* Khỏe khoắn, bụi bặm, phù hợp với tinh thần streetwear.
+
+### Bộ 2: Áo thun Oversize + Quần Jeans Slim Fit
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Nền tảng phong cách streetwear.
+*   **Quần:** [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade | Màu: Đen | Giá: **238,000đ**
+    *   *Đặc điểm:* Thiết kế tôn dáng, phù hợp với mọi cơ thể.
+
+### Bộ 3: Áo thun Oversize + Quần Jeans Cạp Cao (Trơn)
+*   **Áo:** [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk | Màu: Xanh navy | Giá: **585,000đ**
+    *   *Đặc điểm:* Phong cách streetwear cơ bản.
+*   **Quần:** [616] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Trơn Basic Nikki | Màu: Đen | Giá: **274,000đ**
+    *   *Đặc điểm:* Khỏe khoắn, phù hợp với phong cách bạn yêu thích.
+
+**Lưu ý:** Cả 3 bộ đều sử dụng màu **Xanh navy** cho áo và **Đen** cho quần, tạo sự tương phản đẹp mắt khi dạo phố. Bạn có muốn đổi màu hoặc thay đổi loại quần/váy không?",False,,mode_c_hard_answer,HARD_ANSWER_REQUIRED_COMPLETE,suggest_outfit,"PW_THN_JNS,RC_STR_THN,RC_STR_JNS,FS_HNG_STR,CH_DEN_NVY,PC_STR_DEN",[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (585000d) | [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (456000d) | [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (238000d),[324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [613] Quần jeans Nam Cạp Cao Ống Rộng Hack Chiều Cao Denim Wash Skinny (Đen) | [324] Áo thun Nam Oversize Streetwear Trơn Basic 3pk (Xanh navy) + [615] Quần jeans Unisex Slim Fit Co Giãn Tôn Dáng Trơn Basic Jade (Đen),True,,,,,,

@@ -1631,29 +1631,6 @@ async def test_mode_b_size_advice_form_submit_prefetches_size_without_search_rol
     mock_search.ainvoke.side_effect = _mock_size_search
     agent_t2.tools_by_name["search_products"] = mock_search
 
-    captured_search_args: list[dict[str, Any]] = []
-
-    async def _mock_size_search(
-        args: dict[str, Any], *rest: Any, **kwargs: Any
-    ) -> str:
-        captured_search_args.append(dict(args))
-        record_searched_products(
-            [
-                ChatRecommendedProduct(
-                    id=201,
-                    name="Áo Sơ Mi Nam Oxford",
-                    price=420000.0,
-                    category="Áo sơ mi",
-                )
-            ]
-        )
-        return "- [201] Áo Sơ Mi Nam Oxford | Giá từ: 420,000đ | Size: M, L"
-
-    mock_search = AsyncMock()
-    mock_search.name = "search_products"
-    mock_search.ainvoke.side_effect = _mock_size_search
-    agent_t2.tools_by_name["search_products"] = mock_search
-
     res2 = await agent_t2.chat(
         ChatRequest(
             message=(
@@ -1677,3 +1654,126 @@ async def test_mode_b_size_advice_form_submit_prefetches_size_without_search_rol
     assert captured_search_args[0].get("target_gender") == "MALE"
     assert [p.id for p in res2.products] == [201]
     assert "size L" in res2.reply
+
+
+@pytest.mark.anyio
+async def test_mode_c_unfulfillable_color_and_budget_produce_non_empty_forms() -> None:
+    model_s3 = InspectableFakeChatModel(
+        messages=iter(
+            [AIMessage(content="Màu này hiện hết hàng, bạn chọn màu khác nhé:")]
+        )
+    )
+    agent_s3 = ShopAssistantAgent(chat_model=model_s3, session_manager=SessionManager())
+    agent_s3.structured_model = None
+
+    res_s3 = await agent_s3.chat(
+        ChatRequest(
+            message="Phối áo sơ mi nam màu xanh mint với quần âu đi làm.",
+            session_id="test-s3-unfulfillable-color",
+            clarification_mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
+        )
+    )
+    assert res_s3.clarification_asked is True
+    assert res_s3.clarification_form is not None
+    assert [q.id for q in res_s3.clarification_form.questions] == ["color"]
+
+    model_s4 = InspectableFakeChatModel(
+        messages=iter([AIMessage(content="Ngân sách này chưa có bộ phù hợp:")])
+    )
+    agent_s4 = ShopAssistantAgent(chat_model=model_s4, session_manager=SessionManager())
+    agent_s4.structured_model = None
+
+    res_s4 = await agent_s4.chat(
+        ChatRequest(
+            message="Phối đồ đi tiệc cho nam dưới 100k",
+            session_id="test-s4-unfulfillable-budget",
+            clarification_mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
+        )
+    )
+    assert res_s4.clarification_asked is True
+    assert res_s4.clarification_form is not None
+    assert [q.id for q in res_s4.clarification_form.questions] == ["budget"]
+
+
+@pytest.mark.anyio
+async def test_mode_c_proceed_triggers_fallback_when_llm_defers_or_asks() -> None:
+    from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
+    from customer_shop_assistant.tools.catalog_tool import record_searched_products
+
+    deferred_reply = (
+        "Mình sẽ tìm kiếm các sản phẩm đơn lẻ phù hợp phong cách minimalist cho bạn."
+    )
+    fake_model = InspectableFakeChatModel(
+        messages=iter([AIMessage(content=deferred_reply)])
+    )
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=SessionManager())
+    agent.structured_model = None
+
+    async def _mock_outfit(args: dict[str, Any], *rest: Any, **kwargs: Any) -> str:
+        record_searched_products(
+            [
+                ChatRecommendedProduct(
+                    id=53,
+                    name="Áo Sơ Mi Nam Oxford",
+                    price=410000.0,
+                    category="Áo sơ mi",
+                )
+            ]
+        )
+        return "Bộ 1: [53] Áo Sơ Mi Nam Oxford"
+
+    mock_outfit = AsyncMock()
+    mock_outfit.name = "suggest_outfit"
+    mock_outfit.ainvoke.side_effect = _mock_outfit
+    agent.tools_by_name["suggest_outfit"] = mock_outfit
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Phối đồ đi làm cho nam phong cách minimalist.",
+            session_id="test-mode-c-deferred-tool",
+            clarification_mode=ClarificationMode.CONDITIONAL_CLARIFICATION,
+        )
+    )
+    mock_outfit.ainvoke.assert_awaited_once()
+    assert "suggest_outfit" in res.tools_used
+    assert "mình sẽ tìm kiếm" not in res.reply.lower()
+
+
+@pytest.mark.anyio
+async def test_mode_a_react_tool_leaked_question_replaces_reply_without_reinvoke() -> (  # noqa: E501
+    None
+):
+    from langchain_core.messages import AIMessage as LCAIMessage
+
+    tool_call_msg = LCAIMessage(
+        content="",
+        tool_calls=[
+            {
+                "id": "call_s4_1",
+                "name": "suggest_outfit",
+                "args": {"occasion": "party", "gender": "MALE", "max_price": 100000},
+            }
+        ],
+    )
+    leaked_msg = AIMessage(
+        content="Bạn có muốn nới ngân sách lên 300k để mình gợi ý thêm không?"
+    )
+    fake_model = InspectableFakeChatModel(messages=iter([tool_call_msg, leaked_msg]))
+    agent = ShopAssistantAgent(chat_model=fake_model, session_manager=SessionManager())
+    agent.structured_model = None
+
+    mock_outfit = AsyncMock()
+    mock_outfit.name = "suggest_outfit"
+    mock_outfit.ainvoke.return_value = "Không tìm thấy bộ phối đồ nào."
+    agent.tools_by_name["suggest_outfit"] = mock_outfit
+
+    res = await agent.chat(
+        ChatRequest(
+            message="Phối đồ đi tiệc cho nam dưới 100k",
+            session_id="test-mode-a-react-leak",
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    mock_outfit.ainvoke.assert_awaited_once()
+    assert "?" not in res.reply
+    assert "chưa tìm thấy" in res.reply.lower()

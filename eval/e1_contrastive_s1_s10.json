@@ -1,0 +1,520 @@
+{
+  "version": "1.0",
+  "_comment": "Contrastive 3-Mode Multi-turn E2E Scenarios (S1-S10 from docs/tests/test_scenarios_3_modes.md)",
+  "scenarios": [
+    {
+      "id": "S1",
+      "name": "Anchor outfit missing gender",
+      "group": "b_over_asks_c_proceeds",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối áo sơ mi trắng với quần gì đẹp?",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Mình chọn:\n1. Nam"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"top_category": "Áo sơ mi"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["target_gender"],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE", "top_category": "Áo sơ mi"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_c_counterfactual"],
+          "expected_reason_codes": ["COUNTERFACTUAL_PROCEED", "COVERED_WITH_ALTERNATIVES"],
+          "expected_asked_slots": [],
+          "max_questions": 2,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"top_category": "Áo sơ mi"}
+        }
+      }
+    },
+    {
+      "id": "S2",
+      "name": "Broad category with gender",
+      "group": "b_over_asks_c_proceeds",
+      "expected_intent": "PRODUCT_SEARCH",
+      "turn1_prompt": "Tìm áo cho nam",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Mình chọn:\n1. Áo sơ mi\n2. Đi làm công sở\n3. 300k - 600k"
+      },
+      "requires_main_be": true,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["search_products"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["BROAD_CATEGORY_REFINEMENT"],
+          "expected_asked_slots": ["category_subtype", "occasion", "budget"],
+          "max_questions": 3,
+          "expected_tools": ["search_products"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE", "max_price": 600000}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_c_hard_answer"],
+          "expected_reason_codes": ["HARD_ANSWER_REQUIRED_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 2,
+          "expected_tools": ["search_products"],
+          "hard_constraints": {"target_gender": "MALE"}
+        }
+      }
+    },
+    {
+      "id": "S3",
+      "name": "Out-of-stock requested color",
+      "group": "c_catches_catalog_constraint",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối áo sơ mi nam màu xanh mint với quần âu đi làm.",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "CONDITIONAL_CLARIFICATION": "Màu trắng"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["REQUIRED_SLOTS_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_counterfactual"],
+          "expected_reason_codes": ["UNFULFILLABLE_COLOR_CONSTRAINT"],
+          "expected_asked_slots": ["color"],
+          "max_questions": 1,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {
+            "target_gender": "MALE",
+            "top_category": "Áo sơ mi",
+            "bottom_category": "Quần âu"
+          }
+        }
+      }
+    },
+    {
+      "id": "S4",
+      "name": "Unfulfillable budget constraint",
+      "group": "c_catches_catalog_constraint",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối đồ đi tiệc cho nam dưới 100k",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "CONDITIONAL_CLARIFICATION": "Tầm 500k đến 1 triệu"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": [],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["REQUIRED_SLOTS_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 3,
+          "expected_tools": [],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_counterfactual"],
+          "expected_reason_codes": ["UNFULFILLABLE_HARD_CONSTRAINT"],
+          "expected_asked_slots": ["budget"],
+          "max_questions": 1,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE", "max_price": 1000000}
+        }
+      }
+    },
+    {
+      "id": "S5",
+      "name": "Explicit ambiguous color preference",
+      "group": "c_catches_catalog_constraint",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "CONDITIONAL_CLARIFICATION": "Tông màu trung tính (trắng, đen, xanh navy)"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["REQUIRED_SLOTS_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_counterfactual"],
+          "expected_reason_codes": ["AMBIGUOUS_COLOR_PREFERENCE"],
+          "expected_asked_slots": ["color"],
+          "max_questions": 1,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        }
+      }
+    },
+    {
+      "id": "S6A",
+      "name": "Size advice multi-turn full form submit",
+      "group": "multi_turn_3_modes_separate",
+      "expected_intent": "SIZE_ADVICE",
+      "turn1_prompt": "Tư vấn chọn size giúp mình với",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Mình chọn:\n1. Nam\n2. Áo (Sơ mi / Thun / Polo / Khoác)\n3. Cân đối / Đầy đặn – Khung Size L (63–72kg | 1m68–1m75)",
+        "CONDITIONAL_CLARIFICATION": "Mình chọn:\n1. Nam\n2. Áo (Sơ mi / Thun / Polo / Khoác)\n3. Cân đối / Đầy đặn – Khung Size L (63–72kg | 1m68–1m75)"
+      },
+      "requires_main_be": true,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": [],
+          "hard_constraints": {}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["target_gender", "category", "measurements"],
+          "max_questions": 3,
+          "expected_tools": ["recommend_size"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_hard_ask"],
+          "expected_reason_codes": ["HARD_ASK_SIZE_MISSING_MEASUREMENTS"],
+          "expected_asked_slots": ["measurements", "target_gender"],
+          "max_questions": 2,
+          "expected_tools": ["recommend_size"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        }
+      }
+    },
+    {
+      "id": "S6B",
+      "name": "Size advice multi-turn incomplete text reply",
+      "group": "multi_turn_3_modes_separate",
+      "expected_intent": "SIZE_ADVICE",
+      "turn1_prompt": "Tư vấn chọn size giúp mình với",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Mình là nam, muốn chọn size áo sơ mi",
+        "CONDITIONAL_CLARIFICATION": "Mình là nam, muốn chọn size áo sơ mi"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": [],
+          "hard_constraints": {}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["target_gender", "category", "measurements"],
+          "max_questions": 3,
+          "expected_tools": [],
+          "turn2_action": "ASK",
+          "hard_constraints": {}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_hard_ask"],
+          "expected_reason_codes": ["HARD_ASK_SIZE_MISSING_MEASUREMENTS"],
+          "expected_asked_slots": ["measurements", "target_gender"],
+          "max_questions": 2,
+          "expected_tools": [],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {}
+        }
+      }
+    },
+    {
+      "id": "S7",
+      "name": "Open party outfit + user declines gender",
+      "group": "a_vs_bc_missing_critical",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Tư vấn giúp mình một bộ đồ đi tiệc tối nay với.",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Nam nữ gì cũng được, bạn cứ gợi ý giúp mình",
+        "CONDITIONAL_CLARIFICATION": "Nam nữ gì cũng được, bạn cứ gợi ý giúp mình"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["target_gender"],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_counterfactual"],
+          "expected_reason_codes": ["COUNTERFACTUAL_HIGH_IMPACT_ASK", "LOW_TOP_K_JACCARD"],
+          "expected_asked_slots": ["target_gender"],
+          "max_questions": 2,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {}
+        }
+      }
+    },
+    {
+      "id": "S8",
+      "name": "Conflicting color constraint",
+      "group": "a_vs_bc_missing_critical",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Màu trắng",
+        "CONDITIONAL_CLARIFICATION": "Màu trắng"
+      },
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["color"],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_c_hard_ask"],
+          "expected_reason_codes": ["HARD_ASK_CONFLICTING_SLOTS"],
+          "expected_asked_slots": ["color"],
+          "max_questions": 2,
+          "expected_tools": ["suggest_outfit"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        }
+      }
+    },
+    {
+      "id": "S9",
+      "name": "Mode C LLM Gray Zone search",
+      "group": "gray_zone_and_control",
+      "expected_intent": "PRODUCT_SEARCH",
+      "turn1_prompt": "Tìm quần đi làm",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {
+        "ALWAYS_CLARIFY": "Nam",
+        "CONDITIONAL_CLARIFICATION": "Nam"
+      },
+      "requires_main_be": true,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["search_products"],
+          "hard_constraints": {}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "ASK",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["MISSING_REQUIRED_SLOTS"],
+          "expected_asked_slots": ["target_gender"],
+          "max_questions": 3,
+          "expected_tools": ["search_products"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "GRAY_ZONE",
+          "expected_decision_sources": ["mode_c_llm"],
+          "expected_reason_codes": ["GRAY_ZONE_LLM_EVAL"],
+          "expected_asked_slots": [],
+          "forbidden_asked_slots": ["occasion"],
+          "max_questions": 2,
+          "expected_tools": ["search_products"],
+          "turn2_action": "PROCEED",
+          "hard_constraints": {}
+        }
+      }
+    },
+    {
+      "id": "S10A",
+      "name": "Control complete outfit minimalist",
+      "group": "gray_zone_and_control",
+      "expected_intent": "OUTFIT_ADVICE",
+      "turn1_prompt": "Phối đồ đi làm cho nam phong cách minimalist.",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {},
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_a_immediate"],
+          "expected_reason_codes": ["MODE_A_STRICT_ZERO"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_b_required_check"],
+          "expected_reason_codes": ["REQUIRED_SLOTS_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 3,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["mode_c_hard_answer"],
+          "expected_reason_codes": ["HARD_ANSWER_REQUIRED_COMPLETE"],
+          "expected_asked_slots": [],
+          "max_questions": 2,
+          "expected_tools": ["suggest_outfit"],
+          "hard_constraints": {"target_gender": "MALE"}
+        }
+      }
+    },
+    {
+      "id": "S10B",
+      "name": "Control non-shopping policy bypass",
+      "group": "gray_zone_and_control",
+      "expected_intent": "NON_SHOPPING",
+      "turn1_prompt": "Phí ship của shop bao nhiêu và có được đổi size không?",
+      "user_profile": null,
+      "turn2_prompt_by_mode": {},
+      "requires_main_be": false,
+      "expected_by_mode": {
+        "IMMEDIATE_ANSWER": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["non_shopping_bypass"],
+          "expected_reason_codes": ["NON_SHOPPING_BYPASS"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["search_policy"],
+          "hard_constraints": {"expected_policy_docs": ["shipping.md", "returns.md"]}
+        },
+        "ALWAYS_CLARIFY": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["non_shopping_bypass"],
+          "expected_reason_codes": ["NON_SHOPPING_BYPASS"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["search_policy"],
+          "hard_constraints": {"expected_policy_docs": ["shipping.md", "returns.md"]}
+        },
+        "CONDITIONAL_CLARIFICATION": {
+          "turn1_action": "PROCEED",
+          "expected_decision_sources": ["non_shopping_bypass"],
+          "expected_reason_codes": ["NON_SHOPPING_BYPASS"],
+          "expected_asked_slots": [],
+          "max_questions": 0,
+          "expected_tools": ["search_policy"],
+          "hard_constraints": {"expected_policy_docs": ["shipping.md", "returns.md"]}
+        }
+      }
+    }
+  ]
+}
+

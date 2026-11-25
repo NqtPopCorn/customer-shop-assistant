@@ -1,10 +1,14 @@
+"""Evaluation dataset loaders and Pydantic schemas for golden sets and E1."""
+
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
 from customer_shop_assistant.schemas.chat import ClarificationMode, UserProfile
+
+GoldClarificationLabel = Literal["must_clarify", "optional_clarify", "proceed"]
 
 
 class GroundTruth(BaseModel):
@@ -18,7 +22,7 @@ class GroundTruth(BaseModel):
         default=None, description="Expected policy markdown filename"
     )
     required_keywords: list[str] = Field(
-        default_factory=list, description="Keywords that must appear in reply"
+        default_factory=list, description="Diagnostic keywords expected in reply"
     )
     forbidden_keywords: list[str] = Field(
         default_factory=list, description="Keywords that must not appear in reply"
@@ -47,12 +51,32 @@ class EvaluationCase(BaseModel):
         default=None, description="Customer body metrics"
     )
     clarification_mode: ClarificationMode = Field(
-        default=ClarificationMode.MINIMAL_CLARIFICATION,
+        default=ClarificationMode.CONDITIONAL_CLARIFICATION,
         description="Clarification mode under test",
+    )
+    requires_main_be: bool = Field(
+        default=False,
+        description="Whether test case relies on live Main BE catalog/vouchers",
     )
     ground_truth: GroundTruth = Field(
         default_factory=GroundTruth, description="Target evaluation criteria"
     )
+
+
+class E1Scenario(BaseModel):
+    """Single controlled scenario in the E1 Dev/Test benchmark."""
+
+    id: str
+    split: Literal["dev", "test"]
+    expected_intent: str
+    task_type: str
+    question: str
+    user_profile: UserProfile | None = None
+    gold_label: GoldClarificationLabel
+    gold_rationale: str = Field(..., min_length=1)
+    expected_clarify_slots: list[str] = Field(default_factory=list)
+    user_answers: dict[str, str] = Field(default_factory=dict)
+    hard_constraints: dict[str, Any] = Field(default_factory=dict)
 
 
 def load_golden_set(
@@ -60,21 +84,8 @@ def load_golden_set(
     category: str | None = None,
     limit: int | None = None,
 ) -> list[EvaluationCase]:
-    """Load and validate the evaluation golden set from JSON file.
-
-    Parameters
-    ----------
-    filepath:
-        Optional path to questions JSON. Defaults to eval/questions.json.
-    category:
-        Optional category filter (e.g. 'size_fit', 'product_suitability').
-    limit:
-        Optional cap on number of cases returned.
-    """
-    if filepath is None:
-        target = Path("eval/questions.json")
-    else:
-        target = Path(filepath)
+    """Load and validate the evaluation golden set from JSON file."""
+    target = Path("eval/questions.json") if filepath is None else Path(filepath)
 
     if not target.exists():
         raise FileNotFoundError(f"Evaluation dataset not found at: {target}")
