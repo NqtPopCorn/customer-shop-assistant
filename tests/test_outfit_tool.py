@@ -1,11 +1,14 @@
-"""Unit tests for OutfitGraph, TTL caching, suggest_outfit tool, and toggle."""
+"""Unit and integration tests for suggest_outfit tool and OUTFIT_KG_ENABLED toggle."""
 
 from typing import Any
 
 import httpx
 import pytest
+from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+from langchain_core.messages import AIMessage
 
-from customer_shop_assistant.config import Settings, get_settings
+from customer_shop_assistant.config import Settings
+from customer_shop_assistant.schemas.chat import ChatRequest, ClarificationMode
 from customer_shop_assistant.schemas.shop import (
     CategorySchema,
     GenderTarget,
@@ -13,17 +16,7 @@ from customer_shop_assistant.schemas.shop import (
     ProductVariantSchema,
 )
 from customer_shop_assistant.services.agent_service import ShopAssistantAgent
-from customer_shop_assistant.services.outfit_graph import (
-    OutfitGraph,
-    clear_outfit_graph_cache,
-    get_outfit_graph,
-)
-from customer_shop_assistant.services.outfit_rules import (
-    ProductAttrs,
-    load_outfit_rules,
-)
 from customer_shop_assistant.tools.catalog_tool import (
-    get_cached_product,
     get_latest_outfits,
     product_turn_context,
 )
@@ -114,124 +107,7 @@ def _sample_products() -> list[ProductSchema]:
     ]
 
 
-def test_graph_mode_a_anchor_scoring_and_out_of_stock() -> None:
-    rules = load_outfit_rules(get_settings().DATA_DIR / "outfit_kg")
-    graph = OutfitGraph.from_products(_sample_products(), rules, {})
-
-    res = graph.suggest_for_anchor(
-        anchor_id=1,
-        colour="Xanh navy",
-        occasion_range=(3, 5),
-        limit=3,
-    )
-    assert res.error is None
-    assert len(res.outfits) >= 1
-
-    # Polo + Kaki (Be sữa, classic pair with Navy) beats Jeans; includes out-of-stock
-    best = res.outfits[0]
-    assert best.top.product_id == 1
-    assert best.top.color == "Xanh navy"
-    assert best.bottom.product_id == 2
-    assert best.bottom.color == "Be sữa"
-    assert best.bottom.in_stock is False
-    assert best.score > 0.8
-
-
-def test_graph_anchor_out_of_scope_and_bottom_excludes_jacket() -> None:
-    rules = load_outfit_rules(get_settings().DATA_DIR / "outfit_kg")
-    graph = OutfitGraph.from_products(_sample_products(), rules, {})
-
-    dress_res = graph.suggest_for_anchor(anchor_id=7)
-    assert dress_res.error == "out_of_scope"
-    assert dress_res.outfits == []
-
-    bottom_res = graph.suggest_for_anchor(anchor_id=2)
-    assert bottom_res.error is None
-    top_ids = {o.top.product_id for o in bottom_res.outfits}
-    assert 4 not in top_ids  # Jacket excluded when anchoring on bottom
-    assert 1 in top_ids
-
-
-def test_graph_mode_b_no_duplicate_products_and_pattern_attr_join() -> None:
-    rules = load_outfit_rules(get_settings().DATA_DIR / "outfit_kg")
-    attrs_by_slug = {
-        "slug-1": ProductAttrs(
-            slug="slug-1",
-            role="TOP",
-            category="Áo polo",
-            pattern_raw="Solid",
-            pattern_class="SOLID",
-            formality=3,
-        ),
-        "slug-2": ProductAttrs(
-            slug="slug-2",
-            role="BOTTOM",
-            category="Quần kaki",
-            pattern_raw="Solid",
-            pattern_class="SOLID",
-            formality=3,
-        ),
-    }
-    graph = OutfitGraph.from_products(_sample_products(), rules, attrs_by_slug)
-
-    res = graph.suggest_open(gender=None, limit=4)
-    assert (
-        len(res.outfits) == 2
-    )  # 1 male pair (top 1 + bottom 2/3) + 1 female pair (5+6)
-    seen_tops = {o.top.product_id for o in res.outfits}
-    seen_bots = {o.bottom.product_id for o in res.outfits}
-    assert len(seen_tops) == len(res.outfits)
-    assert len(seen_bots) == len(res.outfits)
-
-
-@pytest.mark.anyio
-async def test_get_outfit_graph_ttl_cache_and_tool_context(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    clear_outfit_graph_cache()
-    call_count = 0
-    payload = {
-        "data": [p.model_dump(by_alias=True) for p in _sample_products()],
-        "meta": {"total": 7, "page": 1, "limit": 2000, "totalPages": 1},
-    }
-
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        nonlocal call_count
-        call_count += 1
-        return httpx.Response(
-            status_code=200,
-            json=payload,
-            request=httpx.Request("GET", str(url)),
-        )
-
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
-
-    g1 = await get_outfit_graph()
-    g2 = await get_outfit_graph()
-    assert g1 is g2
-    assert call_count == 1
-
-    with product_turn_context():
-        text = await suggest_outfit.ainvoke(
-            {"product_id": 1, "color": "Xanh navy", "occasion": "đi làm"}
-        )
-        outfits = get_latest_outfits()
-        assert len(outfits) >= 1
-        assert "(màu này đang hết hàng)" in text
-        assert get_cached_product(outfits[0].top.product_id) is not None
-        assert get_cached_product(outfits[0].bottom.product_id) is not None
-
-        dress_msg = await suggest_outfit.ainvoke({"product_id": 7})
-        assert "chưa hỗ trợ" in dress_msg
-        assert get_latest_outfits() == []
-
-    clear_outfit_graph_cache()
-
-
 def test_agent_respects_outfit_kg_enabled_flag() -> None:
-    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-    from langchain_core.messages import AIMessage
-
     class FakeModel(GenericFakeChatModel):
         last_tools: list[Any] | None = None
 
@@ -256,12 +132,6 @@ def test_agent_respects_outfit_kg_enabled_flag() -> None:
 async def test_agent_chat_populates_outfits_and_products(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-    from langchain_core.messages import AIMessage
-
-    from customer_shop_assistant.schemas.chat import ChatRequest, ClarificationMode
-
-    clear_outfit_graph_cache()
     payload = {
         "data": [p.model_dump(by_alias=True) for p in _sample_products()],
         "meta": {"total": 7, "page": 1, "limit": 2000, "totalPages": 1},
@@ -293,7 +163,7 @@ async def test_agent_chat_populates_outfits_and_products(
     final_msg = AIMessage(
         content=(
             "Gợi ý phối đồ cho [1] Áo Polo Pique Nam (Xanh navy): "
-            "phối cùng [2] Quần Kaki Chinos Nam màu Be sữa (màu này đang hết hàng)."
+            "phối cùng [2] Quần Kaki Chinos Nam màu Xanh lá."
         )
     )
     agent = ShopAssistantAgent(
@@ -314,14 +184,12 @@ async def test_agent_chat_populates_outfits_and_products(
     assert res.outfits[0].bottom.product_id == 2
     assert any(p.id == 2 for p in res.products)
     assert "Quần Kaki Chinos Nam" in res.reply
-    clear_outfit_graph_cache()
 
 
 @pytest.mark.anyio
 async def test_suggest_open_with_category_and_color_filters(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    clear_outfit_graph_cache()
     payload = {
         "data": [p.model_dump(by_alias=True) for p in _sample_products()],
         "meta": {"total": 7, "page": 1, "limit": 2000, "totalPages": 1},
@@ -349,26 +217,19 @@ async def test_suggest_open_with_category_and_color_filters(
         assert outfits[0].top.product_id == 1
         assert outfits[0].top.color == "Xanh navy"
         assert outfits[0].bottom.product_id == 2
-        assert outfits[0].bottom.color == "Be sữa"
+        assert outfits[0].bottom.in_stock is True
+        assert outfits[0].bottom.color == "Xanh lá"
         assert "[1]" in text and "[2]" in text
 
         oos_text = await suggest_outfit.ainvoke({"top_category": "Váy liền"})
         assert "chưa hỗ trợ" in oos_text
         assert get_latest_outfits() == []
 
-    clear_outfit_graph_cache()
-
 
 @pytest.mark.anyio
 async def test_strict_outfit_intent_redirects_search_and_fallback_returns_combos(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-    from langchain_core.messages import AIMessage
-
-    from customer_shop_assistant.schemas.chat import ChatRequest, ClarificationMode
-
-    clear_outfit_graph_cache()
     payload = {
         "data": [p.model_dump(by_alias=True) for p in _sample_products()],
         "meta": {"total": 7, "page": 1, "limit": 2000, "totalPages": 1},
@@ -404,7 +265,7 @@ async def test_strict_outfit_intent_redirects_search_and_fallback_returns_combos
     final_msg = AIMessage(
         content=(
             "Bộ 1: [1] Áo Polo Pique Nam (Xanh navy) "
-            "+ [2] Quần Kaki Chinos Nam (Be sữa)."
+            "+ [2] Quần Kaki Chinos Nam (Xanh lá)."
         )
     )
     m_redirect = InspectableToolModel(messages=iter([hallucinated_search, final_msg]))
@@ -453,4 +314,4 @@ async def test_strict_outfit_intent_redirects_search_and_fallback_returns_combos
     assert res2.outfits[0].top.product_id == 1
     assert res2.outfits[0].bottom.product_id == 3
     assert "[1]" in res2.reply and "[3]" in res2.reply
-    clear_outfit_graph_cache()
+

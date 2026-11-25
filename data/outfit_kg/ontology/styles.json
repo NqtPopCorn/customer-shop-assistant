@@ -1,0 +1,51 @@
+[
+  {
+    "id": "smart_casual",
+    "name": "Smart Casual",
+    "aliases": ["smart-casual", "smart casual", "lịch sự trẻ trung"],
+    "formality_min": 2,
+    "formality_max": 4,
+    "description": "Cân bằng giữa sự chỉn chu và thoải mái, linh hoạt đi làm lẫn đi chơi."
+  },
+  {
+    "id": "formal_office",
+    "name": "Lịch sự công sở",
+    "aliases": ["công sở lịch sự", "lịch sự", "chuẩn mực công sở", "formal"],
+    "formality_min": 4,
+    "formality_max": 5,
+    "description": "Trang phục trang trọng, đứng phom cho môi trường văn phòng và họp hành."
+  },
+  {
+    "id": "casual",
+    "name": "Casual",
+    "aliases": ["năng động", "trẻ trung", "thoải mái", "casual"],
+    "formality_min": 1,
+    "formality_max": 2,
+    "description": "Gọn nhẹ, dễ chịu cho sinh hoạt hằng ngày, dạo phố và du lịch."
+  },
+  {
+    "id": "minimalist",
+    "name": "Minimalist",
+    "aliases": ["tối giản", "minimalist", "tinh gọn"],
+    "formality_min": 2,
+    "formality_max": 4,
+    "description": "Thiết kế tinh giản, màu trung tính dễ phối, ít chi tiết rườm rà."
+  },
+  {
+    "id": "streetwear",
+    "name": "Streetwear",
+    "aliases": ["streetwear", "cá tính", "streetwear / cá tính", "đường phố"],
+    "formality_min": 1,
+    "formality_max": 3,
+    "description": "Phong cách trẻ trung, phóng khoáng với phom rộng hoặc áo khoác layering."
+  },
+  {
+    "id": "elegant",
+    "name": "Thanh lịch",
+    "aliases": ["thanh lịch", "sang trọng", "nữ tính thanh lịch"],
+    "formality_min": 3,
+    "formality_max": 5,
+    "description": "Nhẹ nhàng, tinh tế và nổi bật cho tiệc nhẹ, hẹn hò hoặc sự kiện."
+  }
+]
+

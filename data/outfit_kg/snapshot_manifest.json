@@ -1,0 +1,40 @@
+{
+  "snapshot_file": "hm_seed_1000.json",
+  "sha256": "825986355ab0cf0e835fb227cfcb68a57df820b75228dd57e9935c225c79df45",
+  "total_products": 1000,
+  "in_stock_products": 1000,
+  "price_min": 144000.0,
+  "price_max": 1140000.0,
+  "price_quantiles": {
+    "p25": 241000.0,
+    "p50": 374000.0,
+    "p75": 637000.0
+  },
+  "gender_counts": {
+    "FEMALE": 575,
+    "MALE": 341,
+    "UNISEX": 84
+  },
+  "category_counts": {
+    "Chân váy": 75,
+    "Mũ nón": 30,
+    "Quần jeans": 80,
+    "Quần kaki": 75,
+    "Quần short": 65,
+    "Quần âu": 75,
+    "Thắt lưng": 30,
+    "Túi xách": 35,
+    "Váy liền": 95,
+    "Áo khoác": 95,
+    "Áo polo": 75,
+    "Áo sơ mi": 100,
+    "Áo thun": 100,
+    "Đầm dạ hội": 70
+  },
+  "blueprint_category_product_count": 740,
+  "non_blueprint_category_product_count": 260,
+  "color_count": 33,
+  "unmapped_categories": [],
+  "unmapped_colors": [],
+  "ontology_errors": []
+}

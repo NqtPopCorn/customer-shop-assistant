@@ -1,0 +1,115 @@
+[
+  {
+    "id": "ao_thun",
+    "name": "Áo thun",
+    "aliases": ["tshirt", "t-shirt", "áo phông", "ao thun", "ao phong"],
+    "role": "TOP",
+    "base_formality": 1,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "ao_polo",
+    "name": "Áo polo",
+    "aliases": ["polo", "ao polo"],
+    "role": "TOP",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "ao_so_mi",
+    "name": "Áo sơ mi",
+    "aliases": ["shirt", "sơ mi", "so mi", "ao so mi"],
+    "role": "TOP",
+    "base_formality": 4,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "ao_khoac",
+    "name": "Áo khoác",
+    "aliases": ["jacket", "blazer", "hoodie", "bomber", "ao khoac"],
+    "role": "OUTERWEAR",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "quan_jeans",
+    "name": "Quần jeans",
+    "aliases": ["jeans", "jean", "quần jean", "quần bò", "quan jeans"],
+    "role": "BOTTOM",
+    "base_formality": 2,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "quan_kaki",
+    "name": "Quần kaki",
+    "aliases": ["kaki", "khaki", "quần chinos", "chinos", "quan kaki"],
+    "role": "BOTTOM",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "quan_short",
+    "name": "Quần short",
+    "aliases": ["short", "quần đùi", "quan short"],
+    "role": "BOTTOM",
+    "base_formality": 1,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "quan_au",
+    "name": "Quần âu",
+    "aliases": ["pants", "quần tây", "quan tay", "quan au"],
+    "role": "BOTTOM",
+    "base_formality": 5,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "chan_vay",
+    "name": "Chân váy",
+    "aliases": ["skirt", "chan vay"],
+    "role": "BOTTOM",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": true
+  },
+  {
+    "id": "vay_lien",
+    "name": "Váy liền",
+    "aliases": ["dress", "váy", "đầm", "vay lien"],
+    "role": "ONE_PIECE",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": false
+  },
+  {
+    "id": "dam_da_hoi",
+    "name": "Đầm dạ hội",
+    "aliases": ["đầm dự tiệc", "váy dạ hội", "dam da hoi"],
+    "role": "ONE_PIECE",
+    "base_formality": 5,
+    "supports_top_bottom_blueprint": false
+  },
+  {
+    "id": "tui_xach",
+    "name": "Túi xách",
+    "aliases": ["túi", "tui xach"],
+    "role": "ACCESSORY",
+    "base_formality": 3,
+    "supports_top_bottom_blueprint": false
+  },
+  {
+    "id": "mu_non",
+    "name": "Mũ nón",
+    "aliases": ["mũ", "nón", "mu non"],
+    "role": "ACCESSORY",
+    "base_formality": 1,
+    "supports_top_bottom_blueprint": false
+  },
+  {
+    "id": "that_lung",
+    "name": "Thắt lưng",
+    "aliases": ["dây nịt", "that lung"],
+    "role": "ACCESSORY",
+    "base_formality": 4,
+    "supports_top_bottom_blueprint": false
+  }
+]
+

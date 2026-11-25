@@ -104,10 +104,33 @@ class Settings(BaseSettings):
         default=True,
         description="Enable suggest_outfit KG tool (False = baseline)",
     )
-    OUTFIT_KG_CACHE_TTL_SECONDS: int = Field(
-        default=600,
-        ge=1,
-        description="TTL in seconds for in-memory OutfitGraph cache",
+    OUTFIT_KG_BACKEND: Literal["inmemory", "neo4j"] = Field(
+        default="inmemory",
+        description="Category-level KG repository backend: inmemory or neo4j",
+    )
+    COUNTERFACTUAL_POLICY_ENABLED: bool = Field(
+        default=True,
+        description="Enable CounterfactualClarificationPolicy in Mode C Gray Zone",
+    )
+    SNAPSHOT_CATALOG_FILENAME: str = Field(
+        default="hm_seed_1000.json",
+        description="Fixed 1,000-product research snapshot JSON filename in DATA_DIR",
+    )
+    NEO4J_URI: str = Field(
+        default="bolt://localhost:7687",
+        description="Neo4j Bolt URI",
+    )
+    NEO4J_USER: str = Field(
+        default="neo4j",
+        description="Neo4j username",
+    )
+    NEO4J_PASSWORD: str = Field(
+        default="fashion_kg_password",
+        description="Neo4j password",
+    )
+    NEO4J_DATABASE: str = Field(
+        default="neo4j",
+        description="Neo4j database name",
     )
 
     DATA_DIR: Path = Path(__file__).resolve().parent.parent.parent / "data"

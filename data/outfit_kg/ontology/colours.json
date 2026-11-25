@@ -1,0 +1,267 @@
+[
+  {
+    "id": "den",
+    "name": "Đen",
+    "aliases": ["black"],
+    "family": "black",
+    "neutral": true,
+    "lightness": "dark"
+  },
+  {
+    "id": "trang",
+    "name": "Trắng",
+    "aliases": ["white", "màu sáng"],
+    "family": "white",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "trang_kem",
+    "name": "Trắng kem",
+    "aliases": ["kem", "cream", "off-white"],
+    "family": "white",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "xam_tieu",
+    "name": "Xám tiêu",
+    "aliases": ["xám", "grey", "gray"],
+    "family": "grey",
+    "neutral": true,
+    "lightness": "mid"
+  },
+  {
+    "id": "xam_dam",
+    "name": "Xám đậm",
+    "aliases": ["charcoal", "màu tối"],
+    "family": "grey",
+    "neutral": true,
+    "lightness": "dark"
+  },
+  {
+    "id": "xam_nhat",
+    "name": "Xám nhạt",
+    "aliases": ["xám ghi", "ghi", "light grey"],
+    "family": "grey",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "bac",
+    "name": "Bạc",
+    "aliases": ["silver"],
+    "family": "grey",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "xanh_navy",
+    "name": "Xanh navy",
+    "aliases": ["navy", "xanh than"],
+    "family": "blue",
+    "neutral": true,
+    "lightness": "dark"
+  },
+  {
+    "id": "be_sua",
+    "name": "Be sữa",
+    "aliases": ["be", "beige", "trung tính"],
+    "family": "beige",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "be_sang",
+    "name": "Be sáng",
+    "aliases": ["light beige"],
+    "family": "beige",
+    "neutral": true,
+    "lightness": "light"
+  },
+  {
+    "id": "nau_be",
+    "name": "Nâu be",
+    "aliases": ["nâu", "brown"],
+    "family": "brown",
+    "neutral": true,
+    "lightness": "mid"
+  },
+  {
+    "id": "nau_camel",
+    "name": "Nâu camel",
+    "aliases": ["camel"],
+    "family": "brown",
+    "neutral": true,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_reu_khaki",
+    "name": "Xanh rêu khaki",
+    "aliases": ["xanh rêu", "rêu", "olive"],
+    "family": "green",
+    "neutral": true,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_duong",
+    "name": "Xanh dương",
+    "aliases": ["xanh", "blue"],
+    "family": "blue",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_lam_nhat",
+    "name": "Xanh lam nhạt",
+    "aliases": ["xanh pastel", "sky blue", "light blue"],
+    "family": "blue",
+    "neutral": false,
+    "lightness": "light"
+  },
+  {
+    "id": "xanh_co_vit",
+    "name": "Xanh cổ vịt",
+    "aliases": ["teal"],
+    "family": "teal",
+    "neutral": false,
+    "lightness": "dark"
+  },
+  {
+    "id": "xanh_ngoc",
+    "name": "Xanh ngọc",
+    "aliases": ["turquoise"],
+    "family": "teal",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_ngoc_bich",
+    "name": "Xanh ngọc bích",
+    "aliases": ["jade"],
+    "family": "teal",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_la",
+    "name": "Xanh lá",
+    "aliases": ["green"],
+    "family": "green",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "xanh_mint",
+    "name": "Xanh mint",
+    "aliases": ["mint"],
+    "family": "green",
+    "neutral": false,
+    "lightness": "light"
+  },
+  {
+    "id": "hong_pastel",
+    "name": "Hồng pastel",
+    "aliases": ["pastel pink"],
+    "family": "pink",
+    "neutral": false,
+    "lightness": "light"
+  },
+  {
+    "id": "hong",
+    "name": "Hồng",
+    "aliases": ["pink"],
+    "family": "pink",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "hong_dat",
+    "name": "Hồng đất",
+    "aliases": ["dusty rose"],
+    "family": "pink",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "do_do",
+    "name": "Đỏ đô",
+    "aliases": ["đỏ", "burgundy", "maroon"],
+    "family": "red",
+    "neutral": false,
+    "lightness": "dark"
+  },
+  {
+    "id": "do_tuoi",
+    "name": "Đỏ tươi",
+    "aliases": ["red"],
+    "family": "red",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "cam_dao",
+    "name": "Cam đào",
+    "aliases": ["peach"],
+    "family": "orange",
+    "neutral": false,
+    "lightness": "light"
+  },
+  {
+    "id": "cam",
+    "name": "Cam",
+    "aliases": ["orange"],
+    "family": "orange",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "cam_dat",
+    "name": "Cam đất",
+    "aliases": ["terracotta"],
+    "family": "orange",
+    "neutral": false,
+    "lightness": "dark"
+  },
+  {
+    "id": "vang_mu_tat",
+    "name": "Vàng mù tạt",
+    "aliases": ["mustard"],
+    "family": "yellow",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "vang_kem",
+    "name": "Vàng kem",
+    "aliases": ["vàng", "yellow"],
+    "family": "yellow",
+    "neutral": false,
+    "lightness": "light"
+  },
+  {
+    "id": "vang_anh_kim",
+    "name": "Vàng ánh kim",
+    "aliases": ["gold"],
+    "family": "yellow",
+    "neutral": false,
+    "lightness": "mid"
+  },
+  {
+    "id": "tim_than",
+    "name": "Tím than",
+    "aliases": ["tím", "dark purple"],
+    "family": "purple",
+    "neutral": false,
+    "lightness": "dark"
+  },
+  {
+    "id": "tim_lilac",
+    "name": "Tím lilac",
+    "aliases": ["lilac"],
+    "family": "purple",
+    "neutral": false,
+    "lightness": "light"
+  }
+]
+

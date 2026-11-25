@@ -1,0 +1,67 @@
+[
+  {
+    "id": "office",
+    "name": "Công sở / Đi làm",
+    "slot_code": "office",
+    "aliases": ["công sở", "đi làm", "văn phòng", "office"],
+    "formality_min": 3,
+    "formality_max": 5
+  },
+  {
+    "id": "meeting",
+    "name": "Gặp khách / Đi họp",
+    "slot_code": "office",
+    "aliases": ["gặp khách", "đi họp", "phỏng vấn", "meeting"],
+    "formality_min": 4,
+    "formality_max": 5
+  },
+  {
+    "id": "party",
+    "name": "Dự tiệc / Đám cưới",
+    "slot_code": "party",
+    "aliases": ["dự tiệc", "đám cưới", "tiệc", "gala", "sự kiện", "sinh nhật", "party"],
+    "formality_min": 3,
+    "formality_max": 5
+  },
+  {
+    "id": "date",
+    "name": "Hẹn hò",
+    "slot_code": "casual",
+    "aliases": ["hẹn hò", "date"],
+    "formality_min": 2,
+    "formality_max": 4
+  },
+  {
+    "id": "cafe",
+    "name": "Cà phê",
+    "slot_code": "casual",
+    "aliases": ["cà phê", "cafe"],
+    "formality_min": 1,
+    "formality_max": 3
+  },
+  {
+    "id": "hangout",
+    "name": "Đi chơi / Dạo phố",
+    "slot_code": "casual",
+    "aliases": ["đi chơi", "dạo phố", "cuối tuần", "hằng ngày", "hàng ngày", "hangout"],
+    "formality_min": 1,
+    "formality_max": 3
+  },
+  {
+    "id": "travel_beach",
+    "name": "Du lịch / Đi biển",
+    "slot_code": "casual",
+    "aliases": ["du lịch", "đi biển", "biển", "travel"],
+    "formality_min": 1,
+    "formality_max": 2
+  },
+  {
+    "id": "sport",
+    "name": "Thể thao / Vận động",
+    "slot_code": "sport",
+    "aliases": ["thể thao", "tập gym", "chạy bộ", "vận động", "gym", "sport"],
+    "formality_min": 1,
+    "formality_max": 2
+  }
+]
+
