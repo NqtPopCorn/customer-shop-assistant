@@ -637,21 +637,9 @@ async def get_product_detail(product_id: int | str) -> str:
         *([f"Phom dáng: {product.fit}"] if product.fit else []),
         *([f"Họa tiết: {product.pattern}"] if product.pattern else []),
         *([f"Dịp mặc: {product.occasion}"] if product.occasion else []),
-        *(
-            [f"Phom dáng: {product.fit}"]
-            if product.fit
-            else []
-        ),
-        *(
-            [f"Họa tiết: {product.pattern}"]
-            if product.pattern
-            else []
-        ),
-        *(
-            [f"Dịp mặc: {product.occasion}"]
-            if product.occasion
-            else []
-        ),
+        *([f"Phom dáng: {product.fit}"] if product.fit else []),
+        *([f"Họa tiết: {product.pattern}"] if product.pattern else []),
+        *([f"Dịp mặc: {product.occasion}"] if product.occasion else []),
         (
             f"Giới tính phù hợp: "
             f"{product.target_gender.value if product.target_gender else 'N/A'}"

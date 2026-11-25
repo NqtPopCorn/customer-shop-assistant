@@ -51,6 +51,8 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     res1 = await agent_t1.chat(req1)
 
     assert res1.clarification_asked is True
+    assert res1.clarification_form is not None
+    assert [q.id for q in res1.clarification_form.questions] == ["target_gender"]
     # Verify NO tools were bound in turn 1 (gate_search=True)
     bound_tool_names_t1 = [
         getattr(t, "name", str(t)) for t in (t1_model.last_bound_tools or [])
@@ -62,21 +64,22 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     assert res1.debug_meta.tools_available == []
     assert res1.debug_meta.state_snapshot is not None
     assert res1.debug_meta.state_snapshot.clarify_phase == "INTERVIEW"
-    assert res1.debug_meta.state_snapshot.next_phase == "OPEN"
+    assert res1.debug_meta.state_snapshot.next_phase == "INTERVIEW"
 
-    # Check session state advanced to OPEN after turn 1
+    # Mode B allows up to 2 clarification turns while still in INTERVIEW
     sess = session_mgr.get_session(session_id)
     assert sess.clarification_mode == ClarificationMode.ALWAYS_CLARIFY.value
-    assert sess.clarify_phase == ClarifyPhase.OPEN
+    assert sess.clarify_phase == ClarifyPhase.INTERVIEW
+    assert sess.clarification_turns == 1
     assert sess.gated_turns == 1
 
-    # Turn 2: LLM calls search_products now that phase is OPEN
+    # Turn 2: User provides missing required slot (target_gender) -> unlocks immediately
     tool_call_msg = AIMessage(
         content="",
         tool_calls=[
             {
                 "name": "search_products",
-                "args": {"query": "áo sơ mi công sở"},
+                "args": {"query": "áo sơ mi nam công sở"},
                 "id": "call_search_1",
             }
         ],
@@ -92,7 +95,7 @@ async def test_mode_b_turn1_gating_and_turn2_unlock() -> None:
     )
 
     req2 = ChatRequest(
-        message="Mình cần mặc đi làm văn phòng",
+        message="Mình là Nam, cần mặc đi làm văn phòng",
         session_id=session_id,
         clarification_mode=ClarificationMode.ALWAYS_CLARIFY,
     )
@@ -211,9 +214,10 @@ async def test_mode_switch_resets_state_machine() -> None:
         getattr(t, "name", str(t)) for t in (fake_model.last_bound_tools or [])
     ]
     assert "search_products" not in bound_tools
-    # Session now reflects Mode B with 1 gated turn completed, advancing to OPEN
+    # Session now reflects Mode B with 1 gated/clarification turn completed
     assert sess.clarification_mode == ClarificationMode.ALWAYS_CLARIFY.value
-    assert sess.clarify_phase == ClarifyPhase.OPEN
+    assert sess.clarify_phase == ClarifyPhase.INTERVIEW
+    assert sess.clarification_turns == 1
     assert sess.gated_turns == 1
 
 
@@ -336,7 +340,7 @@ async def test_mode_b_does_not_gate_non_shopping_and_preserves_interview() -> No
     assert res2.clarification_asked is True
     assert res2.clarification_form is not None
     assert res2.clarification_form.questions[0].id == "target_gender"
-    assert sess.clarify_phase == ClarifyPhase.OPEN
+    assert sess.clarification_turns == 1
     assert sess.gated_turns == 1
 
 
@@ -814,7 +818,7 @@ async def test_mode_b_interview_uses_compact_prompt_and_buffers_stream() -> None
     assert "buổi tiệc" in done_chunk["reply"]
     assert done_chunk["clarification_asked"] is True
     assert done_chunk["debug_meta"]["phase"] == "INTERVIEW"
-    assert done_chunk["debug_meta"]["state_snapshot"]["next_phase"] == "OPEN"
+    assert done_chunk["debug_meta"]["state_snapshot"]["next_phase"] == "INTERVIEW"
     agent_stream.structured_model.ainvoke.assert_not_awaited()
 
 

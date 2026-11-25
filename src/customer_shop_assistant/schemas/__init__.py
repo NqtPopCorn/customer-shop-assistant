@@ -5,6 +5,20 @@ from customer_shop_assistant.schemas.chat import (
     ClarificationMode,
     UserProfile,
 )
+from customer_shop_assistant.schemas.clarification import (
+    ClarificationDecision,
+    DecisionSource,
+    SlotConfidence,
+    SlotStatus,
+)
+from customer_shop_assistant.schemas.outfit_kg import (
+    CandidateOutcome,
+    ColorHarmonyAdvice,
+    OutfitBlueprint,
+    OutfitOntology,
+    SlotImpactSignals,
+    SnapshotManifest,
+)
 from customer_shop_assistant.schemas.shop import (
     BrandSchema,
     CategorySchema,
@@ -22,13 +36,19 @@ from customer_shop_assistant.schemas.shop import (
 
 __all__ = [
     "BrandSchema",
+    "CandidateOutcome",
     "CategorySchema",
     "ChatMessage",
     "ChatRequest",
     "ChatResponse",
+    "ClarificationDecision",
     "ClarificationMode",
+    "ColorHarmonyAdvice",
+    "DecisionSource",
     "DiscountItemSchema",
     "GenderTarget",
+    "OutfitBlueprint",
+    "OutfitOntology",
     "ProductFilterParams",
     "ProductFit",
     "ProductImageSchema",
@@ -36,6 +56,10 @@ __all__ = [
     "ProductSchema",
     "ProductVariantSchema",
     "ReviewItemSchema",
+    "SlotConfidence",
+    "SlotImpactSignals",
+    "SlotStatus",
+    "SnapshotManifest",
     "UserProfile",
     "VoucherCheckResult",
 ]

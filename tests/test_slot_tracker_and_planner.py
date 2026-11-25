@@ -65,16 +65,16 @@ def test_detailed_query_asks_refinement_and_never_measurements() -> None:
     assert slots.has("budget")
     assert slots.value_of("budget").max_price == 500000.0
 
+    # Spec v1.1: When all Required Slots are resolved, default planner returns 0
+    # questions and never auto-asks Optional Slots or Not Applicable slots.
     form = build_clarification_form(slots, intent, max_questions=3)
-    q_ids = [q.id for q in form.questions]
-    assert "measurements" not in q_ids
-    assert "target_gender" not in q_ids
-    assert "occasion" not in q_ids
-    assert "budget" not in q_ids
-    assert any(qid in q_ids for qid in ("fit", "color", "style"))
-    assert "style" in q_ids
-    style_q = next(q for q in form.questions if q.id == "style")
-    assert style_q.type == "multiple"
+    assert form.questions == []
+
+    # Conditional slots (e.g. fit) can still be built when explicitly targeted
+    cond_form = build_clarification_form(
+        slots, intent, max_questions=2, target_slots=["fit"]
+    )
+    assert [q.id for q in cond_form.questions] == ["fit"]
 
 
 def test_multi_turn_slot_accumulation_and_session_profile_sync() -> None:
@@ -102,15 +102,22 @@ def test_unisex_does_not_misclassify_as_male() -> None:
 
 
 def test_catalog_aligned_options_and_context_adaptation() -> None:
-    # Casual jeans should not offer 'Dự tiệc'
+    # Casual jeans should not offer 'Dự tiệc' when occasion is targeted
     slots_jeans, intent_jeans = extract_conversation_slots(["Tìm quần jeans nam"])
-    form_jeans = build_clarification_form(slots_jeans, intent_jeans, max_questions=3)
+    form_jeans = build_clarification_form(
+        slots_jeans, intent_jeans, max_questions=3, target_slots=["occasion"]
+    )
     occ_q = next(q for q in form_jeans.questions if q.id == "occasion")
     assert not any("Dự tiệc" in opt for opt in occ_q.options)
 
     # Male shopper should not receive skirt/dress options in category question
     slots_male, intent_male = extract_conversation_slots(["Tìm đồ đi chơi cho nam"])
-    form_male = build_clarification_form(slots_male, intent_male, max_questions=3)
+    form_male = build_clarification_form(
+        slots_male,
+        intent_male,
+        max_questions=3,
+        target_slots=["category", "budget"],
+    )
     cat_q = next(q for q in form_male.questions if q.id == "category")
     assert not any("Đầm" in opt or "Chân váy" in opt for opt in cat_q.options)
 

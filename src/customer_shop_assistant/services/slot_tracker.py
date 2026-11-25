@@ -1,4 +1,4 @@
-"""Deterministic multi-turn slot tracker and turn intent classifier (P0-P3)."""
+"""Deterministic multi-turn slot tracker, lifecycle manager, and intent classifier."""
 
 import re
 from collections.abc import Sequence
@@ -9,9 +9,53 @@ from langchain_core.messages import BaseMessage, HumanMessage
 from pydantic import BaseModel, Field
 
 from customer_shop_assistant.schemas.chat import UserProfile
+from customer_shop_assistant.schemas.clarification import SlotConfidence, SlotStatus
 from customer_shop_assistant.schemas.shop import GenderTarget
 
-SlotSource = Literal["explicit", "profile", "inferred"]
+SlotSource = Literal["explicit", "history", "profile", "inferred", "system"]
+
+SESSION_PERSISTENT_SLOTS: frozenset[str] = frozenset(
+    {"target_gender", "measurements", "body_concern", "fit", "size"}
+)
+
+TASK_SCOPED_SLOTS: frozenset[str] = frozenset(
+    {
+        "category",
+        "category_subtype",
+        "top_category",
+        "bottom_category",
+        "product_id",
+        "occasion",
+        "budget",
+        "color",
+        "top_color",
+        "bottom_color",
+        "disliked_colors",
+        "style",
+        "material",
+    }
+)
+
+STANDARD_SLOTS: tuple[str, ...] = (
+    "target_gender",
+    "category",
+    "category_subtype",
+    "top_category",
+    "bottom_category",
+    "product_id",
+    "occasion",
+    "budget",
+    "fit",
+    "size",
+    "style",
+    "color",
+    "top_color",
+    "bottom_color",
+    "disliked_colors",
+    "material",
+    "measurements",
+    "body_concern",
+)
 
 
 class TurnIntent(StrEnum):
@@ -25,10 +69,33 @@ class TurnIntent(StrEnum):
 
 
 class SlotValue(BaseModel):
-    """Typed slot payload tracking both extracted value and provenance."""
+    """Typed slot payload tracking normalized value, provenance, and 8-state status."""
 
-    value: Any = Field(..., description="Normalized slot value")
-    source: SlotSource = Field(..., description="Origin: explicit, profile, inferred")
+    value: Any = Field(default=None, description="Normalized slot value")
+    source: SlotSource = Field(
+        default="explicit",
+        description="Origin: explicit, history, profile, inferred, system",
+    )
+    status: SlotStatus = Field(
+        default="PROVIDED",
+        description="Official 8-state clarification slot status",
+    )
+    confidence: SlotConfidence | None = Field(
+        default=None, description="Confidence level when status == 'INFERRED'"
+    )
+    conflict_detail: str | None = Field(
+        default=None, description="Description when status == 'CONFLICTING'"
+    )
+
+    def is_resolved(self) -> bool:
+        """Return True if slot value is settled without needing clarification."""
+        if self.value is None:
+            return False
+        if self.status in ("PROVIDED", "RESOLVED_FROM_CONTEXT"):
+            return True
+        if self.status == "INFERRED" and self.confidence == "high":
+            return True
+        return False
 
 
 class BudgetValue(BaseModel):
@@ -47,14 +114,18 @@ class MeasurementsValue(BaseModel):
     waist_cm: float | None = Field(default=None, ge=30, le=150)
 
 
+_BOTTOM_WAIST_CATEGORIES = frozenset({"jeans", "kaki", "short", "pants", "skirt"})
+
+
 class ConversationSlots(BaseModel):
-    """Multi-turn accumulated fashion slots organized by P0-P3 priority."""
+    """Multi-turn accumulated fashion slots with 8-state tracking and lifecycle."""
 
     # P0 - Purpose & Core Context
     target_gender: SlotValue | None = None
     category: SlotValue | None = None
     top_category: SlotValue | None = None
     bottom_category: SlotValue | None = None
+    product_id: SlotValue | None = None
     occasion: SlotValue | None = None
     shopping_intent: SlotValue | None = None
 
@@ -68,19 +139,62 @@ class ConversationSlots(BaseModel):
     color: SlotValue | None = None
     top_color: SlotValue | None = None
     bottom_color: SlotValue | None = None
+    disliked_colors: SlotValue | None = None
     material: SlotValue | None = None
 
     # P3 - Advanced Personalization
     measurements: SlotValue | None = None
     body_concern: SlotValue | None = None
 
-    def has(self, name: str) -> bool:
-        """Return True if the requested slot currently has a non-empty value."""
-        if name == "category_subtype":
-            cat_val = self.value_of("category")
-            return cat_val is not None and cat_val not in ("tops", "pants")
+    def _raw_slot(self, name: str) -> SlotValue | None:
         slot = getattr(self, name, None)
-        if not isinstance(slot, SlotValue) or slot.value is None:
+        return slot if isinstance(slot, SlotValue) else None
+
+    def status_of(self, name: str, intent: TurnIntent | None = None) -> SlotStatus:
+        """Return the official SlotStatus for a slot name under an optional intent."""
+        if intent is not None and name in get_not_applicable_slots(intent):
+            return "NOT_APPLICABLE"
+        if name == "category_subtype":
+            cat_slot = self._raw_slot("category")
+            if cat_slot is None:
+                return "UNKNOWN"
+            if cat_slot.status in ("DECLINED", "CONFLICTING", "AMBIGUOUS", "UNKNOWN"):
+                return cat_slot.status
+            if cat_slot.value in ("tops", "pants"):
+                return "UNKNOWN"
+            return cat_slot.status
+        slot = self._raw_slot(name)
+        if slot is None:
+            return "UNKNOWN"
+        return slot.status
+
+    def is_declined(self, name: str) -> bool:
+        """Return True when the customer declined or indicated uncertainty for slot."""
+        slot = self._raw_slot(name)
+        return slot is not None and slot.status == "DECLINED"
+
+    def is_conflicting(self, name: str) -> bool:
+        """Return True when contradictory constraints exist for slot in same turn."""
+        slot = self._raw_slot(name)
+        return slot is not None and slot.status == "CONFLICTING"
+
+    def get_conflicting_slots(self) -> list[str]:
+        """Return all slot names currently in CONFLICTING state."""
+        return [s for s in STANDARD_SLOTS if self.is_conflicting(s)]
+
+    def get_declined_slots(self) -> list[str]:
+        """Return all slot names currently in DECLINED state."""
+        return [s for s in STANDARD_SLOTS if self.is_declined(s)]
+
+    def has(self, name: str) -> bool:
+        """Return True if the requested slot currently has a resolved value."""
+        if name == "category_subtype":
+            cat_slot = self._raw_slot("category")
+            if cat_slot is None or not cat_slot.is_resolved():
+                return False
+            return cat_slot.value not in ("tops", "pants")
+        slot = self._raw_slot(name)
+        if slot is None or not slot.is_resolved():
             return False
         if name == "measurements" and isinstance(slot.value, MeasurementsValue):
             return any(
@@ -92,12 +206,79 @@ class ConversationSlots(BaseModel):
             )
         return True
 
+    def has_complete_measurements(self, category: str | None = None) -> bool:
+        """Return True if measurements satisfy SIZE_ADVICE minimum requirements."""
+        if not self.has("measurements"):
+            return False
+        meas = self.value_of("measurements")
+        if not isinstance(meas, MeasurementsValue):
+            return False
+        if meas.height_cm is not None and meas.weight_kg is not None:
+            return True
+        if category in _BOTTOM_WAIST_CATEGORIES and meas.waist_cm is not None:
+            return True
+        return False
+
     def value_of(self, name: str) -> Any:
-        """Return underlying value for slot name, or None when unset."""
-        slot = getattr(self, name, None)
-        if isinstance(slot, SlotValue):
-            return slot.value
-        return None
+        """Return underlying value if resolved (or present non-conflict), else None."""
+        slot = self._raw_slot(name)
+        if slot is None:
+            return None
+        if slot.status in ("DECLINED", "CONFLICTING", "UNKNOWN"):
+            return None
+        return slot.value
+
+    def reset_task_scoped(self) -> None:
+        """Clear all task-scoped slots while preserving session-persistent slots."""
+        for field_name in TASK_SCOPED_SLOTS:
+            if hasattr(self, field_name):
+                setattr(self, field_name, None)
+        self.shopping_intent = None
+
+    def to_slot_states_dict(self, intent: TurnIntent) -> dict[str, dict[str, Any]]:
+        """Serialize snapshot of all standard slot states for telemetry logging."""
+        not_applicable = get_not_applicable_slots(intent)
+        snapshot: dict[str, dict[str, Any]] = {}
+        for name in STANDARD_SLOTS:
+            if name in not_applicable:
+                snapshot[name] = {
+                    "value": None,
+                    "state": "NOT_APPLICABLE",
+                    "source": "system",
+                }
+                continue
+            if name == "category_subtype":
+                cat_slot = self._raw_slot("category")
+                sub_val = (
+                    cat_slot.value
+                    if cat_slot
+                    and cat_slot.is_resolved()
+                    and cat_slot.value not in ("tops", "pants")
+                    else None
+                )
+                snapshot[name] = {
+                    "value": sub_val,
+                    "state": self.status_of(name, intent),
+                    "source": cat_slot.source if cat_slot else "system",
+                }
+                continue
+            slot = self._raw_slot(name)
+            if slot is None:
+                snapshot[name] = {
+                    "value": None,
+                    "state": "UNKNOWN",
+                    "source": "system",
+                }
+            else:
+                val = slot.value
+                if isinstance(val, BaseModel):
+                    val = val.model_dump()
+                snapshot[name] = {
+                    "value": val,
+                    "state": slot.status,
+                    "source": slot.source,
+                }
+        return snapshot
 
     def to_debug_dict(self, intent: TurnIntent) -> dict[str, Any]:
         """Serialize slots for telemetry/debug including legacy summary keys."""
@@ -112,7 +293,11 @@ class ConversationSlots(BaseModel):
             "known_gender": known_gender,
             "known_budget": self.has("budget"),
             "known_measurements": self.has("measurements"),
+            "missing_required_slots": get_missing_required_slots(intent, self),
             "missing_priority_slots": get_missing_priority_slots(intent, self),
+            "conflicting_slots": self.get_conflicting_slots(),
+            "declined_slots": self.get_declined_slots(),
+            "slot_states": self.to_slot_states_dict(intent),
             "slots": self.model_dump(exclude_none=True),
         }
 
@@ -298,6 +483,7 @@ _OUTFIT_ADVICE_CUES = (
     "phối đồ",
     "phối với",
     "phối cùng",
+    "phối giúp",
     "mix đồ",
     "mix & match",
     "mix match",
@@ -353,6 +539,9 @@ _OUTFIT_ADVICE_PATTERNS = (
     r"\b(?:ở\s+|bên\s+)?(?:dưới|trên)\s+(?:nên\s+)?mặc\s+gì\b",
     r"\b(?:phù\s+hợp|hợp)\s+với\s+(?:mấy\s+|các\s+|những\s+)?"
     r"(?:mẫu\s+)?(?:áo|quần|váy|chân\s+váy)\b",
+    r"\bphối\s+(?:giúp|cho)\b",
+    r"\bphối\b.+\bvới\b",
+    r"\bphối\s+(?:áo|quần|váy|chân\s+váy|đầm)\b",
 )
 
 _SINGLE_ITEM_SWITCH_CUES = (
@@ -367,18 +556,97 @@ _SINGLE_ITEM_SWITCH_CUES = (
     "chỉ tìm quần",
 )
 
+_EXPLICIT_TOPIC_SWITCH_CUES = (
+    "giờ tìm",
+    "giờ phối",
+    "giờ chọn",
+    "giờ xem",
+    "đổi sang",
+    "chuyển sang",
+    "thôi tìm",
+    "thôi đổi",
+    "thôi xem",
+    "sang tìm",
+    "bỏ qua cái cũ",
+    "nhu cầu khác",
+    "món khác",
+    "tìm thêm bộ khác",
+)
 
-def _has_outfit_advice_cue(lower: str) -> bool:
-    return any(cue in lower for cue in _OUTFIT_ADVICE_CUES) or any(
-        re.search(pat, lower) for pat in _OUTFIT_ADVICE_PATTERNS
-    )
+_CONTINUATION_CUES = (
+    "phù hợp",
+    "hợp với",
+    "đi kèm",
+    "cùng bộ",
+    "mặc cùng",
+    "mặc với",
+    "mặc bên",
+    "bên dưới",
+    "bên trên",
+    "phối với",
+    "phối cùng",
+    "tiếp tục",
+    "như trên",
+    "mình chọn:",
+    "xác nhận",
+)
 
+_GENERAL_DECLINE_CUES = (
+    "không biết",
+    "ko biết",
+    "k biết",
+    "chưa biết",
+    "không rõ",
+    "ko rõ",
+    "sao cũng được",
+    "thế nào cũng được",
+    "gì cũng được",
+    "nào cũng được",
+    "tùy shop",
+    "tuỳ shop",
+    "tùy bạn",
+    "tuỳ bạn",
+    "gợi ý đại",
+    "chọn đại",
+    "bỏ qua",
+    "không quan trọng",
+    "không nhớ",
+    "chưa đo",
+)
 
-
-def _has_outfit_advice_cue(lower: str) -> bool:
-    return any(cue in lower for cue in _OUTFIT_ADVICE_CUES) or any(
-        re.search(pat, lower) for pat in _OUTFIT_ADVICE_PATTERNS
-    )
+_SLOT_SPECIFIC_DECLINE_CUES: dict[str, tuple[str, ...]] = {
+    "measurements": (
+        "không nhớ chiều cao",
+        "không nhớ cân nặng",
+        "không rõ số đo",
+        "chưa đo",
+        "không nhớ số đo",
+        "quên số đo",
+        "không biết chiều cao",
+        "không biết cân nặng",
+        "không biết số đo",
+    ),
+    "target_gender": (
+        "nam nữ gì cũng được",
+        "nam hay nữ đều được",
+        "giới tính nào cũng được",
+    ),
+    "budget": (
+        "giá nào cũng được",
+        "không giới hạn giá",
+        "ngân sách nào cũng được",
+        "bao nhiêu cũng được",
+        "tầm giá nào cũng được",
+    ),
+    "occasion": (
+        "dịp nào cũng được",
+        "mặc lúc nào cũng được",
+    ),
+    "category": (
+        "loại nào cũng được",
+        "món nào cũng được",
+    ),
+}
 
 _TARGET_REFERENCE_SPLIT_CUES = (
     "phù hợp với",
@@ -468,9 +736,105 @@ _FEMALE_INFERRED_CATEGORIES = {"dress", "skirt"}
 _SPECIFIC_TOP_CATEGORIES = {"shirt", "polo", "tshirt", "jacket"}
 _SPECIFIC_PANT_CATEGORIES = {"jeans", "kaki", "short"}
 
+_FEMALE_EXPLICIT_PHRASES = (
+    "đẹp gái",
+    "xinh gái",
+    "xinh đẹp",
+    "cho nữ",
+    "đồ nữ",
+    "con gái",
+    "bạn gái",
+    "nữ giới",
+    "nữ tính",
+    "phái nữ",
+    "trang phục nữ",
+    "áo nữ",
+    "quần nữ",
+    "đầm nữ",
+    "váy nữ",
+)
+
+_MALE_EXPLICIT_PHRASES = (
+    "đẹp trai",
+    "cho nam",
+    "đồ nam",
+    "con trai",
+    "bạn trai",
+    "nam giới",
+    "nam tính",
+    "phái nam",
+    "trang phục nam",
+    "áo nam",
+    "quần nam",
+)
+
+_UNISEX_PHRASES = (
+    "unisex",
+    "cả nam và nữ",
+    "nam nữ đều",
+    "nam nữ",
+    "couple",
+)
+
+_COLOR_LIST: tuple[tuple[str, str], ...] = (
+    ("xanh rêu khaki", "Xanh rêu khaki"),
+    ("xanh lam nhạt", "Xanh lam nhạt"),
+    ("xanh cổ vịt", "Xanh cổ vịt"),
+    ("xanh ngọc bích", "Xanh ngọc bích"),
+    ("xanh ngọc", "Xanh ngọc"),
+    ("xanh pastel", "Xanh pastel"),
+    ("xanh dương", "Xanh dương"),
+    ("xanh navy", "Xanh navy"),
+    ("xanh rêu", "Xanh rêu khaki"),
+    ("xanh mint", "Xanh mint"),
+    ("xanh lá", "Xanh lá"),
+    ("trắng kem", "Trắng kem"),
+    ("be sữa", "Be sữa"),
+    ("be sáng", "Be sáng"),
+    ("nâu camel", "Nâu camel"),
+    ("nâu be", "Nâu be"),
+    ("xám tiêu", "Xám tiêu"),
+    ("xám đậm", "Xám đậm"),
+    ("xám nhạt", "Xám nhạt"),
+    ("hồng pastel", "Hồng pastel"),
+    ("hồng đất", "Hồng đất"),
+    ("đỏ đô", "Đỏ đô"),
+    ("đỏ tươi", "Đỏ tươi"),
+    ("cam đào", "Cam đào"),
+    ("cam đất", "Cam đất"),
+    ("vàng mù tạt", "Vàng mù tạt"),
+    ("vàng kem", "Vàng kem"),
+    ("vàng ánh kim", "Vàng ánh kim"),
+    ("tím than", "Tím than"),
+    ("tím lilac", "Tím lilac"),
+    ("trắng", "Trắng"),
+    ("đen", "Đen"),
+    ("navy", "Xanh navy"),
+    ("xanh", "Xanh"),
+    ("be", "Be"),
+    ("nâu", "Nâu"),
+    ("xám", "Xám"),
+    ("ghi", "Xám ghi"),
+    ("đỏ", "Đỏ"),
+    ("hồng", "Hồng"),
+    ("vàng", "Vàng"),
+    ("cam", "Cam"),
+    ("tím", "Tím"),
+    ("bạc", "Bạc"),
+    ("trung tính", "Trung tính"),
+    ("màu tối", "Tối màu"),
+    ("màu sáng", "Sáng màu"),
+)
+
+
+def _has_outfit_advice_cue(lower: str) -> bool:
+    return any(cue in lower for cue in _OUTFIT_ADVICE_CUES) or any(
+        re.search(pat, lower) for pat in _OUTFIT_ADVICE_PATTERNS
+    )
+
 
 def classify_turn_intent(message: str) -> TurnIntent:
-    """Classify a single customer turn into shopping vs non-shopping intent."""
+    """Classify a single customer turn into one of the 5 system intents."""
     lower = message.strip().lower()
     if not lower:
         return TurnIntent.NON_SHOPPING
@@ -514,13 +878,15 @@ def classify_turn_intent(message: str) -> TurnIntent:
     if top_cat is not None and bot_cat is not None:
         return TurnIntent.OUTFIT_ADVICE
 
+    if not has_shopping_cue and _detect_decline_cues(lower)[0]:
+        return TurnIntent.PRODUCT_SEARCH
+
     return TurnIntent.PRODUCT_SEARCH
 
 
 def _parse_price_token(num_str: str, unit: str) -> float | None:
     cleaned = num_str.replace(",", ".").strip()
     if cleaned.count(".") >= 1 and unit in ("", "đ", "d", "vnd", "vnđ"):
-        # Handle Vietnamese thousands separator like 300.000
         parts = cleaned.split(".")
         if all(len(p) == 3 for p in parts[1:]):
             cleaned = "".join(parts)
@@ -540,7 +906,6 @@ def _parse_price_token(num_str: str, unit: str) -> float | None:
 
 
 def _extract_budget(lower: str) -> BudgetValue | None:
-    # Handle explicit form option shortcuts or numeric ranges
     range_match = re.search(
         r"(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)?\s*"
         r"(?:-|–|đến|tới)\s*(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)?",
@@ -593,55 +958,93 @@ def _extract_budget(lower: str) -> BudgetValue | None:
     return None
 
 
-def _extract_gender(lower: str) -> str | None:
-    # Check UNISEX first because phrases like 'Nam nữ đều mặc được' contain both
-    if any(
-        cue in lower
-        for cue in ("unisex", "cả nam và nữ", "nam nữ đều", "nam nữ", "couple")
+def _detect_budget_conflict(lower: str) -> tuple[bool, str | None]:
+    """Detect contradictory budget bounds within the same utterance."""
+    under_match = re.search(
+        r"(?:dưới|tối đa|không quá|<=|<)\s*"
+        r"(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)\b",
+        lower,
+    )
+    over_match = re.search(
+        r"(?:trên|tối thiểu|>=|>)\s*"
+        r"(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)\b",
+        lower,
+    )
+    if under_match and over_match:
+        max_p = _parse_price_token(under_match.group(1), under_match.group(2))
+        min_p = _parse_price_token(over_match.group(1), over_match.group(2))
+        if max_p is not None and min_p is not None and min_p > max_p:
+            return (
+                True,
+                f"Ngân sách mâu thuẫn: tối đa {max_p:,.0f}đ nhưng yêu cầu trên "
+                f"{min_p:,.0f}đ.",
+            )
+
+    extracted = _extract_budget(lower)
+    if (
+        extracted is not None
+        and extracted.min_price is not None
+        and extracted.max_price is not None
+        and extracted.min_price > extracted.max_price
     ):
+        return (
+            True,
+            f"Khoảng giá mâu thuẫn: từ {extracted.min_price:,.0f}đ đến "
+            f"{extracted.max_price:,.0f}đ.",
+        )
+
+    return False, None
+
+
+def _has_explicit_female_cue(lower: str) -> bool:
+    return any(p in lower for p in _FEMALE_EXPLICIT_PHRASES) or bool(
+        re.search(r"\b(?:nữ|vợ)\b", lower)
+    )
+
+
+def _has_explicit_male_cue(lower: str) -> bool:
+    return any(p in lower for p in _MALE_EXPLICIT_PHRASES) or bool(
+        re.search(r"\b(?:nam|chồng|boy|men)\b", lower)
+    )
+
+
+def _extract_gender(lower: str) -> str | None:
+    if any(cue in lower for cue in _UNISEX_PHRASES):
         return GenderTarget.UNISEX.value
 
-    female_phrases = (
-        "đẹp gái",
-        "xinh gái",
-        "xinh đẹp",
-        "cho nữ",
-        "đồ nữ",
-        "con gái",
-        "bạn gái",
-        "nữ giới",
-        "nữ tính",
-        "phái nữ",
-        "trang phục nữ",
-        "áo nữ",
-        "quần nữ",
-    )
-    if any(p in lower for p in female_phrases) or re.search(r"\b(?:nữ|vợ)\b", lower):
+    if _has_explicit_female_cue(lower):
         return GenderTarget.FEMALE.value
 
-    male_phrases = (
-        "đẹp trai",
-        "cho nam",
-        "đồ nam",
-        "con trai",
-        "bạn trai",
-        "nam giới",
-        "nam tính",
-        "phái nam",
-        "trang phục nam",
-        "áo nam",
-        "quần nam",
-    )
-    if any(p in lower for p in male_phrases) or re.search(
-        r"\b(?:nam|chồng|boy|men)\b", lower
-    ):
+    if _has_explicit_male_cue(lower):
         return GenderTarget.MALE.value
 
     return None
 
 
+def _detect_gender_conflict(lower: str) -> tuple[bool, str | None]:
+    """Detect contradictory gender constraints within the same utterance."""
+    if any(cue in lower for cue in _UNISEX_PHRASES):
+        return False, None
+
+    has_male = _has_explicit_male_cue(lower)
+    has_female = _has_explicit_female_cue(lower)
+    if has_male and has_female:
+        return True, "Yêu cầu chứa đồng thời cả đối tượng Nam và Nữ."
+
+    if has_male:
+        cat = _extract_category(lower)
+        _, bot_cat, _, _ = _extract_outfit_components(lower)
+        if cat in _FEMALE_INFERRED_CATEGORIES or bot_cat == "skirt":
+            return (
+                True,
+                "Yêu cầu kết hợp trang phục đặc thù Nữ (đầm/chân váy) "
+                "với đối tượng Nam.",
+            )
+
+    return False, None
+
+
 def _extract_category_from_text(text: str) -> str | None:
-    # Match multi-garment clarification form answers BEFORE specific keywords
     if any(
         phrase in text
         for phrase in (
@@ -724,6 +1127,20 @@ def _extract_category(lower: str) -> str | None:
             if target_cat is not None:
                 return target_cat
     return _extract_category_from_text(lower)
+
+
+def _extract_product_id(lower: str) -> int | None:
+    match = re.search(
+        r"(?:\[(?:id\s*:?\s*)?(\d+)\]|"
+        r"(?:sản\s*phẩm\s*(?:id|mã|#)?|mã\s*(?:sản\s*phẩm|sp)|(?<!\w)id)"
+        r"\s*[:#]?\s*(\d+))",
+        lower,
+    )
+    if match:
+        raw_num = match.group(1) or match.group(2)
+        if raw_num:
+            return int(raw_num)
+    return None
 
 
 def _extract_occasion(lower: str) -> str | None:
@@ -822,59 +1239,27 @@ def _extract_measurements(lower: str) -> MeasurementsValue | None:
 
 
 def _extract_color(lower: str) -> str | None:
-    colors = (
-        ("xanh rêu khaki", "Xanh rêu khaki"),
-        ("xanh lam nhạt", "Xanh lam nhạt"),
-        ("xanh cổ vịt", "Xanh cổ vịt"),
-        ("xanh ngọc bích", "Xanh ngọc bích"),
-        ("xanh ngọc", "Xanh ngọc"),
-        ("xanh pastel", "Xanh pastel"),
-        ("xanh dương", "Xanh dương"),
-        ("xanh navy", "Xanh navy"),
-        ("xanh rêu", "Xanh rêu khaki"),
-        ("xanh mint", "Xanh mint"),
-        ("xanh lá", "Xanh lá"),
-        ("trắng kem", "Trắng kem"),
-        ("be sữa", "Be sữa"),
-        ("be sáng", "Be sáng"),
-        ("nâu camel", "Nâu camel"),
-        ("nâu be", "Nâu be"),
-        ("xám tiêu", "Xám tiêu"),
-        ("xám đậm", "Xám đậm"),
-        ("xám nhạt", "Xám nhạt"),
-        ("hồng pastel", "Hồng pastel"),
-        ("hồng đất", "Hồng đất"),
-        ("đỏ đô", "Đỏ đô"),
-        ("đỏ tươi", "Đỏ tươi"),
-        ("cam đào", "Cam đào"),
-        ("cam đất", "Cam đất"),
-        ("vàng mù tạt", "Vàng mù tạt"),
-        ("vàng kem", "Vàng kem"),
-        ("vàng ánh kim", "Vàng ánh kim"),
-        ("tím than", "Tím than"),
-        ("tím lilac", "Tím lilac"),
-        ("trắng", "Trắng"),
-        ("đen", "Đen"),
-        ("navy", "Xanh navy"),
-        ("xanh", "Xanh"),
-        ("be", "Be"),
-        ("nâu", "Nâu"),
-        ("xám", "Xám"),
-        ("ghi", "Xám ghi"),
-        ("đỏ", "Đỏ"),
-        ("hồng", "Hồng"),
-        ("vàng", "Vàng"),
-        ("cam", "Cam"),
-        ("tím", "Tím"),
-        ("bạc", "Bạc"),
-        ("trung tính", "Trung tính"),
-        ("màu tối", "Tối màu"),
-        ("màu sáng", "Sáng màu"),
-    )
-    for cue, label in colors:
+    for cue, label in _COLOR_LIST:
         if re.search(rf"\b{re.escape(cue)}\b", lower):
             return label
     return None
+
+
+def _extract_disliked_colors(lower: str) -> list[str]:
+    """Extract explicitly disliked colors from negative preference phrases."""
+    disliked: list[str] = []
+    neg_pattern = re.compile(
+        r"(?:không\s+thích|tránh|đừng\s+(?:lấy|chọn|gợi\s+ý)|ghét|bỏ)\s+(?:màu\s+)?"
+        r"([a-zA-ZÀ-ỹ\s,]+?)(?:[.;!?]|$|\bnhưng\b|\bmà\b|\bcho\b|\bvà\b)",
+        re.IGNORECASE,
+    )
+    for match in neg_pattern.finditer(lower):
+        segment = match.group(1).strip().lower()
+        for cue, label in _COLOR_LIST:
+            if re.search(rf"\b{re.escape(cue)}\b", segment) and label not in disliked:
+                disliked.append(label)
+                segment = re.sub(rf"\b{re.escape(cue)}\b", "", segment)
+    return disliked
 
 
 def _extract_outfit_components(
@@ -922,6 +1307,8 @@ def _extract_outfit_components(
 
 def _extract_style(lower: str) -> str | None:
     styles = (
+        ("smart-casual", "Smart Casual"),
+        ("smart casual", "Smart Casual"),
         ("tối giản", "Minimalist"),
         ("minimalist", "Minimalist"),
         ("streetwear", "Streetwear"),
@@ -977,22 +1364,194 @@ def _extract_body_concern(lower: str) -> str | None:
     return None
 
 
-def extract_conversation_slots(
+def _detect_decline_cues(lower: str) -> tuple[bool, list[str]]:
+    """Detect general uncertainty/refusal and slot-specific decline phrases."""
+    specific: list[str] = []
+    for slot_name, cues in _SLOT_SPECIFIC_DECLINE_CUES.items():
+        if any(cue in lower for cue in cues):
+            specific.append(slot_name)
+
+    has_general = bool(specific) or any(cue in lower for cue in _GENERAL_DECLINE_CUES)
+    return has_general, specific
+
+
+def detect_topic_switch(
+    prev_slots: ConversationSlots,
+    prev_intent: TurnIntent | None,
+    current_text: str,
+    current_intent: TurnIntent,
+) -> bool:
+    """Deterministically detect whether the customer switched to a new shopping task."""
+    if prev_intent is None or current_intent == TurnIntent.NON_SHOPPING:
+        return False
+
+    lower = current_text.strip().lower()
+    if not lower:
+        return False
+
+    if any(cue in lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES):
+        return True
+
+    if any(cue in lower for cue in _CONTINUATION_CUES):
+        return False
+
+    prev_occ = prev_slots.value_of("occasion")
+    curr_occ = _extract_occasion(lower)
+    if prev_occ is not None and curr_occ is not None and curr_occ != prev_occ:
+        return True
+
+    if (
+        prev_intent == TurnIntent.OUTFIT_ADVICE
+        and current_intent == TurnIntent.PRODUCT_SEARCH
+        and any(cue in lower for cue in _SINGLE_ITEM_SWITCH_CUES)
+    ):
+        return True
+
+    return False
+
+
+def _apply_turn_extractions(
+    slots: ConversationSlots,
+    lower: str,
+    *,
+    status: SlotStatus,
+    source: SlotSource,
+    check_conflicts: bool,
+) -> None:
+    """Extract and merge slot values from a single user message."""
+    gender_conflict = False
+    gender_detail: str | None = None
+    if check_conflicts:
+        gender_conflict, gender_detail = _detect_gender_conflict(lower)
+
+    if gender_conflict:
+        slots.target_gender = SlotValue(
+            value=None,
+            source=source,
+            status="CONFLICTING",
+            conflict_detail=gender_detail,
+        )
+    else:
+        gender = _extract_gender(lower)
+        if gender:
+            slots.target_gender = SlotValue(value=gender, source=source, status=status)
+
+    is_outfit_turn = _has_outfit_advice_cue(lower)
+
+    category = _extract_category(lower)
+    if category and not (is_outfit_turn and category in ("tops", "pants")):
+        current_cat = slots.value_of("category")
+        is_same_group_downgrade = (
+            current_cat in _SPECIFIC_TOP_CATEGORIES and category == "tops"
+        ) or (current_cat in _SPECIFIC_PANT_CATEGORIES and category == "pants")
+        if not is_same_group_downgrade:
+            slots.category = SlotValue(value=category, source=source, status=status)
+
+    prod_id = _extract_product_id(lower)
+    if prod_id is not None:
+        slots.product_id = SlotValue(value=prod_id, source=source, status=status)
+
+    occasion = _extract_occasion(lower)
+    if occasion:
+        slots.occasion = SlotValue(value=occasion, source=source, status=status)
+
+    if is_outfit_turn:
+        slots.shopping_intent = SlotValue(value="OUTFIT", source=source, status=status)
+    elif category and not slots.has("shopping_intent"):
+        slots.shopping_intent = SlotValue(value="PRODUCT", source=source, status=status)
+
+    budget_conflict = False
+    budget_detail: str | None = None
+    if check_conflicts:
+        budget_conflict, budget_detail = _detect_budget_conflict(lower)
+
+    if budget_conflict:
+        slots.budget = SlotValue(
+            value=None,
+            source=source,
+            status="CONFLICTING",
+            conflict_detail=budget_detail,
+        )
+    else:
+        budget = _extract_budget(lower)
+        if budget:
+            slots.budget = SlotValue(value=budget, source=source, status=status)
+
+    fit = _extract_fit(lower)
+    if fit:
+        slots.fit = SlotValue(value=fit, source=source, status=status)
+
+    size_lbl = _extract_size_label(lower)
+    if size_lbl:
+        slots.size = SlotValue(value=size_lbl, source=source, status=status)
+
+    disliked = _extract_disliked_colors(lower)
+    if disliked:
+        slots.disliked_colors = SlotValue(value=disliked, source=source, status=status)
+
+    color = _extract_color(lower)
+    if color and color not in disliked:
+        slots.color = SlotValue(value=color, source=source, status=status)
+
+    top_cat, bot_cat, top_col, bot_col = _extract_outfit_components(lower)
+    if top_cat:
+        slots.top_category = SlotValue(value=top_cat, source=source, status=status)
+    if bot_cat:
+        slots.bottom_category = SlotValue(value=bot_cat, source=source, status=status)
+    if top_col and top_col not in disliked:
+        slots.top_color = SlotValue(value=top_col, source=source, status=status)
+    if bot_col and bot_col not in disliked:
+        slots.bottom_color = SlotValue(value=bot_col, source=source, status=status)
+
+    style = _extract_style(lower)
+    if style:
+        slots.style = SlotValue(value=style, source=source, status=status)
+
+    material = _extract_material(lower)
+    if material:
+        slots.material = SlotValue(value=material, source=source, status=status)
+
+    meas = _extract_measurements(lower)
+    if meas:
+        prev_meas = slots.value_of("measurements")
+        if isinstance(prev_meas, MeasurementsValue):
+            merged = MeasurementsValue(
+                height_cm=meas.height_cm or prev_meas.height_cm,
+                weight_kg=meas.weight_kg or prev_meas.weight_kg,
+                waist_cm=meas.waist_cm or prev_meas.waist_cm,
+            )
+        else:
+            merged = meas
+        slots.measurements = SlotValue(value=merged, source=source, status=status)
+
+    concern = _extract_body_concern(lower)
+    if concern:
+        slots.body_concern = SlotValue(value=concern, source=source, status=status)
+
+
+def extract_conversation_slots_with_lifecycle(
     messages: Sequence[BaseMessage | str],
     user_profile: UserProfile | None = None,
-) -> tuple[ConversationSlots, TurnIntent]:
-    """Accumulate P0-P3 slots across conversation history and classify latest turn."""
+    *,
+    declined_slots: set[str] | None = None,
+    last_asked_slots: Sequence[str] | None = None,
+) -> tuple[ConversationSlots, TurnIntent, bool]:
+    """Accumulate slots with 8-state provenance, precedence, and topic-switch reset."""
     slots = ConversationSlots()
 
     # 1. Seed from user profile (lowest priority among non-inferred sources)
     if user_profile:
         if user_profile.gender:
             slots.target_gender = SlotValue(
-                value=user_profile.gender.value, source="profile"
+                value=user_profile.gender.value,
+                source="profile",
+                status="RESOLVED_FROM_CONTEXT",
             )
         if user_profile.fit_preference:
             slots.fit = SlotValue(
-                value=user_profile.fit_preference.upper(), source="profile"
+                value=user_profile.fit_preference.upper(),
+                source="profile",
+                status="RESOLVED_FROM_CONTEXT",
             )
         if any(
             [
@@ -1008,9 +1567,9 @@ def extract_conversation_slots(
                     waist_cm=user_profile.waist_cm,
                 ),
                 source="profile",
+                status="RESOLVED_FROM_CONTEXT",
             )
 
-    # 2. Extract chronologically across all user messages (newer overrides older)
     user_texts: list[str] = []
     for msg in messages:
         if isinstance(msg, str):
@@ -1018,94 +1577,43 @@ def extract_conversation_slots(
         elif isinstance(msg, HumanMessage):
             user_texts.append(str(msg.content or ""))
 
-    for text in user_texts:
+    running_intent: TurnIntent | None = None
+    topic_switched = False
+
+    # 2. Extract chronologically across history and current turn
+    for idx, text in enumerate(user_texts):
         lower = text.strip().lower()
         if not lower:
             continue
 
-        gender = _extract_gender(lower)
-        if gender:
-            slots.target_gender = SlotValue(value=gender, source="explicit")
+        is_latest = idx == len(user_texts) - 1
+        turn_intent = classify_turn_intent(text)
+        if (
+            turn_intent == TurnIntent.PRODUCT_SEARCH
+            and slots.value_of("shopping_intent") == "OUTFIT"
+            and not any(cue in lower for cue in _SINGLE_ITEM_SWITCH_CUES)
+            and not any(cue in lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES)
+        ):
+            turn_intent = TurnIntent.OUTFIT_ADVICE
 
-        is_outfit_turn = _has_outfit_advice_cue(lower)
+        switched = detect_topic_switch(slots, running_intent, text, turn_intent)
+        if switched:
+            slots.reset_task_scoped()
+            if is_latest:
+                topic_switched = True
 
-        category = _extract_category(lower)
-        if category and not (is_outfit_turn and category in ("tops", "pants")):
-            current_cat = slots.value_of("category")
-            # Avoid downgrading a specific garment to its generic group in follow-ups
-            is_same_group_downgrade = (
-                current_cat in _SPECIFIC_TOP_CATEGORIES and category == "tops"
-            ) or (current_cat in _SPECIFIC_PANT_CATEGORIES and category == "pants")
-            if not is_same_group_downgrade:
-                slots.category = SlotValue(value=category, source="explicit")
+        if turn_intent != TurnIntent.NON_SHOPPING:
+            running_intent = turn_intent
 
-        occasion = _extract_occasion(lower)
-        if occasion:
-            slots.occasion = SlotValue(value=occasion, source="explicit")
+        turn_status: SlotStatus = "PROVIDED" if is_latest else "RESOLVED_FROM_CONTEXT"
+        turn_source: SlotSource = "explicit" if is_latest else "history"
 
-        if is_outfit_turn:
-            slots.shopping_intent = SlotValue(value="OUTFIT", source="explicit")
-        elif category and not slots.has("shopping_intent"):
-            slots.shopping_intent = SlotValue(value="PRODUCT", source="explicit")
-
-        budget = _extract_budget(lower)
-        if budget:
-            slots.budget = SlotValue(value=budget, source="explicit")
-
-        fit = _extract_fit(lower)
-        if fit:
-            slots.fit = SlotValue(value=fit, source="explicit")
-
-        size_lbl = _extract_size_label(lower)
-        if size_lbl:
-            slots.size = SlotValue(value=size_lbl, source="explicit")
-
-        color = _extract_color(lower)
-        if color:
-            slots.color = SlotValue(value=color, source="explicit")
-
-        top_cat, bot_cat, top_col, bot_col = _extract_outfit_components(lower)
-        if top_cat:
-            slots.top_category = SlotValue(value=top_cat, source="explicit")
-        if bot_cat:
-            slots.bottom_category = SlotValue(value=bot_cat, source="explicit")
-        if top_col:
-            slots.top_color = SlotValue(value=top_col, source="explicit")
-        if bot_col:
-            slots.bottom_color = SlotValue(value=bot_col, source="explicit")
-
-        style = _extract_style(lower)
-        if style:
-            slots.style = SlotValue(value=style, source="explicit")
-
-        material = _extract_material(lower)
-        if material:
-            slots.material = SlotValue(value=material, source="explicit")
-
-        meas = _extract_measurements(lower)
-        if meas:
-            prev_meas = slots.value_of("measurements")
-            if isinstance(prev_meas, MeasurementsValue):
-                merged = MeasurementsValue(
-                    height_cm=meas.height_cm or prev_meas.height_cm,
-                    weight_kg=meas.weight_kg or prev_meas.weight_kg,
-                    waist_cm=meas.waist_cm or prev_meas.waist_cm,
-                )
-            else:
-                merged = meas
-            slots.measurements = SlotValue(value=merged, source="explicit")
-
-        concern = _extract_body_concern(lower)
-        if concern:
-            slots.body_concern = SlotValue(value=concern, source="explicit")
-
-    # 3. High-confidence inference ONLY for unmistakably female categories
-    if not slots.has("target_gender") and (
-        slots.value_of("category") in _FEMALE_INFERRED_CATEGORIES
-        or slots.value_of("bottom_category") == "skirt"
-    ):
-        slots.target_gender = SlotValue(
-            value=GenderTarget.FEMALE.value, source="inferred"
+        _apply_turn_extractions(
+            slots,
+            lower,
+            status=turn_status,
+            source=turn_source,
+            check_conflicts=is_latest,
         )
 
     latest_text = user_texts[-1] if user_texts else ""
@@ -1115,30 +1623,115 @@ def extract_conversation_slots(
         intent == TurnIntent.PRODUCT_SEARCH
         and slots.value_of("shopping_intent") == "OUTFIT"
         and not any(cue in latest_lower for cue in _SINGLE_ITEM_SWITCH_CUES)
+        and not any(cue in latest_lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES)
     ):
         intent = TurnIntent.OUTFIT_ADVICE
 
+    # 3. Apply persisted declined_slots (unless topic switched or provided now)
+    if declined_slots and not topic_switched:
+        for d_slot in declined_slots:
+            if hasattr(slots, d_slot):
+                curr = getattr(slots, d_slot)
+                if curr is None or curr.status != "PROVIDED":
+                    setattr(
+                        slots,
+                        d_slot,
+                        SlotValue(value=None, source="history", status="DECLINED"),
+                    )
+
+    # 4. Detect newly declined slots in latest user turn
+    has_decline, specific_declines = _detect_decline_cues(latest_lower)
+    if has_decline and intent != TurnIntent.NON_SHOPPING:
+        for d_slot in specific_declines:
+            if hasattr(slots, d_slot):
+                curr = getattr(slots, d_slot)
+                if curr is None or not curr.is_resolved() or curr.status != "PROVIDED":
+                    setattr(
+                        slots,
+                        d_slot,
+                        SlotValue(value=None, source="explicit", status="DECLINED"),
+                    )
+        if last_asked_slots:
+            for asked_slot in last_asked_slots:
+                if hasattr(slots, asked_slot):
+                    curr = getattr(slots, asked_slot)
+                    if curr is None or curr.status != "PROVIDED":
+                        setattr(
+                            slots,
+                            asked_slot,
+                            SlotValue(value=None, source="explicit", status="DECLINED"),
+                        )
+
+    # 5. High-confidence inference ONLY for unmistakably female categories
+    if (
+        not slots.has("target_gender")
+        and not slots.is_declined("target_gender")
+        and not slots.is_conflicting("target_gender")
+        and (
+            slots.value_of("category") in _FEMALE_INFERRED_CATEGORIES
+            or slots.value_of("bottom_category") == "skirt"
+        )
+    ):
+        slots.target_gender = SlotValue(
+            value=GenderTarget.FEMALE.value,
+            source="inferred",
+            status="INFERRED",
+            confidence="high",
+        )
+
     if intent == TurnIntent.OUTFIT_ADVICE:
-        slots.shopping_intent = SlotValue(value="OUTFIT", source="explicit")
+        slots.shopping_intent = SlotValue(
+            value="OUTFIT", source="explicit", status="PROVIDED"
+        )
         if (
             not slots.has("top_category")
             and slots.value_of("category") in _SPECIFIC_TOP_CATEGORIES
         ):
             slots.top_category = SlotValue(
-                value=slots.value_of("category"), source="inferred"
+                value=slots.value_of("category"),
+                source="inferred",
+                status="INFERRED",
+                confidence="high",
             )
         if not slots.has("bottom_category") and slots.value_of("category") in (
             *_SPECIFIC_PANT_CATEGORIES,
             "skirt",
         ):
             slots.bottom_category = SlotValue(
-                value=slots.value_of("category"), source="inferred"
+                value=slots.value_of("category"),
+                source="inferred",
+                status="INFERRED",
+                confidence="high",
             )
     elif intent == TurnIntent.PRODUCT_SEARCH:
-        slots.shopping_intent = SlotValue(value="PRODUCT", source="explicit")
+        slots.shopping_intent = SlotValue(
+            value="PRODUCT", source="explicit", status="PROVIDED"
+        )
     elif not slots.has("shopping_intent") and intent != TurnIntent.NON_SHOPPING:
-        slots.shopping_intent = SlotValue(value="PRODUCT", source="inferred")
+        slots.shopping_intent = SlotValue(
+            value="PRODUCT",
+            source="inferred",
+            status="INFERRED",
+            confidence="high",
+        )
 
+    return slots, intent, topic_switched
+
+
+def extract_conversation_slots(
+    messages: Sequence[BaseMessage | str],
+    user_profile: UserProfile | None = None,
+    *,
+    declined_slots: set[str] | None = None,
+    last_asked_slots: Sequence[str] | None = None,
+) -> tuple[ConversationSlots, TurnIntent]:
+    """Accumulate slots across conversation history and classify latest turn."""
+    slots, intent, _ = extract_conversation_slots_with_lifecycle(
+        messages,
+        user_profile,
+        declined_slots=declined_slots,
+        last_asked_slots=last_asked_slots,
+    )
     return slots, intent
 
 
@@ -1146,20 +1739,26 @@ def extract_session_profile_updates(slots: ConversationSlots) -> dict[str, Any]:
     """Build safe session-scoped profile updates from confirmed/explicit slots."""
     updates: dict[str, Any] = {}
 
-    if slots.target_gender is not None:
+    if slots.target_gender is not None and slots.target_gender.is_resolved():
         g_val = slots.target_gender.value
-        if slots.target_gender.source == "explicit" or (
-            slots.target_gender.source == "inferred"
+        if slots.target_gender.source in ("explicit", "history") or (
+            slots.target_gender.status == "INFERRED"
+            and slots.target_gender.confidence == "high"
             and g_val == GenderTarget.FEMALE.value
         ):
             updates["gender"] = GenderTarget(g_val)
 
-    if slots.fit is not None and slots.fit.source == "explicit":
+    if (
+        slots.fit is not None
+        and slots.fit.is_resolved()
+        and slots.fit.source in ("explicit", "history")
+    ):
         updates["fit_preference"] = slots.fit.value
 
     if (
         slots.measurements is not None
-        and slots.measurements.source == "explicit"
+        and slots.measurements.is_resolved()
+        and slots.measurements.source in ("explicit", "history")
         and isinstance(slots.measurements.value, MeasurementsValue)
     ):
         m = slots.measurements.value
@@ -1173,40 +1772,158 @@ def extract_session_profile_updates(slots: ConversationSlots) -> dict[str, Any]:
     return updates
 
 
-def get_priority_slots(intent: TurnIntent, slots: ConversationSlots) -> list[str]:
-    """Return ordered slot queue by priority (P0 -> P1 -> P2) for a given intent."""
-    if intent == TurnIntent.SIZE_ADVICE:
-        return ["target_gender", "category", "measurements", "fit"]
-
-    if intent == TurnIntent.BODY_FIT_ADVICE:
-        return ["target_gender", "category", "measurements", "occasion", "budget"]
-
+def get_not_applicable_slots(intent: TurnIntent) -> set[str]:
+    """Return slots strictly forbidden for the given intent (Spec Section 4.3)."""
+    if intent == TurnIntent.PRODUCT_SEARCH:
+        return {"measurements", "body_concern", "top_category", "bottom_category"}
     if intent == TurnIntent.OUTFIT_ADVICE:
-        return ["target_gender", "occasion", "color", "style"]
+        return {"measurements", "body_concern", "category", "category_subtype"}
+    if intent == TurnIntent.SIZE_ADVICE:
+        return {"body_concern", "material", "top_category", "bottom_category"}
+    if intent == TurnIntent.BODY_FIT_ADVICE:
+        return {"size", "top_category", "bottom_category"}
+    return set(STANDARD_SLOTS)
 
-    cat_val = slots.value_of("category")
-    if cat_val is None:
-        return ["target_gender", "occasion", "category", "budget", "style"]
-    if cat_val in ("tops", "pants"):
-        return [
-            "target_gender",
-            "category_subtype",
-            "occasion",
-            "budget",
-            "fit",
-            "color",
-        ]
-    return ["target_gender", "occasion", "budget", "fit", "color", "style"]
+
+def get_required_slots(intent: TurnIntent, slots: ConversationSlots) -> list[str]:
+    """Return official Required Slots for the given intent (Spec Section 4.3)."""
+    if intent == TurnIntent.NON_SHOPPING:
+        return []
+    if intent == TurnIntent.PRODUCT_SEARCH:
+        if slots.has("product_id"):
+            return []
+        return ["target_gender", "category"]
+    if intent == TurnIntent.OUTFIT_ADVICE:
+        has_anchor = (
+            slots.has("occasion")
+            or slots.has("top_category")
+            or slots.has("bottom_category")
+            or slots.has("product_id")
+            or slots.is_declined("occasion")
+        )
+        req = ["target_gender"]
+        if not has_anchor:
+            req.append("occasion")
+        return req
+    if intent == TurnIntent.SIZE_ADVICE:
+        if slots.has("product_id"):
+            return ["measurements"]
+        return ["target_gender", "category", "measurements"]
+    if intent == TurnIntent.BODY_FIT_ADVICE:
+        return ["target_gender", "body_concern"]
+    return []
+
+
+def get_conditional_slots(intent: TurnIntent, slots: ConversationSlots) -> list[str]:
+    """Return official Conditional Slots for the given intent (Spec Section 4.3)."""
+    if intent == TurnIntent.NON_SHOPPING:
+        return []
+    if intent == TurnIntent.PRODUCT_SEARCH:
+        cat_val = slots.value_of("category")
+        cond: list[str] = []
+        if cat_val in ("tops", "pants"):
+            cond.append("category_subtype")
+        cond.extend(["occasion", "budget", "fit", "material", "size"])
+        return cond
+    if intent == TurnIntent.OUTFIT_ADVICE:
+        cond = []
+        if (
+            slots.has("top_category")
+            or slots.has("bottom_category")
+            or slots.has("product_id")
+        ):
+            cond.append("occasion")
+        cond.extend(
+            [
+                "top_category",
+                "bottom_category",
+                "budget",
+                "style",
+                "color",
+                "top_color",
+                "bottom_color",
+            ]
+        )
+        return cond
+    if intent == TurnIntent.SIZE_ADVICE:
+        return ["fit", "product_id"]
+    if intent == TurnIntent.BODY_FIT_ADVICE:
+        return ["category", "measurements", "occasion", "budget"]
+    return []
+
+
+def get_optional_slots(intent: TurnIntent) -> list[str]:
+    """Return official Optional Slots for the given intent (Spec Section 4.3)."""
+    if intent == TurnIntent.PRODUCT_SEARCH:
+        return ["color", "style"]
+    if intent == TurnIntent.OUTFIT_ADVICE:
+        return ["fit", "material", "size"]
+    if intent == TurnIntent.SIZE_ADVICE:
+        return ["occasion", "style", "color", "budget"]
+    if intent == TurnIntent.BODY_FIT_ADVICE:
+        return ["color", "style", "material", "fit"]
+    return []
+
+
+def get_missing_required_slots(
+    intent: TurnIntent, slots: ConversationSlots
+) -> list[str]:
+    """Return unresolved Required Slots and conflicts in priority order."""
+    if intent == TurnIntent.NON_SHOPPING:
+        return []
+
+    missing: list[str] = list(slots.get_conflicting_slots())
+    req_slots = get_required_slots(intent, slots)
+
+    for slot_name in req_slots:
+        if slot_name in missing:
+            continue
+        if slots.is_declined(slot_name):
+            continue
+        if intent == TurnIntent.SIZE_ADVICE and slot_name == "measurements":
+            if not slots.has_complete_measurements(slots.value_of("category")):
+                missing.append(slot_name)
+            continue
+        if intent == TurnIntent.BODY_FIT_ADVICE and slot_name == "body_concern":
+            if not (slots.has("body_concern") or slots.has("measurements")):
+                missing.append(slot_name)
+            continue
+        if not slots.has(slot_name):
+            missing.append(slot_name)
+
+    return missing
+
+
+def get_priority_slots(intent: TurnIntent, slots: ConversationSlots) -> list[str]:
+    """Return Required then Conditional slots (excluding Not Applicable & Optional)."""
+    if intent == TurnIntent.NON_SHOPPING:
+        return []
+    not_applicable = get_not_applicable_slots(intent)
+    ordered: list[str] = []
+    candidates = (
+        *get_required_slots(intent, slots),
+        *get_conditional_slots(intent, slots),
+    )
+    for s in candidates:
+        if s not in not_applicable and s not in ordered:
+            ordered.append(s)
+    return ordered
 
 
 def get_missing_priority_slots(
     intent: TurnIntent, slots: ConversationSlots
 ) -> list[str]:
-    """Return ordered list of missing slots relevant to the active turn intent."""
+    """Return ordered missing Required/Conditional slots (never DECLINED/Optional)."""
     if intent == TurnIntent.NON_SHOPPING:
         return []
-    queue = get_priority_slots(intent, slots)
-    return [slot_name for slot_name in queue if not slots.has(slot_name)]
+    missing_req = get_missing_required_slots(intent, slots)
+    result: list[str] = list(missing_req)
+    for slot_name in get_conditional_slots(intent, slots):
+        if slot_name in result or slots.is_declined(slot_name):
+            continue
+        if not slots.has(slot_name):
+            result.append(slot_name)
+    return result
 
 
 def _format_slot_display(name: str, val: Any) -> str:
@@ -1227,6 +1944,8 @@ def _format_slot_display(name: str, val: Any) -> str:
         if val.waist_cm:
             parts.append(f"eo {val.waist_cm:.0f}cm")
         return ", ".join(parts)
+    if name == "disliked_colors" and isinstance(val, list):
+        return ", ".join(str(v) for v in val)
     return str(val)
 
 
@@ -1235,14 +1954,15 @@ def format_slots_for_prompt(
     intent: TurnIntent,
     include_missing: bool = True,
 ) -> str:
-    """Format concise P0-P3 known/missing slot summary for prompt injection."""
+    """Format concise known/missing slot summary with 8-state provenance tags."""
     meas_prio = "P0" if intent == TurnIntent.SIZE_ADVICE else "P3"
     slot_labels = {
         "target_gender": ("Giới tính/Đối tượng", "P0"),
-        "category": ("Danh mục", "P0"),  # !!!
+        "category": ("Danh mục", "P0"),
         "top_category": ("Loại áo phối", "P0"),
         "bottom_category": ("Loại quần/váy phối", "P0"),
         "category_subtype": ("Loại sản phẩm cụ thể", "P0"),
+        "product_id": ("Mã sản phẩm", "P0"),
         "occasion": ("Dịp sử dụng", "P0"),
         "budget": ("Ngân sách", "P1"),
         "fit": ("Form dáng", "P1"),
@@ -1250,6 +1970,7 @@ def format_slots_for_prompt(
         "color": ("Màu sắc", "P2"),
         "top_color": ("Màu áo", "P2"),
         "bottom_color": ("Màu quần/váy", "P2"),
+        "disliked_colors": ("Màu tránh", "P2"),
         "style": ("Phong cách", "P2"),
         "material": ("Chất liệu", "P2"),
         "measurements": ("Số đo cơ thể", meas_prio),
@@ -1259,11 +1980,13 @@ def format_slots_for_prompt(
     base_keys: tuple[str, ...] = (
         "target_gender",
         "category",
+        "product_id",
         "occasion",
         "budget",
         "fit",
         "size",
         "color",
+        "disliked_colors",
         "style",
         "material",
         "measurements",
@@ -1271,11 +1994,12 @@ def format_slots_for_prompt(
     )
     if intent == TurnIntent.OUTFIT_ADVICE:
         has_outfit_component = slots.has("top_category") or slots.has("bottom_category")
-        ordered_keys = (
+        ordered_keys: tuple[str, ...] = (
             "target_gender",
             *(("category",) if not has_outfit_component else ()),
             "top_category",
             "bottom_category",
+            "product_id",
             "occasion",
             "budget",
             "fit",
@@ -1283,35 +2007,58 @@ def format_slots_for_prompt(
             "color",
             "top_color",
             "bottom_color",
+            "disliked_colors",
             "style",
             "material",
-            "measurements",
-            "body_concern",
         )
     else:
         ordered_keys = base_keys
 
+    not_applicable = get_not_applicable_slots(intent)
     known_items: list[str] = []
+    special_notes: list[str] = []
+
     for key in ordered_keys:
+        if key in not_applicable:
+            continue
+        raw_slot = slots._raw_slot(key)
+        if raw_slot is None:
+            continue
+        label, prio = slot_labels[key]
+        if raw_slot.status == "CONFLICTING":
+            special_notes.append(
+                f"{label} [CONFLICTING]: {raw_slot.conflict_detail or 'mâu thuẫn'}"
+            )
+            continue
+        if raw_slot.status == "DECLINED":
+            special_notes.append(f"{label} [DECLINED]: khách bỏ qua/tùy shop")
+            continue
         if slots.has(key):
-            label, prio = slot_labels[key]
             disp = _format_slot_display(key, slots.value_of(key))
-            src = getattr(slots, key).source
-            known_items.append(f"{label} [{prio}]={disp} ({src})")
+            tag = (
+                "suy luận độ tin cậy cao"
+                if raw_slot.status == "INFERRED"
+                else raw_slot.source
+            )
+            known_items.append(f"{label} [{prio}]={disp} ({tag})")
 
     known_str = "; ".join(known_items) if known_items else "Chưa có"
-    if not include_missing:
-        return f"TÓM TẮT NGỮ CẢNH ({intent.value}):\n- Đã biết: {known_str}"
+    lines = [
+        f"TÓM TẮT NGỮ CẢNH ({intent.value}):",
+        f"- Đã biết: {known_str}",
+    ]
+    if special_notes:
+        lines.append(f"- Lưu ý trạng thái đặc biệt: {'; '.join(special_notes)}")
 
-    missing = get_missing_priority_slots(intent, slots)
+    if not include_missing:
+        return "\n".join(lines)
+
+    missing_req = get_missing_required_slots(intent, slots)
     missing_items = [
         f"{slot_labels[k][0]} [{slot_labels[k][1]}]"
-        for k in missing
+        for k in missing_req
         if k in slot_labels
     ]
-    missing_str = ", ".join(missing_items) if missing_items else "Đủ thông tin cốt lõi"
-    return (
-        f"TÓM TẮT NGỮ CẢNH ({intent.value}):\n"
-        f"- Đã biết: {known_str}\n"
-        f"- Còn thiếu (theo thứ tự ưu tiên): {missing_str}"
-    )
+    missing_str = ", ".join(missing_items) if missing_items else "Đủ thông tin bắt buộc"
+    lines.append(f"- Còn thiếu (bắt buộc): {missing_str}")
+    return "\n".join(lines)

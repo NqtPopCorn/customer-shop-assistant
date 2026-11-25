@@ -1,4 +1,4 @@
-"""Dynamic P0-P3 clarification form planner, validator, and reply aligner."""
+"""Dynamic clarification form planner, strict validator, and reply aligner."""
 
 import re
 
@@ -10,11 +10,12 @@ from customer_shop_assistant.schemas.shop import GenderTarget
 from customer_shop_assistant.services.slot_tracker import (
     ConversationSlots,
     TurnIntent,
-    get_missing_priority_slots,
+    get_missing_required_slots,
+    get_not_applicable_slots,
+    get_optional_slots,
 )
 
 _CASUAL_GARMENTS = {"jeans", "tshirt", "short", "polo"}
-_REFINEMENT_SLOTS = ("fit", "color", "style")
 _MEASUREMENT_INTENTS = {TurnIntent.SIZE_ADVICE, TurnIntent.BODY_FIT_ADVICE}
 
 _OCCASION_LABEL_MAP = {
@@ -35,6 +36,11 @@ _OCCASION_TITLE_MAP = {
     "office": "Xác định nhu cầu trang phục công sở của bạn",
     "casual": "Xác định nhu cầu trang phục dạo phố của bạn",
     "sport": "Xác định nhu cầu trang phục thể thao của bạn",
+}
+
+_SLOT_ID_ALIASES = {
+    "gender": "target_gender",
+    "body_measurements": "measurements",
 }
 
 
@@ -324,6 +330,61 @@ def _build_measurements_question() -> ClarificationQuestion:
     )
 
 
+def _build_body_concern_question() -> ClarificationQuestion:
+    return ClarificationQuestion(
+        id="body_concern",
+        question="Bạn muốn ưu tiên cải thiện hoặc tôn điểm nào trên vóc dáng?",
+        type="single",
+        options=[
+            "Dáng gầy, muốn mặc trông đầy đặn hơn",
+            "Muốn che vòng bụng gọn gàng, thoải mái",
+            "Chiều cao khiêm tốn, muốn hack dáng cao hơn",
+        ],
+        allow_custom=True,
+        custom_placeholder="Hoặc mô tả ngắn đặc điểm vóc dáng của bạn...",
+    )
+
+
+def _build_conflict_question(
+    slot_name: str,
+    slots: ConversationSlots,
+    intent: TurnIntent,
+) -> ClarificationQuestion | None:
+    if slot_name == "target_gender":
+        options = (
+            ["Nam", "Nữ"]
+            if intent in _MEASUREMENT_INTENTS
+            else ["Nam", "Nữ", "Unisex (Nam nữ đều mặc được)"]
+        )
+        return ClarificationQuestion(
+            id="target_gender",
+            question=(
+                "Yêu cầu hiện tại có thông tin mâu thuẫn, "
+                "bạn xác nhận lại đối tượng mặc giúp mình nhé?"
+            ),
+            type="single",
+            options=options,
+            allow_custom=False,
+        )
+    if slot_name == "budget":
+        return ClarificationQuestion(
+            id="budget",
+            question=(
+                "Khoảng giá bạn nêu đang mâu thuẫn, "
+                "bạn chọn lại ngân sách ưu tiên giúp mình nhé?"
+            ),
+            type="single",
+            options=[
+                "Tiết kiệm (Dưới 300.000đ)",
+                "Phổ biến (300.000đ – 600.000đ)",
+                "Cao cấp (Trên 600.000đ)",
+            ],
+            allow_custom=True,
+            custom_placeholder="Hoặc nhập khoảng giá chính xác (VD: dưới 500k)...",
+        )
+    return _build_question_for_slot(slot_name, slots, intent)
+
+
 def _build_question_for_slot(
     slot_name: str, slots: ConversationSlots, intent: TurnIntent
 ) -> ClarificationQuestion | None:
@@ -345,6 +406,8 @@ def _build_question_for_slot(
         return _build_style_question(slots)
     if slot_name == "measurements":
         return _build_measurements_question()
+    if slot_name == "body_concern":
+        return _build_body_concern_question()
     return None
 
 
@@ -352,23 +415,34 @@ def build_clarification_form(
     slots: ConversationSlots,
     intent: TurnIntent,
     max_questions: int = 3,
+    *,
+    target_slots: list[str] | None = None,
 ) -> ClarificationForm:
-    """Build a dynamic, non-redundant ClarificationForm ordered by P0-P2 priority."""
+    """Build a non-redundant ClarificationForm from required or target slots."""
     effective_intent = (
         TurnIntent.PRODUCT_SEARCH if intent == TurnIntent.NON_SHOPPING else intent
     )
-    missing_slots = get_missing_priority_slots(effective_intent, slots)
+    not_applicable = get_not_applicable_slots(effective_intent)
 
-    if not missing_slots:
-        missing_slots = [s for s in _REFINEMENT_SLOTS if not slots.has(s)]
-    if not missing_slots:
-        missing_slots = ["fit", "color"]
+    if target_slots is not None:
+        candidate_slots = [
+            s
+            for s in target_slots
+            if s not in not_applicable
+            and not slots.is_declined(s)
+            and (slots.is_conflicting(s) or not slots.has(s))
+        ]
+    else:
+        candidate_slots = get_missing_required_slots(effective_intent, slots)
 
     questions: list[ClarificationQuestion] = []
-    for slot_name in missing_slots:
+    for slot_name in candidate_slots:
         if len(questions) >= max_questions:
             break
-        q = _build_question_for_slot(slot_name, slots, effective_intent)
+        if slots.is_conflicting(slot_name):
+            q = _build_conflict_question(slot_name, slots, effective_intent)
+        else:
+            q = _build_question_for_slot(slot_name, slots, effective_intent)
         if q is not None:
             idx = len(questions) + 1
             q.question = f"{idx}. {q.question}"
@@ -389,60 +463,68 @@ def build_clarification_form(
     )
 
 
-def _is_question_reasking_known_slot(
+def _normalize_question_slot_id(raw_id: str) -> str:
+    cleaned = raw_id.strip().lower()
+    return _SLOT_ID_ALIASES.get(cleaned, cleaned)
+
+
+def _is_question_invalid_for_state(
     q: ClarificationQuestion, slots: ConversationSlots, intent: TurnIntent
 ) -> bool:
-    q_id = q.id.strip().lower()
+    q_id = _normalize_question_slot_id(q.id)
     q_text = q.question.strip().lower()
 
-    if intent == TurnIntent.OUTFIT_ADVICE and q_id in (
-        "category",
-        "category_subtype",
+    not_applicable = get_not_applicable_slots(intent)
+    optional_slots = set(get_optional_slots(intent))
+
+    if q_id in not_applicable or q_id in optional_slots:
+        return True
+
+    if slots.is_declined(q_id):
+        return True
+
+    if q_id != "measurements" and not slots.is_conflicting(q_id) and slots.has(q_id):
+        return True
+
+    if (
+        q_id == "measurements"
+        and intent == TurnIntent.SIZE_ADVICE
+        and slots.has_complete_measurements(slots.value_of("category"))
     ):
         return True
 
-    if slots.has("target_gender") and (
-        q_id in ("target_gender", "gender")
-        or any(
+    if (slots.has("target_gender") and not slots.is_conflicting("target_gender")) or (
+        slots.is_declined("target_gender")
+    ):
+        if any(
             cue in q_text
             for cue in ("giới tính", "nam hay nữ", "đối tượng nào", "cho nam hay")
-        )
+        ):
+            return True
+
+    if (slots.has("occasion") or slots.is_declined("occasion")) and any(
+        cue in q_text for cue in ("dịp nào", "hoàn cảnh nào", "mục đích mặc")
     ):
         return True
 
-    if slots.has("occasion") and (
-        q_id == "occasion"
-        or any(cue in q_text for cue in ("dịp nào", "hoàn cảnh nào", "mục đích mặc"))
+    if (
+        (slots.has("budget") and not slots.is_conflicting("budget"))
+        or slots.is_declined("budget")
+    ) and any(
+        cue in q_text
+        for cue in ("ngân sách", "tầm giá", "khoảng giá", "bao nhiêu tiền")
     ):
         return True
 
-    if slots.has("budget") and (
-        q_id == "budget"
-        or any(
-            cue in q_text
-            for cue in ("ngân sách", "tầm giá", "khoảng giá", "bao nhiêu tiền")
-        )
-    ):
-        return True
-
-    if slots.has("color") and (
-        q_id == "color"
-        or any(cue in q_text for cue in ("màu nào", "màu sắc", "tông màu"))
-    ):
-        return True
-
-    if intent not in _MEASUREMENT_INTENTS and (
-        q_id in ("measurements", "body_measurements")
-        or any(
-            cue in q_text
-            for cue in (
-                "chiều cao",
-                "cân nặng",
-                "số đo",
-                "3 vòng",
-                "vòng eo",
-                "vòng ngực",
-            )
+    if "measurements" in not_applicable and any(
+        cue in q_text
+        for cue in (
+            "chiều cao",
+            "cân nặng",
+            "số đo",
+            "3 vòng",
+            "vòng eo",
+            "vòng ngực",
         )
     ):
         return True
@@ -457,21 +539,35 @@ def validate_or_repair_clarification_form(
     *,
     force_planner: bool = False,
     max_fallback_questions: int = 2,
+    max_questions: int | None = None,
+    target_slots: list[str] | None = None,
 ) -> ClarificationForm:
     """Validate LLM-proposed form or build a prioritized planner form."""
+    cap = max_questions if max_questions is not None else max_fallback_questions
     if force_planner:
-        return build_clarification_form(slots, intent, max_questions=3)
+        return build_clarification_form(
+            slots,
+            intent,
+            max_questions=max_questions if max_questions is not None else 3,
+            target_slots=target_slots,
+        )
 
     fallback = build_clarification_form(
-        slots, intent, max_questions=max_fallback_questions
+        slots,
+        intent,
+        max_questions=cap,
+        target_slots=target_slots,
     )
     if not form or not form.questions:
         return fallback
 
+    if len(form.questions) > cap:
+        return fallback
+
     for q in form.questions:
-        if len(q.options) < 2:
+        if len(q.options) < 2 or len(q.options) > 4:
             return fallback
-        if _is_question_reasking_known_slot(q, slots, intent):
+        if _is_question_invalid_for_state(q, slots, intent):
             return fallback
         for opt in q.options:
             opt_lower = opt.strip().lower()
@@ -490,7 +586,7 @@ def align_reply_with_clarification_form(
     slots: ConversationSlots,
     intent: TurnIntent,
 ) -> str:
-    """Keep intro reply concise and conflict-free alongside the clarification form."""
+    """Keep intro reply concise (<=45 words) and conflict-free alongside the form."""
     del form
     cleaned = (reply_text or "").strip()
     lower_reply = cleaned.lower()

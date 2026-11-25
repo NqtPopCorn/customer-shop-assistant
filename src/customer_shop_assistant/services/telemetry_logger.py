@@ -30,6 +30,19 @@ async def log_chat_turn(
     token_usage: LangChainUsageMetadata | dict[str, Any] | None = None,
     error: str | None = None,
     system_prompt_version: str = "v1.0",
+    *,
+    clarification_mode: str | None = None,
+    turn_intent: str | None = None,
+    clarification_asked: bool = False,
+    question_count: int = 0,
+    asked_slots: list[str] | None = None,
+    slot_states: dict[str, Any] | None = None,
+    decision_source: str | None = None,
+    decision_reason: str | None = None,
+    tools_used: list[str] | None = None,
+    reason_codes: list[str] | None = None,
+    impact_signals: dict[str, Any] | None = None,
+    evidence_rule_ids: list[str] | None = None,
 ) -> None:
     """Asynchronously log chat turn telemetry to logs/chat_turns.jsonl."""
     try:
@@ -59,7 +72,7 @@ async def log_chat_turn(
                     "total_tokens": token_usage.get("total_tokens", 0),
                 }
 
-        record = {
+        record: dict[str, Any] = {
             "timestamp": datetime.now(UTC).isoformat(),
             "session_id": session_id,
             "turn_id": turn_id,
@@ -67,14 +80,28 @@ async def log_chat_turn(
             "model": active_model,
             "temperature": settings.TEMPERATURE,
             "system_prompt_version": system_prompt_version,
+            "clarification_mode": clarification_mode,
+            "turn_intent": turn_intent,
+            "clarification_asked": clarification_asked,
+            "question_count": question_count,
+            "asked_slots": list(asked_slots or []),
+            "slot_states": slot_states or {},
+            "decision_source": decision_source,
+            "decision_reason": decision_reason,
+            "tools_used": list(tools_used or []),
             "user_message": user_message,
             "assistant_message": assistant_message,
             "latency_ms": round(float(latency_ms), 2),
             "token_usage": formatted_usage,
             "error": error,
         }
+        if reason_codes is not None:
+            record["reason_codes"] = list(reason_codes)
+        if impact_signals is not None:
+            record["impact_signals"] = impact_signals
+        if evidence_rule_ids is not None:
+            record["evidence_rule_ids"] = list(evidence_rule_ids)
 
-        # Project root directory is 3 levels up from this file
         project_root = Path(__file__).resolve().parent.parent.parent.parent
         log_file = project_root / "logs" / "chat_turns.jsonl"
 

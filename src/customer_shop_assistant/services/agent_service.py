@@ -38,6 +38,7 @@ from customer_shop_assistant.schemas.chat import (
     TurnDebugMeta,
     UserProfile,
 )
+from customer_shop_assistant.schemas.clarification import ClarificationDecision
 from customer_shop_assistant.schemas.shop import GenderTarget
 from customer_shop_assistant.services.clarification_planner import (
     align_reply_with_clarification_form as planner_align_reply,
@@ -49,9 +50,18 @@ from customer_shop_assistant.services.clarification_planner import (
     validate_or_repair_clarification_form as planner_validate_or_repair,
 )
 from customer_shop_assistant.services.clarification_policy import (
+    MAX_MODE_B_TURNS,
+    MAX_MODE_C_QUESTIONS,
+    GrayZoneEvaluator,
     TurnPolicy,
-    next_phase,
-    resolve_turn_policy,
+    evaluate_clarification_policy,
+    policy_to_turn_policy,
+)
+from customer_shop_assistant.services.counterfactual_policy import (
+    CounterfactualClarificationPolicy,
+)
+from customer_shop_assistant.services.outfit_kg_repository import (
+    get_outfit_kg_repository,
 )
 from customer_shop_assistant.services.prompt_builder import (
     SYSTEM_PROMPT_VERSION,
@@ -66,12 +76,18 @@ from customer_shop_assistant.services.session_manager import (
     get_session_manager,
 )
 from customer_shop_assistant.services.shop_client import ShopClient
+from customer_shop_assistant.services.size_recommender import SizeRecommender
 from customer_shop_assistant.services.slot_tracker import (
+    STANDARD_SLOTS,
     ConversationSlots,
     TurnIntent,
     extract_conversation_slots,
+    extract_conversation_slots_with_lifecycle,
     extract_session_profile_updates,
     format_slots_for_prompt,
+)
+from customer_shop_assistant.services.snapshot_catalog_index import (
+    get_snapshot_catalog_index,
 )
 from customer_shop_assistant.services.telemetry_logger import log_chat_turn
 from customer_shop_assistant.tools import ALL_TOOLS
@@ -100,6 +116,16 @@ _PRODUCT_ID_PATTERN = re.compile(
     r"(?:\[ID\]\s*:?\s*(\d+)\b|(?:ID:\s*\[|\[)(\d+)\])", re.IGNORECASE
 )
 
+_PRODUCT_PRICE_PATTERN = re.compile(
+    r"\b\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnđ|vnd)\b",
+    re.IGNORECASE,
+)
+
+_SLOT_ID_ALIASES = {
+    "gender": "target_gender",
+    "body_measurements": "measurements",
+}
+
 
 def _with_prompt_debug_metadata(
     config: RunnableConfig | None,
@@ -121,12 +147,6 @@ def _extract_product_ids_from_text(text: str) -> list[str]:
         if pid and pid not in found:
             found.append(pid)
     return found
-
-
-_PRODUCT_PRICE_PATTERN = re.compile(
-    r"\b\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnđ|vnd)\b",
-    re.IGNORECASE,
-)
 
 
 def detect_inquiry_slots(
@@ -159,8 +179,16 @@ class AgentState(TypedDict):
     clarification_mode: ClarificationMode
     clarify_phase: ClarifyPhase
     gated_turns: int
+    clarification_turns: int
+    declined_slots: list[str]
+    last_asked_slots: list[str]
+    topic_switched: bool
     turn_intent: str
     is_shopping_query: bool
+    policy_decision: dict[str, Any] | None
+    decision_source: str
+    decision_reason: str
+    asked_slots: list[str]
     tools_used: list[str]
     reply: str
     needs_clarification: bool
@@ -178,10 +206,26 @@ class ShopAssistantAgent:
         chat_model: BaseChatModel | None = None,
         settings: Settings | None = None,
         session_manager: SessionManager | None = None,
+        gray_zone_evaluator: GrayZoneEvaluator | None = None,
     ) -> None:
         self.settings = settings or get_settings()
         self.chat_model = chat_model or get_chat_model(self.settings)
         self.session_manager = session_manager
+        if gray_zone_evaluator is not None:
+            self.gray_zone_evaluator: GrayZoneEvaluator | None = gray_zone_evaluator
+        elif self.settings.COUNTERFACTUAL_POLICY_ENABLED:
+            try:
+                self.gray_zone_evaluator = CounterfactualClarificationPolicy(
+                    kg_repo=get_outfit_kg_repository(self.settings),
+                    snapshot_index=get_snapshot_catalog_index(self.settings),
+                )
+            except Exception as cf_err:
+                logger.warning(
+                    "CounterfactualClarificationPolicy init skipped (%s)", cf_err
+                )
+                self.gray_zone_evaluator = None
+        else:
+            self.gray_zone_evaluator = None
         self._enabled_tools = [
             t
             for t in ALL_TOOLS
@@ -236,14 +280,11 @@ class ShopAssistantAgent:
 
     @staticmethod
     def _should_use_structured_output(
-        mode: ClarificationMode,
-        phase: ClarifyPhase,
-        intent: TurnIntent,
+        decision: ClarificationDecision,
         is_shopping_query: bool,
         tools_used: list[str],
     ) -> bool:
-        """Invoke structured_model only when LLM must autonomously build a form."""
-        del phase
+        """Invoke structured_model ONLY in Mode C Gray Zone when no tool ran."""
         if not is_shopping_query:
             return False
         if (
@@ -252,11 +293,7 @@ class ShopAssistantAgent:
             or "suggest_outfit" in tools_used
         ):
             return False
-        if mode == ClarificationMode.ALWAYS_CLARIFY:
-            return False
-        if mode == ClarificationMode.IMMEDIATE_ANSWER:
-            return intent == TurnIntent.SIZE_ADVICE
-        return True
+        return decision.action == "GRAY_ZONE"
 
     def _build_debug_meta(
         self,
@@ -265,6 +302,14 @@ class ShopAssistantAgent:
         executed_phase: str,
         next_phase_value: str,
         gated_turns: int,
+        clarification_turns: int,
+        topic_switched: bool,
+        decision_source: str | None,
+        decision_reason: str | None,
+        reason_codes: list[str] | None,
+        impact_signals: dict[str, Any] | None,
+        evidence_rule_ids: list[str] | None,
+        asked_slots: list[str],
         gate_search: bool,
         active_profile: UserProfile | None,
         slots: ConversationSlots,
@@ -275,7 +320,7 @@ class ShopAssistantAgent:
         runs: list[Any],
         user_id: int | None = None,
     ) -> TurnDebugMeta | None:
-        """Build TurnDebugMeta capturing executed phase, next phase, and traces."""
+        """Build TurnDebugMeta capturing executed phase, decision provenance, traces."""
         if not self.settings.DEBUG_CHAT_META:
             return None
         active_tools_names = [
@@ -288,6 +333,8 @@ class ShopAssistantAgent:
             clarify_phase=executed_phase,
             next_phase=next_phase_value,
             gated_turns=gated_turns,
+            clarification_turns=clarification_turns,
+            topic_switched=topic_switched,
             tools_available=active_tools_names,
             gate_search=gate_search,
             active_profile=(active_profile.model_dump() if active_profile else None),
@@ -298,11 +345,36 @@ class ShopAssistantAgent:
             mode=mode.value if hasattr(mode, "value") else mode,
             phase=executed_phase,
             gated_turns=gated_turns,
+            clarification_turns=clarification_turns,
+            decision_source=decision_source,
+            decision_reason=decision_reason,
+            reason_codes=list(reason_codes or []),
+            impact_signals=dict(impact_signals or {}),
+            evidence_rule_ids=list(evidence_rule_ids or []),
+            asked_slots=asked_slots,
             tools_available=active_tools_names,
             latency_ms=latency_ms,
             usage_metadata=usage_meta,
             runs=runs,
             state_snapshot=state_snapshot,
+        )
+
+    def _resolve_state_decision(
+        self,
+        state: AgentState,
+        mode: ClarificationMode,
+        intent: TurnIntent,
+        slots: ConversationSlots,
+    ) -> ClarificationDecision:
+        raw_dec = state.get("policy_decision")
+        if raw_dec:
+            return ClarificationDecision.model_validate(raw_dec)
+        return evaluate_clarification_policy(
+            mode=mode,
+            intent=intent,
+            slots=slots,
+            clarification_turns=state.get("clarification_turns", 0),
+            gray_zone_evaluator=self.gray_zone_evaluator,
         )
 
     def _create_graph(self) -> CompiledStateGraph:
@@ -315,15 +387,15 @@ class ShopAssistantAgent:
             mode = state.get(
                 "clarification_mode", ClarificationMode.CONDITIONAL_CLARIFICATION
             )
-            phase = state.get("clarify_phase", ClarifyPhase.INTERVIEW)
-            is_shopping_query = state.get("is_shopping_query", True)
-            policy = resolve_turn_policy(
-                mode, phase, is_shopping_query=is_shopping_query
-            )
-
             slots, intent = extract_conversation_slots(
-                state["messages"], state.get("user_profile")
+                state["messages"],
+                state.get("user_profile"),
+                declined_slots=set(state.get("declined_slots") or []),
+                last_asked_slots=state.get("last_asked_slots") or [],
             )
+            decision = self._resolve_state_decision(state, mode, intent, slots)
+            policy = policy_to_turn_policy(decision, mode, intent)
+            is_shopping_query = intent != TurnIntent.NON_SHOPPING
 
             if policy.gate_search:
                 bound_model = self.chat_model
@@ -387,23 +459,22 @@ class ShopAssistantAgent:
             mode = state.get(
                 "clarification_mode", ClarificationMode.CONDITIONAL_CLARIFICATION
             )
-            phase = state.get("clarify_phase", ClarifyPhase.INTERVIEW)
-            is_shopping_query = state.get("is_shopping_query", True)
-            policy = resolve_turn_policy(
-                mode, phase, is_shopping_query=is_shopping_query
+            turn_slots, turn_intent = extract_conversation_slots(
+                state["messages"],
+                state.get("user_profile"),
+                declined_slots=set(state.get("declined_slots") or []),
+                last_asked_slots=state.get("last_asked_slots") or [],
             )
+            decision = self._resolve_state_decision(
+                state, mode, turn_intent, turn_slots
+            )
+            policy = policy_to_turn_policy(decision, mode, turn_intent)
 
             active_tool_names = (
                 set() if policy.gate_search else {t.name for t in self._enabled_tools}
             )
-            turn_slots, turn_intent = extract_conversation_slots(
-                state["messages"], state.get("user_profile")
-            )
-            mode_a_slots: ConversationSlots | None = (
-                turn_slots
-                if mode == ClarificationMode.IMMEDIATE_ANSWER
-                and any(tc.get("name") == "search_products" for tc in tool_calls)
-                else None
+            needs_balanced_gender = not turn_slots.has("target_gender") and (
+                mode == ClarificationMode.IMMEDIATE_ANSWER or decision.use_fallback
             )
 
             for tc in tool_calls:
@@ -423,18 +494,23 @@ class ShopAssistantAgent:
                     )
                     t_name = "suggest_outfit"
                     t_args = self._build_outfit_tool_args(
-                        t_args, turn_slots, state.get("user_id")
+                        t_args,
+                        turn_slots,
+                        state.get("user_id"),
+                        use_casual_default=decision.use_fallback,
                     )
                 elif t_name == "suggest_outfit":
                     t_args = self._build_outfit_tool_args(
-                        t_args, turn_slots, state.get("user_id")
+                        t_args,
+                        turn_slots,
+                        state.get("user_id"),
+                        use_casual_default=decision.use_fallback,
                     )
 
                 if t_name not in active_tool_names:
                     logger.warning(
-                        "Tool '%s' is gated in phase %s, returning polite error",
+                        "Tool '%s' is gated in turn, returning polite error",
                         t_name,
-                        phase,
                     )
                     t_result = (
                         f"Công cụ '{t_name}' hiện không khả dụng trong lượt này. "
@@ -446,16 +522,12 @@ class ShopAssistantAgent:
                     tool = self.tools_by_name.get(t_name)
                     if tool:
                         try:
-                            if (
-                                t_name == "search_products"
-                                and mode_a_slots is not None
-                                and not mode_a_slots.has("target_gender")
-                            ):
+                            if t_name == "search_products" and needs_balanced_gender:
                                 effective_args = self._sanitize_mode_a_balanced_args(
-                                    t_args, mode_a_slots, state["messages"]
+                                    t_args, turn_slots, state["messages"]
                                 )
                                 with balanced_gender_search_context(
-                                    occasion=mode_a_slots.value_of("occasion")
+                                    occasion=turn_slots.value_of("occasion")
                                 ):
                                     t_result = await tool.ainvoke(
                                         effective_args, config=config
@@ -490,7 +562,10 @@ class ShopAssistantAgent:
                     break
 
             slots, intent = extract_conversation_slots(
-                state["messages"], state.get("user_profile")
+                state["messages"],
+                state.get("user_profile"),
+                declined_slots=set(state.get("declined_slots") or []),
+                last_asked_slots=state.get("last_asked_slots") or [],
             )
             is_shopping_query = intent != TurnIntent.NON_SHOPPING
             tools_used = list(state.get("tools_used") or [])
@@ -498,19 +573,14 @@ class ShopAssistantAgent:
                 "clarification_mode", ClarificationMode.CONDITIONAL_CLARIFICATION
             )
             phase = state.get("clarify_phase", ClarifyPhase.INTERVIEW)
-            gated_turns = state.get("gated_turns", 0)
-            is_open_no_clarify = intent != TurnIntent.SIZE_ADVICE and (
-                mode == ClarificationMode.IMMEDIATE_ANSWER
-                or (
-                    mode == ClarificationMode.ALWAYS_CLARIFY
-                    and phase == ClarifyPhase.OPEN
-                )
+            decision = self._resolve_state_decision(state, mode, intent, slots)
+
+            allow_clarification = is_shopping_query and decision.action in (
+                "ASK",
+                "GRAY_ZONE",
             )
-            allow_clarification = not is_open_no_clarify
             use_structured_output = self._should_use_structured_output(
-                mode=mode,
-                phase=phase,
-                intent=intent,
+                decision=decision,
                 is_shopping_query=is_shopping_query,
                 tools_used=tools_used,
             )
@@ -525,253 +595,157 @@ class ShopAssistantAgent:
                 config=config,
             )
 
-            outfits: list[OutfitSuggestion] = []
-            outfit_products: list[ChatRecommendedProduct] = []
-            if "suggest_outfit" in tools_used:
-                outfits = get_latest_outfits()[:3]
-                seen_outfit_pids: set[int] = set()
-                for outfit in outfits:
-                    for item in (outfit.top, outfit.bottom):
-                        if item.product_id in seen_outfit_pids:
-                            continue
-                        seen_outfit_pids.add(item.product_id)
-                        cached = get_cached_product(item.product_id)
-                        if cached is not None:
-                            outfit_products.append(cached)
-
-            has_catalog_tool = (
-                "search_products" in tools_used
-                or "get_product_detail" in tools_used
-                or "suggest_outfit" in tools_used
+            outfits, products = await self._collect_turn_outputs(
+                tools_used=tools_used,
+                product_ids=agent_reply.product_ids,
+                reply_text=last_text or agent_reply.reply,
             )
-            if "search_products" in tools_used or "get_product_detail" in tools_used:
-                searched_ids = (
-                    get_latest_searched_product_ids()
-                    if "search_products" in tools_used
-                    else None
-                )
-                resolved_catalog = await self._resolve_products(
-                    agent_reply.product_ids,
-                    reply_text=last_text or agent_reply.reply,
-                    fallback_product_ids=searched_ids,
-                )
-            else:
-                resolved_catalog = []
-
-            if outfit_products:
-                seen_pids = {p.id for p in outfit_products}
-                products = (
-                    outfit_products
-                    + [p for p in resolved_catalog if p.id not in seen_pids]
-                )[:5]
-            else:
-                products = resolved_catalog[:5]
             agent_reply.product_ids = [str(p.id) for p in products]
 
-            is_broad_empty_inquiry = (
-                not slots.has("occasion")
-                and not slots.has("category")
-                and not slots.has("top_category")
-                and not slots.has("bottom_category")
-                and not slots.has("budget")
-                and not slots.has("measurements")
-                and not slots.has("body_concern")
-            )
+            decision_source = decision.decision_source
+            decision_reason = decision.decision_reason
+            asked_slots: list[str] = []
 
-            if (
-                mode == ClarificationMode.IMMEDIATE_ANSWER
-                and intent != TurnIntent.SIZE_ADVICE
-            ):
-                lower_reply = (last_text or agent_reply.reply).lower()
-                llm_tried_to_clarify = (
-                    agent_reply.needs_clarification
-                    or "?" in (last_text or agent_reply.reply)
-                    or any(
-                        cue in lower_reply
-                        for cue in (
-                            "đối tượng nào",
-                            "nam hay nữ",
-                            "cho mình biết",
-                            "cho shop biết",
-                            "cần biết thêm",
-                            "tư vấn chính xác",
-                        )
-                    )
+            if not is_shopping_query:
+                agent_reply.needs_clarification = False
+                agent_reply.clarification_form = None
+                decision_source = "non_shopping_bypass"
+            elif decision.action == "ASK":
+                agent_reply.needs_clarification = True
+                form = build_clarification_form(
+                    slots,
+                    intent,
+                    max_questions=decision.max_questions or 3,
+                    target_slots=decision.target_slots,
                 )
+                if form.questions:
+                    agent_reply.clarification_form = form
+                    agent_reply.reply = planner_align_reply(
+                        agent_reply.reply,
+                        form,
+                        slots=slots,
+                        intent=intent,
+                    )
+                    asked_slots = [
+                        _SLOT_ID_ALIASES.get(q.id.strip().lower(), q.id.strip().lower())
+                        for q in form.questions
+                    ]
+                else:
+                    agent_reply.needs_clarification = False
+                    agent_reply.clarification_form = None
+            elif decision.action == "PROCEED":
                 agent_reply.needs_clarification = False
                 agent_reply.clarification_form = None
 
                 if (
-                    is_shopping_query
-                    and llm_tried_to_clarify
-                    and not products
-                    and not tools_used
+                    intent == TurnIntent.SIZE_ADVICE
+                    and not slots.has_complete_measurements(slots.value_of("category"))
+                    and (
+                        mode == ClarificationMode.IMMEDIATE_ANSWER
+                        or decision.use_fallback
+                        or "recommend_size" not in tools_used
+                    )
                 ):
-                    if (
-                        intent == TurnIntent.OUTFIT_ADVICE
-                        and self.settings.OUTFIT_KG_ENABLED
-                        and "suggest_outfit" in self.tools_by_name
+                    agent_reply.reply = SizeRecommender(
+                        settings=self.settings
+                    ).format_size_chart(
+                        category=slots.value_of("category"),
+                        gender=slots.value_of("target_gender"),
+                    )
+                else:
+                    needs_grounded_fallback = self._needs_grounded_fallback(
+                        mode=mode,
+                        intent=intent,
+                        decision=decision,
+                        agent_reply=agent_reply,
+                        last_text=last_text,
+                        tools_used=tools_used,
+                        products=products,
+                    )
+                    if needs_grounded_fallback:
+                        (
+                            outfits,
+                            products,
+                            fb_reply,
+                        ) = await self._execute_grounded_fallback(
+                            intent=intent,
+                            slots=slots,
+                            messages=state["messages"],
+                            user_id=state.get("user_id"),
+                            tools_used=tools_used,
+                            use_casual_default=decision.use_fallback,
+                            config=config,
+                        )
+                        agent_reply.product_ids = [str(p.id) for p in products]
+                        if fb_reply:
+                            agent_reply.reply = fb_reply
+            else:
+                # Mode C Gray Zone
+                if agent_reply.needs_clarification:
+                    validated_form = planner_validate_or_repair(
+                        agent_reply.clarification_form,
+                        slots=slots,
+                        intent=intent,
+                        force_planner=False,
+                        max_fallback_questions=MAX_MODE_C_QUESTIONS,
+                        max_questions=MAX_MODE_C_QUESTIONS,
+                        target_slots=decision.target_slots,
+                    )
+                    if validated_form.questions:
+                        agent_reply.clarification_form = validated_form
+                        agent_reply.reply = planner_align_reply(
+                            agent_reply.reply,
+                            validated_form,
+                            slots=slots,
+                            intent=intent,
+                        )
+                        asked_slots = [
+                            _SLOT_ID_ALIASES.get(
+                                q.id.strip().lower(), q.id.strip().lower()
+                            )
+                            for q in validated_form.questions
+                        ]
+                        decision_source = "mode_c_llm"
+                        decision_reason = (
+                            agent_reply.decision_reason
+                            or "LLM requested high-impact clarification in gray zone."
+                        )
+                    else:
+                        agent_reply.needs_clarification = False
+                        agent_reply.clarification_form = None
+                if not agent_reply.needs_clarification:
+                    decision_source = "mode_c_llm"
+                    if not decision_reason or decision_source == "mode_c_llm":
+                        decision_reason = agent_reply.decision_reason or (
+                            "LLM answered directly using available context/anchors."
+                        )
+                    if self._needs_grounded_fallback(
+                        mode=mode,
+                        intent=intent,
+                        decision=decision,
+                        agent_reply=agent_reply,
+                        last_text=last_text,
+                        tools_used=tools_used,
+                        products=products,
                     ):
                         (
                             outfits,
                             products,
-                            fallback_reply,
-                        ) = await self._run_verified_fallback_outfit(
-                            slots=slots,
-                            user_id=state.get("user_id"),
-                            tools_used=tools_used,
-                            config=config,
-                        )
-                        agent_reply.product_ids = [str(p.id) for p in products]
-                        if fallback_reply:
-                            agent_reply.reply = fallback_reply
-                    else:
-                        products = await self._run_verified_fallback_search(
+                            fb_reply,
+                        ) = await self._execute_grounded_fallback(
+                            intent=intent,
                             slots=slots,
                             messages=state["messages"],
+                            user_id=state.get("user_id"),
                             tools_used=tools_used,
+                            use_casual_default=False,
                             config=config,
                         )
                         agent_reply.product_ids = [str(p.id) for p in products]
-                        if products:
-                            agent_reply.reply = self._format_immediate_fallback_reply(
-                                products, slots
-                            )
-            elif (
-                mode == ClarificationMode.ALWAYS_CLARIFY
-                and phase == ClarifyPhase.INTERVIEW
-                and is_shopping_query
-            ):
-                agent_reply.needs_clarification = True
-            elif (
-                mode == ClarificationMode.ALWAYS_CLARIFY
-                and phase == ClarifyPhase.OPEN
-                and intent != TurnIntent.SIZE_ADVICE
-            ):
-                agent_reply.needs_clarification = False
-                agent_reply.clarification_form = None
-            elif (
-                mode == ClarificationMode.CONDITIONAL_CLARIFICATION
-                and is_shopping_query
-                and is_broad_empty_inquiry
-                and not products
-                and not tools_used
-            ):
-                agent_reply.needs_clarification = True
-
-            has_catalog_tool = (
-                "search_products" in tools_used
-                or "get_product_detail" in tools_used
-                or "suggest_outfit" in tools_used
-            )
-            has_other_lookup_tool = (
-                "search_policy" in tools_used or "check_voucher" in tools_used
-            )
-            needs_open_mode_b_search = (
-                mode == ClarificationMode.ALWAYS_CLARIFY and phase == ClarifyPhase.OPEN
-            )
-            if (
-                is_shopping_query
-                and intent
-                in (
-                    TurnIntent.PRODUCT_SEARCH,
-                    TurnIntent.OUTFIT_ADVICE,
-                    TurnIntent.BODY_FIT_ADVICE,
-                )
-                and not agent_reply.needs_clarification
-                and not has_catalog_tool
-                and not has_other_lookup_tool
-                and (
-                    needs_open_mode_b_search
-                    or self._has_ungrounded_product_listing(
-                        last_text or agent_reply.reply
-                    )
-                )
-            ):
-                if (
-                    intent == TurnIntent.OUTFIT_ADVICE
-                    and self.settings.OUTFIT_KG_ENABLED
-                    and "suggest_outfit" in self.tools_by_name
-                ):
-                    logger.warning(
-                        "Ungrounded or missing suggest_outfit in %s/%s; "
-                        "running verified fallback outfit",
-                        mode,
-                        phase,
-                    )
-                    (
-                        outfits,
-                        products,
-                        fallback_reply,
-                    ) = await self._run_verified_fallback_outfit(
-                        slots=slots,
-                        user_id=state.get("user_id"),
-                        tools_used=tools_used,
-                        config=config,
-                    )
-                    agent_reply.product_ids = [str(p.id) for p in products]
-                    if fallback_reply:
-                        agent_reply.reply = fallback_reply
-                    else:
-                        agent_reply.reply = (
-                            "Hiện tại mình chưa tìm thấy bộ phối đồ nào khớp hoàn toàn "
-                            "với tiêu chí này trong cửa hàng. Bạn có thể thử dịp mặc "
-                            "hoặc màu sắc khác để mình gợi ý lại nhé!"
-                        )
-                else:
-                    logger.warning(
-                        "Ungrounded or missing search_products in %s/%s; "
-                        "running verified fallback search",
-                        mode,
-                        phase,
-                    )
-                    products = await self._run_verified_fallback_search(
-                        slots=slots,
-                        messages=state["messages"],
-                        tools_used=tools_used,
-                        config=config,
-                    )
-                    agent_reply.product_ids = [str(p.id) for p in products]
-                    if products:
-                        agent_reply.reply = self._format_immediate_fallback_reply(
-                            products, slots
-                        )
-                    else:
-                        agent_reply.reply = (
-                            "Hiện tại mình chưa tìm thấy sản phẩm nào khớp hoàn toàn "
-                            "với tiêu chí này trong cửa hàng. Bạn có thể nới rộng "
-                            "khoảng giá hoặc mô tả kiểu đồ khác để mình tìm lại nhé!"
-                        )
+                        if fb_reply:
+                            agent_reply.reply = fb_reply
 
             agent_reply.reply = agent_reply.reply.strip()
-
-            if agent_reply.needs_clarification:
-                force_planner = (
-                    mode == ClarificationMode.ALWAYS_CLARIFY
-                    and phase == ClarifyPhase.INTERVIEW
-                    and is_shopping_query
-                )
-                agent_reply.clarification_form = planner_validate_or_repair(
-                    agent_reply.clarification_form,
-                    slots=slots,
-                    intent=intent,
-                    force_planner=force_planner,
-                    max_fallback_questions=2,
-                )
-                agent_reply.reply = planner_align_reply(
-                    agent_reply.reply,
-                    agent_reply.clarification_form,
-                    slots=slots,
-                    intent=intent,
-                )
-
-            new_phase = next_phase(
-                mode=mode,
-                current_phase=phase,
-                gated_turns=gated_turns,
-                needs_clarification=agent_reply.needs_clarification,
-                is_shopping_query=is_shopping_query,
-            )
 
             session_id = state["session_id"]
             sess_mgr = self.session_manager or get_session_manager(
@@ -779,12 +753,33 @@ class ShopAssistantAgent:
                 default_max_turns=self.settings.MAX_SESSION_HISTORY_TURNS,
             )
             sess = sess_mgr.get_session(session_id)
+
+            new_phase = phase
+            if is_shopping_query:
+                if not agent_reply.needs_clarification:
+                    new_phase = ClarifyPhase.OPEN
+                elif mode == ClarificationMode.ALWAYS_CLARIFY:
+                    next_clar_turns = (
+                        (sess.clarification_turns + 1)
+                        if sess is not None
+                        else state.get("clarification_turns", 0) + 1
+                    )
+                    new_phase = (
+                        ClarifyPhase.OPEN
+                        if next_clar_turns >= MAX_MODE_B_TURNS
+                        else ClarifyPhase.INTERVIEW
+                    )
+
             if sess:
                 sess.clarification_mode = str(
                     mode.value if hasattr(mode, "value") else mode
                 )
                 sess.clarify_phase = new_phase
-                sess.gated_turns = gated_turns
+                if agent_reply.needs_clarification and asked_slots:
+                    sess.clarification_turns += 1
+                    sess.last_asked_slots = list(asked_slots)
+                else:
+                    sess.last_asked_slots = []
                 sess_mgr.add_assistant_message(session_id, agent_reply.reply)
 
             return {
@@ -796,6 +791,9 @@ class ShopAssistantAgent:
                 "outfits": outfits,
                 "tools_used": tools_used,
                 "clarify_phase": new_phase,
+                "decision_source": decision_source,
+                "decision_reason": decision_reason,
+                "asked_slots": asked_slots,
             }
 
         builder.add_node("agent", agent_node)
@@ -811,6 +809,154 @@ class ShopAssistantAgent:
 
         return builder.compile(checkpointer=MemorySaver())
 
+    async def _collect_turn_outputs(
+        self,
+        *,
+        tools_used: list[str],
+        product_ids: list[str],
+        reply_text: str,
+    ) -> tuple[list[OutfitSuggestion], list[ChatRecommendedProduct]]:
+        outfits: list[OutfitSuggestion] = []
+        outfit_products: list[ChatRecommendedProduct] = []
+        if "suggest_outfit" in tools_used:
+            outfits = get_latest_outfits()[:3]
+            seen_outfit_pids: set[int] = set()
+            for outfit in outfits:
+                for item in (outfit.top, outfit.bottom):
+                    if item.product_id in seen_outfit_pids:
+                        continue
+                    seen_outfit_pids.add(item.product_id)
+                    cached = get_cached_product(item.product_id)
+                    if cached is not None:
+                        outfit_products.append(cached)
+
+        if "search_products" in tools_used or "get_product_detail" in tools_used:
+            searched_ids = (
+                get_latest_searched_product_ids()
+                if "search_products" in tools_used
+                else None
+            )
+            resolved_catalog = await self._resolve_products(
+                product_ids,
+                reply_text=reply_text,
+                fallback_product_ids=searched_ids,
+            )
+        else:
+            resolved_catalog = []
+
+        if outfit_products:
+            seen_pids = {p.id for p in outfit_products}
+            products = (
+                outfit_products + [p for p in resolved_catalog if p.id not in seen_pids]
+            )[:5]
+        else:
+            products = resolved_catalog[:5]
+        return outfits, products
+
+    def _needs_grounded_fallback(
+        self,
+        *,
+        mode: ClarificationMode,
+        intent: TurnIntent,
+        decision: ClarificationDecision,
+        agent_reply: AgentReply,
+        last_text: str,
+        tools_used: list[str],
+        products: list[ChatRecommendedProduct],
+    ) -> bool:
+        if intent not in (
+            TurnIntent.PRODUCT_SEARCH,
+            TurnIntent.OUTFIT_ADVICE,
+            TurnIntent.BODY_FIT_ADVICE,
+        ):
+            return False
+
+        has_catalog_tool = (
+            "search_products" in tools_used
+            or "get_product_detail" in tools_used
+            or "suggest_outfit" in tools_used
+        )
+        has_other_lookup_tool = (
+            "search_policy" in tools_used or "check_voucher" in tools_used
+        )
+        if has_catalog_tool or has_other_lookup_tool:
+            return False
+
+        raw_text = last_text or agent_reply.reply
+        if self._has_ungrounded_product_listing(raw_text):
+            return True
+
+        if mode == ClarificationMode.IMMEDIATE_ANSWER:
+            lower_reply = raw_text.lower()
+            llm_tried_to_clarify = "?" in raw_text or any(
+                cue in lower_reply
+                for cue in (
+                    "đối tượng nào",
+                    "nam hay nữ",
+                    "cho mình biết",
+                    "cho shop biết",
+                    "cần biết thêm",
+                    "tư vấn chính xác",
+                )
+            )
+            return llm_tried_to_clarify and not products
+
+        if decision.action == "PROCEED" and (
+            decision.use_fallback or mode == ClarificationMode.ALWAYS_CLARIFY
+        ):
+            return True
+
+        return False
+
+    async def _execute_grounded_fallback(
+        self,
+        *,
+        intent: TurnIntent,
+        slots: ConversationSlots,
+        messages: list[BaseMessage],
+        user_id: int | None,
+        tools_used: list[str],
+        use_casual_default: bool,
+        config: RunnableConfig | None = None,
+    ) -> tuple[list[OutfitSuggestion], list[ChatRecommendedProduct], str]:
+        if (
+            intent == TurnIntent.OUTFIT_ADVICE
+            and self.settings.OUTFIT_KG_ENABLED
+            and "suggest_outfit" in self.tools_by_name
+        ):
+            outfits, products, fb_reply = await self._run_verified_fallback_outfit(
+                slots=slots,
+                user_id=user_id,
+                tools_used=tools_used,
+                use_casual_default=use_casual_default,
+                config=config,
+            )
+            if not fb_reply:
+                fb_reply = (
+                    "Hiện tại mình chưa tìm thấy bộ phối đồ nào khớp hoàn toàn "
+                    "với tiêu chí này trong cửa hàng. Bạn có thể thử dịp mặc "
+                    "hoặc màu sắc khác để mình gợi ý lại nhé!"
+                )
+            return outfits, products, fb_reply
+
+        products = await self._run_verified_fallback_search(
+            slots=slots,
+            messages=messages,
+            tools_used=tools_used,
+            config=config,
+        )
+        if products:
+            reply = self._format_immediate_fallback_reply(
+                products, slots, intent=intent
+            )
+        else:
+            reply = (
+                "Hiện tại mình chưa tìm thấy sản phẩm nào khớp hoàn toàn "
+                "với tiêu chí này trong cửa hàng. Bạn có thể nới rộng "
+                "khoảng giá hoặc mô tả kiểu đồ khác để mình tìm lại nhé!"
+            )
+        return [], products, reply
+
     async def _resolve_turn_session(
         self,
         request: ChatRequest,
@@ -821,11 +967,13 @@ class ShopAssistantAgent:
         SessionManager,
         SessionState,
         ClarificationMode,
+        ClarificationDecision,
         TurnPolicy,
         ConversationSlots,
         TurnIntent,
+        bool,
     ]:
-        """Resolve and initialize session, profile, slots, and turn policy."""
+        """Resolve session, profile, lifecycle slots, and ClarificationDecision."""
         session_id = request.session_id or str(uuid.uuid4())
         session_mgr = self.session_manager or get_session_manager(
             ttl_seconds=self.settings.SESSION_TTL_SECONDS,
@@ -908,21 +1056,57 @@ class ShopAssistantAgent:
         ):
             session_mgr.add_user_message(session_id, request.message)
 
-        slots, intent = extract_conversation_slots(
-            session.messages, session.active_profile
+        slots, intent, topic_switched = extract_conversation_slots_with_lifecycle(
+            session.messages,
+            session.active_profile,
+            declined_slots=session.declined_slots,
+            last_asked_slots=session.last_asked_slots,
         )
+        if topic_switched:
+            session.reset_task_clarification()
+
+        for slot_name in STANDARD_SLOTS:
+            if slots.is_declined(slot_name):
+                session.declined_slots.add(slot_name)
+            else:
+                raw_s = slots._raw_slot(slot_name)
+                if raw_s is not None and raw_s.status == "PROVIDED":
+                    session.declined_slots.discard(slot_name)
+
         profile_updates = extract_session_profile_updates(slots)
         if profile_updates:
             session.update_active_profile(profile_updates)
 
         is_shopping_query = intent != TurnIntent.NON_SHOPPING
-        policy = resolve_turn_policy(
-            mode, session.clarify_phase, is_shopping_query=is_shopping_query
+        decision = evaluate_clarification_policy(
+            mode=mode,
+            intent=intent,
+            slots=slots,
+            clarification_turns=session.clarification_turns,
+            gray_zone_evaluator=self.gray_zone_evaluator,
         )
-        if policy.gate_search:
-            session.gated_turns += 1
+        policy = policy_to_turn_policy(decision, mode, intent)
 
-        return session_id, session_mgr, session, mode, policy, slots, intent
+        if policy.gate_search:
+            session.clarify_phase = ClarifyPhase.INTERVIEW
+            session.gated_turns += 1
+        elif is_shopping_query:
+            session.clarify_phase = ClarifyPhase.OPEN
+
+        if is_shopping_query:
+            session.last_shopping_intent = intent.value
+
+        return (
+            session_id,
+            session_mgr,
+            session,
+            mode,
+            decision,
+            policy,
+            slots,
+            intent,
+            topic_switched,
+        )
 
     @staticmethod
     def _build_neutral_keyword(
@@ -986,7 +1170,7 @@ class ShopAssistantAgent:
         slots: ConversationSlots,
         messages: list[BaseMessage],
     ) -> dict[str, Any]:
-        """Strip LLM-hallucinated gender/category biases for Mode A balanced search."""
+        """Strip LLM-hallucinated gender/category biases for balanced multi-gender."""
         sanitized = dict(t_args)
         sanitized.pop("target_gender", None)
 
@@ -1060,6 +1244,8 @@ class ShopAssistantAgent:
         raw_args: dict[str, Any],
         slots: ConversationSlots,
         user_id: int | None,
+        *,
+        use_casual_default: bool = False,
     ) -> dict[str, Any]:
         """Normalize and enrich suggest_outfit arguments from detected slots."""
         allowed_keys = {
@@ -1070,10 +1256,13 @@ class ShopAssistantAgent:
             "top_color",
             "bottom_color",
             "occasion",
+            "style",
             "gender",
             "user_id",
             "favorite_colors",
             "disliked_colors",
+            "min_price",
+            "max_price",
             "limit",
         }
         args: dict[str, Any] = {
@@ -1128,16 +1317,57 @@ class ShopAssistantAgent:
             and slots.has("color")
         ):
             args["color"] = slots.value_of("color")
+        if not args.get("disliked_colors") and slots.has("disliked_colors"):
+            args["disliked_colors"] = slots.value_of("disliked_colors")
+        if args.get("product_id") is None and slots.has("product_id"):
+            args["product_id"] = slots.value_of("product_id")
 
-        if not args.get("occasion") and slots.has("occasion"):
-            occ_map = {
-                "office": "đi làm",
-                "party": "hẹn hò",
-                "casual": "đi chơi",
-                "sport": "đi chơi",
-            }
-            occ_val = str(slots.value_of("occasion"))
-            args["occasion"] = occ_map.get(occ_val, occ_val)
+        if not args.get("occasion"):
+            if slots.has("occasion"):
+                occ_map = {
+                    "office": "đi làm",
+                    "party": "hẹn hò",
+                    "casual": "đi chơi",
+                    "sport": "đi chơi",
+                }
+                occ_val = str(slots.value_of("occasion"))
+                args["occasion"] = occ_map.get(occ_val, occ_val)
+            elif use_casual_default and not (
+                args.get("top_category")
+                or args.get("bottom_category")
+                or args.get("product_id")
+            ):
+                args["occasion"] = "đi chơi"
+
+        if not args.get("style") and slots.has("style"):
+            args["style"] = slots.value_of("style")
+        if slots.has("budget"):
+            b_val = slots.value_of("budget")
+            if (
+                args.get("min_price") is None
+                and getattr(b_val, "min_price", None) is not None
+            ):
+                args["min_price"] = b_val.min_price
+            if (
+                args.get("max_price") is None
+                and getattr(b_val, "max_price", None) is not None
+            ):
+                args["max_price"] = b_val.max_price
+
+        if not args.get("style") and slots.has("style"):
+            args["style"] = slots.value_of("style")
+        if slots.has("budget"):
+            b_val = slots.value_of("budget")
+            if (
+                args.get("min_price") is None
+                and getattr(b_val, "min_price", None) is not None
+            ):
+                args["min_price"] = b_val.min_price
+            if (
+                args.get("max_price") is None
+                and getattr(b_val, "max_price", None) is not None
+            ):
+                args["max_price"] = b_val.max_price
 
         if not args.get("gender") and slots.has("target_gender"):
             args["gender"] = slots.value_of("target_gender")
@@ -1150,7 +1380,7 @@ class ShopAssistantAgent:
     def _format_immediate_outfit_fallback_reply(
         outfits: list[OutfitSuggestion], slots: ConversationSlots
     ) -> str:
-        """Format complete top + bottom combos from OutfitGraph for fallback paths."""
+        """Format complete top + bottom combos from Outfit KG for fallback paths."""
         if not slots.has("target_gender") and not slots.has("bottom_category"):
             intro = (
                 "Vì bạn chưa nêu rõ giới tính nên mình gợi ý các bộ phối đồ "
@@ -1182,13 +1412,17 @@ class ShopAssistantAgent:
         slots: ConversationSlots,
         user_id: int | None,
         tools_used: list[str],
+        *,
+        use_casual_default: bool = False,
         config: RunnableConfig | None = None,
     ) -> tuple[list[OutfitSuggestion], list[ChatRecommendedProduct], str]:
         """Execute suggest_outfit fallback and resolve combo products & reply."""
         outfit_tool = self.tools_by_name.get("suggest_outfit")
         if outfit_tool is None:
             return [], [], ""
-        fallback_args = self._build_outfit_tool_args({}, slots, user_id)
+        fallback_args = self._build_outfit_tool_args(
+            {}, slots, user_id, use_casual_default=use_casual_default
+        )
         try:
             tool_res = await outfit_tool.ainvoke(fallback_args, config=config)
             if "suggest_outfit" not in tools_used:
@@ -1246,10 +1480,23 @@ class ShopAssistantAgent:
 
     @staticmethod
     def _format_immediate_fallback_reply(
-        products: list[ChatRecommendedProduct], slots: ConversationSlots
+        products: list[ChatRecommendedProduct],
+        slots: ConversationSlots,
+        *,
+        intent: TurnIntent = TurnIntent.PRODUCT_SEARCH,
     ) -> str:
         """Format a direct fact-first recommendation list with clear assumption."""
         top_products = products[:5]
+        if intent == TurnIntent.BODY_FIT_ADVICE and not slots.has("body_concern"):
+            intro = (
+                "Vì chưa có thông tin đặc điểm vóc dáng cụ thể nên mình gợi ý "
+                "các mẫu form Regular dễ mặc, tôn dáng trung tính:"
+            )
+            lines = [intro]
+            for p in top_products:
+                lines.append(ShopAssistantAgent._format_product_bullet(p))
+            return "\n".join(lines)
+
         if not slots.has("target_gender"):
             buckets: dict[GenderTarget, list[ChatRecommendedProduct]] = {
                 GenderTarget.FEMALE: [],
@@ -1523,9 +1770,11 @@ class ShopAssistantAgent:
                 session_mgr,
                 session,
                 mode,
+                decision,
                 policy,
                 slots,
                 intent,
+                topic_switched,
             ) = await self._resolve_turn_session(
                 request=request, user_id=user_id, auth_token=auth_token
             )
@@ -1544,8 +1793,16 @@ class ShopAssistantAgent:
                 "clarification_mode": mode,
                 "clarify_phase": session.clarify_phase,
                 "gated_turns": session.gated_turns,
+                "clarification_turns": session.clarification_turns,
+                "declined_slots": sorted(session.declined_slots),
+                "last_asked_slots": list(session.last_asked_slots),
+                "topic_switched": topic_switched,
                 "turn_intent": intent.value,
                 "is_shopping_query": is_shopping_query,
+                "policy_decision": decision.model_dump(),
+                "decision_source": decision.decision_source,
+                "decision_reason": decision.decision_reason,
+                "asked_slots": [],
                 "tools_used": [],
                 "reply": "",
                 "needs_clarification": False,
@@ -1564,16 +1821,27 @@ class ShopAssistantAgent:
                 result_state = await self.graph.ainvoke(initial_state, config=config)
 
             latency_ms = int((time.time() - start_time) * 1000)
+            final_asked = bool(result_state.get("needs_clarification", False))
+            final_form: ClarificationForm | None = result_state.get(
+                "clarification_form"
+            )
+            question_count = len(final_form.questions) if final_form else 0
+            asked_slots = list(result_state.get("asked_slots") or [])
+            final_source = result_state.get("decision_source", decision.decision_source)
+            final_reason = result_state.get("decision_reason", decision.decision_reason)
+            tools_used = list(result_state.get("tools_used", []))
+
             logger.info(
                 "CHAT_LANGGRAPH_METRICS session_id=%s mode=%s phase=%s "
-                "next_phase=%s tools=%s needs_clarification=%s products_count=%d "
-                "latency_ms=%d",
+                "next_phase=%s decision_source=%s tools=%s needs_clarification=%s "
+                "products_count=%d latency_ms=%d",
                 session_id[:8],
                 mode.value if hasattr(mode, "value") else mode,
                 executed_phase,
                 session.clarify_phase.value,
-                result_state.get("tools_used", []),
-                result_state.get("needs_clarification", False),
+                final_source,
+                tools_used,
+                final_asked,
                 len(result_state.get("products", [])),
                 latency_ms,
             )
@@ -1585,6 +1853,14 @@ class ShopAssistantAgent:
                 executed_phase=executed_phase,
                 next_phase_value=session.clarify_phase.value,
                 gated_turns=session.gated_turns,
+                clarification_turns=session.clarification_turns,
+                topic_switched=topic_switched,
+                decision_source=final_source,
+                decision_reason=final_reason,
+                reason_codes=decision.reason_codes,
+                impact_signals=decision.impact_signals,
+                evidence_rule_ids=decision.evidence_rule_ids,
+                asked_slots=asked_slots,
                 gate_search=policy.gate_search,
                 active_profile=session.active_profile,
                 slots=slots,
@@ -1597,6 +1873,7 @@ class ShopAssistantAgent:
             )
 
             turn_id = (len(session.messages) // 2) + 1
+            mode_val = mode.value if hasattr(mode, "value") else str(mode)
             await log_chat_turn(
                 session_id=session_id,
                 turn_id=turn_id,
@@ -1606,15 +1883,27 @@ class ShopAssistantAgent:
                 token_usage=usage_meta,
                 error=None,
                 system_prompt_version=SYSTEM_PROMPT_VERSION,
+                clarification_mode=mode_val,
+                turn_intent=intent.value,
+                clarification_asked=final_asked,
+                question_count=question_count,
+                asked_slots=asked_slots,
+                slot_states=slots.to_slot_states_dict(intent),
+                decision_source=final_source,
+                decision_reason=final_reason,
+                tools_used=tools_used,
+                reason_codes=decision.reason_codes or None,
+                impact_signals=decision.impact_signals or None,
+                evidence_rule_ids=decision.evidence_rule_ids or None,
             )
 
             return ChatResponse(
                 reply=result_state.get("reply", ""),
                 session_id=session_id,
                 intent=intent.value,
-                clarification_asked=result_state.get("needs_clarification", False),
-                clarification_form=result_state.get("clarification_form"),
-                tools_used=result_state.get("tools_used", []),
+                clarification_asked=final_asked,
+                clarification_form=final_form,
+                tools_used=tools_used,
                 products=result_state.get("products", []),
                 outfits=result_state.get("outfits", []),
                 debug_meta=debug_meta,
@@ -1661,9 +1950,11 @@ class ShopAssistantAgent:
             session_mgr,
             session,
             mode,
+            decision,
             policy,
             slots,
             intent,
+            topic_switched,
         ) = await self._resolve_turn_session(
             request=request, user_id=user_id, auth_token=auth_token
         )
@@ -1673,6 +1964,11 @@ class ShopAssistantAgent:
         )
         is_shopping_query = intent != TurnIntent.NON_SHOPPING
         executed_phase = session.clarify_phase.value
+        buffer_tokens_for_size_chart = (
+            mode == ClarificationMode.IMMEDIATE_ANSWER
+            and intent == TurnIntent.SIZE_ADVICE
+            and not slots.has_complete_measurements(slots.value_of("category"))
+        )
 
         initial_state: AgentState = {
             "messages": history_msgs,
@@ -1682,8 +1978,16 @@ class ShopAssistantAgent:
             "clarification_mode": mode,
             "clarify_phase": session.clarify_phase,
             "gated_turns": session.gated_turns,
+            "clarification_turns": session.clarification_turns,
+            "declined_slots": sorted(session.declined_slots),
+            "last_asked_slots": list(session.last_asked_slots),
+            "topic_switched": topic_switched,
             "turn_intent": intent.value,
             "is_shopping_query": is_shopping_query,
+            "policy_decision": decision.model_dump(),
+            "decision_source": decision.decision_source,
+            "decision_reason": decision.decision_reason,
+            "asked_slots": [],
             "tools_used": [],
             "reply": "",
             "needs_clarification": False,
@@ -1715,7 +2019,10 @@ class ShopAssistantAgent:
                         ):
                             text = str(msg.content)
                             full_reply_parts.append(text)
-                            if not policy.gate_search:
+                            if (
+                                not policy.gate_search
+                                and not buffer_tokens_for_size_chart
+                            ):
                                 yield {
                                     "type": "token",
                                     "content": text,
@@ -1741,6 +2048,20 @@ class ShopAssistantAgent:
                                 fin_data.get("reply")
                                 or "".join(full_reply_parts).strip()
                             ).strip()
+                            final_asked = bool(
+                                fin_data.get("needs_clarification", False)
+                            )
+                            final_form = fin_data.get("clarification_form")
+                            question_count = (
+                                len(final_form.questions) if final_form else 0
+                            )
+                            asked_slots = list(fin_data.get("asked_slots") or [])
+                            final_source = fin_data.get(
+                                "decision_source", decision.decision_source
+                            )
+                            final_reason = fin_data.get(
+                                "decision_reason", decision.decision_reason
+                            )
 
                             latency_ms = int((time.time() - start_time) * 1000)
                             runs = debug_handler.get_runs()
@@ -1750,6 +2071,14 @@ class ShopAssistantAgent:
                                 executed_phase=executed_phase,
                                 next_phase_value=session.clarify_phase.value,
                                 gated_turns=session.gated_turns,
+                                clarification_turns=session.clarification_turns,
+                                topic_switched=topic_switched,
+                                decision_source=final_source,
+                                decision_reason=final_reason,
+                                reason_codes=decision.reason_codes,
+                                impact_signals=decision.impact_signals,
+                                evidence_rule_ids=decision.evidence_rule_ids,
+                                asked_slots=asked_slots,
                                 gate_search=policy.gate_search,
                                 active_profile=session.active_profile,
                                 slots=slots,
@@ -1767,6 +2096,9 @@ class ShopAssistantAgent:
                             )
 
                             turn_id = (len(session.messages) // 2) + 1
+                            mode_val = (
+                                mode.value if hasattr(mode, "value") else str(mode)
+                            )
                             await log_chat_turn(
                                 session_id=session_id,
                                 turn_id=turn_id,
@@ -1776,6 +2108,18 @@ class ShopAssistantAgent:
                                 token_usage=usage_meta,
                                 error=None,
                                 system_prompt_version=SYSTEM_PROMPT_VERSION,
+                                clarification_mode=mode_val,
+                                turn_intent=intent.value,
+                                clarification_asked=final_asked,
+                                question_count=question_count,
+                                asked_slots=asked_slots,
+                                slot_states=slots.to_slot_states_dict(intent),
+                                decision_source=final_source,
+                                decision_reason=final_reason,
+                                tools_used=tools_used,
+                                reason_codes=decision.reason_codes or None,
+                                impact_signals=decision.impact_signals or None,
+                                evidence_rule_ids=decision.evidence_rule_ids or None,
                             )
 
                             yield {
@@ -1783,13 +2127,9 @@ class ShopAssistantAgent:
                                 "reply": final_reply,
                                 "session_id": session_id,
                                 "intent": intent.value,
-                                "clarification_asked": fin_data.get(
-                                    "needs_clarification", False
-                                ),
+                                "clarification_asked": final_asked,
                                 "clarification_form": (
-                                    fin_data.get("clarification_form").model_dump()
-                                    if fin_data.get("clarification_form")
-                                    else None
+                                    final_form.model_dump() if final_form else None
                                 ),
                                 "tools_used": tools_used,
                                 "products": [
@@ -1804,6 +2144,7 @@ class ShopAssistantAgent:
             latency_ms = int((time.time() - start_time) * 1000)
             logger.error("Error in chat_stream: %s", e, exc_info=True)
             turn_id = (len(session.messages) // 2) + 1 if "session" in locals() else 1
+            mode_val = mode.value if hasattr(mode, "value") else str(mode)
             await log_chat_turn(
                 session_id=session_id,
                 turn_id=turn_id,
@@ -1813,6 +2154,8 @@ class ShopAssistantAgent:
                 token_usage=None,
                 error=str(e),
                 system_prompt_version=SYSTEM_PROMPT_VERSION,
+                clarification_mode=mode_val,
+                turn_intent=intent.value,
             )
             yield {
                 "type": "error",

@@ -32,12 +32,24 @@ class SessionState:
     clarification_mode: str | None = None
     clarify_phase: ClarifyPhase = ClarifyPhase.INTERVIEW
     gated_turns: int = 0
+    clarification_turns: int = 0
+    declined_slots: set[str] = field(default_factory=set)
+    last_asked_slots: list[str] = field(default_factory=list)
+    last_shopping_intent: str | None = None
+
+    def reset_task_clarification(self) -> None:
+        """Reset task-scoped clarification counters on topic switch."""
+        self.clarify_phase = ClarifyPhase.INTERVIEW
+        self.gated_turns = 0
+        self.clarification_turns = 0
+        self.declined_slots.clear()
+        self.last_asked_slots.clear()
 
     def reset_clarification(self, mode: str | None) -> None:
         """Reset clarification state machine when switching mode."""
         self.clarification_mode = mode
-        self.clarify_phase = ClarifyPhase.INTERVIEW
-        self.gated_turns = 0
+        self.reset_task_clarification()
+        self.last_shopping_intent = None
 
     def touch(self) -> None:
         """Update last accessed timestamp."""

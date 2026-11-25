@@ -147,3 +147,18 @@ async def test_chest_and_hip_measurements(recommender: SizeRecommender) -> None:
     )
     assert dress_result.status == "ok"
     assert dress_result.primary_size == "XL"
+
+
+def test_format_size_chart_variants(recommender: SizeRecommender) -> None:
+    men_tops = recommender.format_size_chart(category="shirt", gender=GenderTarget.MALE)
+    assert "Áo Nam" in men_tops
+    assert "| Size |" in men_tops
+    assert "155–165cm" in men_tops
+
+    unknown_gender_tops = recommender.format_size_chart(category="shirt", gender=None)
+    assert "Áo Nam" in unknown_gender_tops
+    assert "Áo Nữ" in unknown_gender_tops
+
+    summary_both = recommender.format_size_chart(category=None, gender=None)
+    assert "Áo Nam" in summary_both
+    assert "Quần" in summary_both

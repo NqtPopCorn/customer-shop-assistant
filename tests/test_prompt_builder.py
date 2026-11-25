@@ -201,7 +201,7 @@ def test_build_interview_system_prompt() -> None:
 
 
 def test_prompt_metadata_and_v2_isolation() -> None:
-    assert SYSTEM_PROMPT_VERSION == "v2.0"
+    assert SYSTEM_PROMPT_VERSION == "v2.1"
     assert "Fashion Shop" in EXTRACTOR_SYSTEM_PROMPT
     assert "AgentReply" in EXTRACTOR_SYSTEM_PROMPT
 
@@ -273,7 +273,7 @@ async def test_agent_run_trace_includes_v2_composable_formula() -> None:
     assert len(res.debug_meta.runs) >= 1
     first_run = res.debug_meta.runs[0]
     assert first_run.system_prompt is not None
-    assert first_run.system_prompt.version == "v2.0"
+    assert first_run.system_prompt.version == "v2.1"
     assert first_run.system_prompt.formula == (
         "PERSONA_CORE + MODE_A_DIRECTIVE + PRODUCT_RULES + "
         "SUPPORT_RULES + PROFILE_NOTES + SLOT_SUMMARY"

@@ -302,3 +302,166 @@ class SizeRecommender:
             review_insight=review_insight,
             category_name=category_title,
         )
+
+    @staticmethod
+    def _format_chart_table(title: str, sizes: list[dict[str, Any]]) -> str:
+        """Format a single size table section into clean Markdown."""
+        if not sizes:
+            return ""
+        has_chest = any("chest_range" in s or "bust_range" in s for s in sizes)
+        has_waist = any("waist_range" in s for s in sizes)
+
+        headers = ["Size", "Chiều cao", "Cân nặng"]
+        if has_chest:
+            headers.append("Vòng ngực")
+        if has_waist:
+            headers.append("Vòng eo")
+
+        lines = [
+            f"**{title}:**",
+            f"| {' | '.join(headers)} |",
+            f"| {' | '.join('---' for _ in headers)} |",
+        ]
+        for entry in sizes:
+            h = entry.get("height_range")
+            w = entry.get("weight_range")
+            row = [
+                str(entry.get("size", "")),
+                f"{h[0]}–{h[1]}cm" if h else "—",
+                f"{w[0]}–{w[1]}kg" if w else "—",
+            ]
+            if has_chest:
+                c = entry.get("chest_range") or entry.get("bust_range")
+                row.append(f"{c[0]}–{c[1]}cm" if c else "—")
+            if has_waist:
+                waist = entry.get("waist_range")
+                row.append(f"{waist[0]}–{waist[1]}cm" if waist else "—")
+            lines.append(f"| {' | '.join(row)} |")
+        return "\n".join(lines)
+
+    def format_size_chart(
+        self,
+        category: str | None = None,
+        gender: GenderTarget | str | None = None,
+    ) -> str:
+        """Return standard size chart Markdown from data/size_charts.json."""
+        charts_data = self._load_charts()
+        charts = charts_data.get("charts", {})
+        if not charts:
+            return (
+                "Hiện tại chưa tải được bảng size chuẩn. "
+                "Bạn vui lòng cung cấp chiều cao và cân nặng để mình kiểm tra lại nhé."
+            )
+
+        norm_gender: GenderTarget | None = None
+        if isinstance(gender, GenderTarget):
+            norm_gender = gender
+        elif isinstance(gender, str) and gender.strip():
+            g_up = gender.strip().upper()
+            if g_up in GenderTarget.__members__:
+                norm_gender = GenderTarget[g_up]
+
+        cat_clean = (category or "").strip().lower()
+        sections: list[str] = []
+
+        tops_genders = charts.get("tops", {}).get("genders", {})
+        bottoms_types = charts.get("bottoms", {}).get("types", {})
+        dresses_data = charts.get("dresses", {})
+
+        def _append_tops() -> None:
+            if norm_gender == GenderTarget.MALE:
+                g_data = tops_genders.get("men", {})
+                sections.append(
+                    self._format_chart_table(
+                        g_data.get("title", "Áo Nam"), g_data.get("sizes", [])
+                    )
+                )
+            elif norm_gender == GenderTarget.FEMALE:
+                g_data = tops_genders.get("women", {})
+                sections.append(
+                    self._format_chart_table(
+                        g_data.get("title", "Áo Nữ"), g_data.get("sizes", [])
+                    )
+                )
+            elif norm_gender == GenderTarget.UNISEX:
+                g_data = tops_genders.get("unisex", {})
+                sections.append(
+                    self._format_chart_table(
+                        g_data.get("title", "Áo Unisex"), g_data.get("sizes", [])
+                    )
+                )
+            else:
+                for key, fallback_title in (("men", "Áo Nam"), ("women", "Áo Nữ")):
+                    g_data = tops_genders.get(key, {})
+                    sections.append(
+                        self._format_chart_table(
+                            g_data.get("title", fallback_title), g_data.get("sizes", [])
+                        )
+                    )
+
+        def _append_bottoms(is_short: bool = False) -> None:
+            if norm_gender == GenderTarget.FEMALE:
+                b_data = bottoms_types.get("women", {})
+                sections.append(
+                    self._format_chart_table(
+                        b_data.get("title", "Quần Nữ & Chân Váy"),
+                        b_data.get("sizes", []),
+                    )
+                )
+            elif norm_gender == GenderTarget.MALE:
+                key = "men_short" if is_short else "men_numeric"
+                b_data = bottoms_types.get(key, {})
+                sections.append(
+                    self._format_chart_table(
+                        b_data.get("title", "Quần Nam"), b_data.get("sizes", [])
+                    )
+                )
+            else:
+                men_key = "men_short" if is_short else "men_numeric"
+                for key, fallback_title in (
+                    (men_key, "Quần Nam"),
+                    ("women", "Quần Nữ & Chân Váy"),
+                ):
+                    b_data = bottoms_types.get(key, {})
+                    sections.append(
+                        self._format_chart_table(
+                            b_data.get("title", fallback_title),
+                            b_data.get("sizes", []),
+                        )
+                    )
+
+        if cat_clean in ("shirt", "polo", "tshirt", "jacket", "tops"):
+            _append_tops()
+        elif cat_clean == "short":
+            _append_bottoms(is_short=True)
+        elif cat_clean in ("jeans", "kaki", "pants", "bottoms"):
+            _append_bottoms(is_short=False)
+        elif cat_clean in ("dress", "dresses"):
+            sections.append(
+                self._format_chart_table(
+                    dresses_data.get("name", "Váy liền & Đầm (Nữ)"),
+                    dresses_data.get("sizes", []),
+                )
+            )
+        elif cat_clean == "skirt":
+            b_data = bottoms_types.get("women", {})
+            sections.append(
+                self._format_chart_table(
+                    b_data.get("title", "Quần Nữ & Chân Váy"),
+                    b_data.get("sizes", []),
+                )
+            )
+        else:
+            _append_tops()
+            _append_bottoms(is_short=False)
+
+        tables_text = "\n\n".join(s for s in sections if s)
+        note = (
+            "Lưu ý chọn size: Vì chưa có số đo cụ thể nên bạn có thể đối chiếu "
+            "theo bảng quy chuẩn trên; nếu số đo nằm giữa 2 size, chọn size nhỏ hơn "
+            "để mặc vừa vặn hoặc tăng 1 size nếu thích thoải mái."
+        )
+        return (
+            "Dưới đây là bảng size chuẩn để bạn tự đối chiếu:\n\n"
+            f"{tables_text}\n\n{note}"
+        )

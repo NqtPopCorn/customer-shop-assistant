@@ -145,6 +145,13 @@ class AgentReply(BaseModel):
             "(ví dụ ['1', '2']). Trả về danh sách rỗng nếu không gợi ý sản phẩm."
         ),
     )
+    decision_reason: str | None = Field(
+        default=None,
+        description=(
+            "Lý do ngắn gọn giải thích vì sao chọn hỏi làm rõ hay trả lời ngay "
+            "trong chế độ CONDITIONAL_CLARIFICATION."
+        ),
+    )
 
 
 class ChatRecommendedProduct(BaseModel):
@@ -188,6 +195,10 @@ class OutfitSuggestion(BaseModel):
     score: float = Field(..., ge=0.0, le=1.0, description="KG compatibility score")
     reasons: list[str] = Field(
         default_factory=list, description="Human-readable matching explanations"
+    )
+    applied_rule_ids: list[str] = Field(
+        default_factory=list,
+        description="KG rule IDs supporting this outfit recommendation",
     )
 
 
@@ -323,6 +334,8 @@ class StateSnapshotDebug(BaseModel):
         description="Clarify phase transitioned to after this turn",
     )
     gated_turns: int
+    clarification_turns: int = 0
+    topic_switched: bool = False
     tools_available: list[str]
     gate_search: bool
     active_profile: dict[str, Any] | None = None
@@ -336,6 +349,13 @@ class TurnDebugMeta(BaseModel):
     mode: str
     phase: str
     gated_turns: int
+    clarification_turns: int = 0
+    decision_source: str | None = None
+    decision_reason: str | None = None
+    reason_codes: list[str] = Field(default_factory=list)
+    impact_signals: dict[str, Any] = Field(default_factory=dict)
+    evidence_rule_ids: list[str] = Field(default_factory=list)
+    asked_slots: list[str] = Field(default_factory=list)
     tools_available: list[str]
     latency_ms: int
     usage_metadata: LangChainUsageMetadata | dict[str, Any] | None = None

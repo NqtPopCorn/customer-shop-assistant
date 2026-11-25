@@ -158,7 +158,7 @@ async def test_agent_fallback_json_reply() -> None:
     agent.structured_model = None
 
     req = ChatRequest(
-        message="Alo shop ơi",
+        message="Tìm áo thun đi chơi",
         clarification_mode=ClarificationMode.MINIMAL_CLARIFICATION,
     )
     res = await agent.chat(req)
