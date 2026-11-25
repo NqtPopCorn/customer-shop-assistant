@@ -1,84 +1,45 @@
-import json
-from functools import lru_cache
-from pathlib import Path
-
 from pydantic import BaseModel, Field
 
 from customer_shop_assistant.config import get_settings
 from customer_shop_assistant.eval.dataset import EvaluationCase
+from customer_shop_assistant.loaders.outfit_ontology import (
+    get_cached_ontology,
+    resolve_category_id,
+)
 from customer_shop_assistant.schemas.chat import OutfitSuggestion
 from customer_shop_assistant.schemas.shop import GenderTarget
-from customer_shop_assistant.services.outfit_rules import (
-    ProductAttrs,
-    compute_formality,
-    load_outfit_rules,
-    normalize_text,
-    resolve_category_role,
-)
-
-
-@lru_cache(maxsize=4)
-def _load_attrs_for_eval(outfit_dir: Path) -> dict[str, ProductAttrs]:
-    attrs_path = outfit_dir / "product_attrs.json"
-    if not attrs_path.exists():
-        return {}
-    with attrs_path.open("r", encoding="utf-8") as f:
-        raw = json.load(f)
-    return {slug: ProductAttrs.model_validate(item) for slug, item in raw.items()}
 
 
 def _compute_outfit_violation_rate(
     case: EvaluationCase, outfits: list[OutfitSuggestion]
 ) -> float:
-    outfit_dir = get_settings().DATA_DIR / "outfit_kg"
-    rules = load_outfit_rules(outfit_dir)
-    attrs_by_slug = _load_attrs_for_eval(outfit_dir.resolve())
+    ont_dir = (get_settings().DATA_DIR / "outfit_kg" / "ontology").resolve()
+    ontology = get_cached_ontology(str(ont_dir))
+    cats_by_id = {c.id: c for c in ontology.categories}
     user_gender = case.user_profile.gender if case.user_profile else None
 
     violations = 0
     for outfit in outfits:
         violated = False
-        top_role = resolve_category_role(outfit.top.category, rules)
-        bot_role = resolve_category_role(outfit.bottom.category, rules)
+        top_id = resolve_category_id(outfit.top.category, ontology)
+        bot_id = resolve_category_id(outfit.bottom.category, ontology)
+        top_node = cats_by_id.get(top_id) if top_id else None
+        bot_node = cats_by_id.get(bot_id) if bot_id else None
 
         if outfit.top.category and (
-            top_role is None or top_role[1] not in ("TOP", "JACKET")
+            top_node is None or top_node.role not in ("TOP", "OUTERWEAR")
         ):
             violated = True
-        if outfit.bottom.category and (bot_role is None or bot_role[1] != "BOTTOM"):
+        if outfit.bottom.category and (bot_node is None or bot_node.role != "BOTTOM"):
+            violated = True
+
+        if user_gender == GenderTarget.MALE and bot_id == "chan_vay":
             violated = True
 
         if (
-            user_gender == GenderTarget.MALE
-            and outfit.bottom.category
-            and normalize_text(outfit.bottom.category) == "chân váy"
-        ):
-            violated = True
-
-        top_attrs = attrs_by_slug.get(outfit.top.slug) if outfit.top.slug else None
-        bot_attrs = (
-            attrs_by_slug.get(outfit.bottom.slug) if outfit.bottom.slug else None
-        )
-
-        f_top: int | None = None
-        f_bot: int | None = None
-        if top_attrs is not None:
-            f_top = top_attrs.formality
-        elif outfit.top.category:
-            f_top = compute_formality(outfit.top.category, None, rules)
-        if bot_attrs is not None:
-            f_bot = bot_attrs.formality
-        elif outfit.bottom.category:
-            f_bot = compute_formality(outfit.bottom.category, None, rules)
-
-        if f_top is not None and f_bot is not None and abs(f_top - f_bot) > 2:
-            violated = True
-
-        if (
-            top_attrs is not None
-            and bot_attrs is not None
-            and top_attrs.pattern_class == "PATTERN"
-            and bot_attrs.pattern_class == "PATTERN"
+            top_node is not None
+            and bot_node is not None
+            and abs(top_node.base_formality - bot_node.base_formality) > 2
         ):
             violated = True
 

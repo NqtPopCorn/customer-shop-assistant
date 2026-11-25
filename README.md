@@ -108,8 +108,9 @@ uv run ruff check .
 # Automatically format code
 uv run ruff format .
 
-# Build Outfit Knowledge Graph offline attributes (data/outfit_kg/product_attrs.json)
-uv run python scripts/build_outfit_kg.py
+# Validate snapshot coverage and seed Category-level Outfit KG to Neo4j
+uv run python scripts/build_snapshot_manifest.py
+uv run python scripts/seed_neo4j_kg.py --reset
 ```
 
 Set `OUTFIT_KG_ENABLED=False` in `.env` to disable `suggest_outfit` when running baseline comparisons.

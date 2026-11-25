@@ -51,7 +51,7 @@ customer-shop-assistant/
     ├── config.py                     # Settings class with get_settings()
     ├── main.py                       # FastAPI app and GET /health
     ├── api/                          # Route handlers
-    ├── services/                     # Business logic (agent, outfit_rules, outfit_graph)
+    ├── services/                     # Business logic (agent, outfit_kg_repository, outfit_retrieval, counterfactual_policy)
     ├── schemas/                      # Pydantic request/response models
     ├── tools/                        # LangChain tools (catalog, size, outfit_tool, etc.)
     ├── loaders/                      # Catalog and policy data loaders

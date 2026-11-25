@@ -6,8 +6,23 @@ from pathlib import Path
 
 from customer_shop_assistant.config import get_settings
 from customer_shop_assistant.eval.dataset import EvaluationCase, load_golden_set
+from customer_shop_assistant.eval.e1_benchmark import (
+    calibrate_thresholds_on_dev,
+    export_tier2_judge_sheet,
+    load_e1_scenarios,
+    run_e1_policy_benchmark,
+    run_e2e_llm_sample,
+    write_e1_markdown_report,
+)
 from customer_shop_assistant.eval.runner import EvalRunner
 from customer_shop_assistant.schemas.chat import ClarificationMode
+from customer_shop_assistant.services.counterfactual_policy import (
+    CounterfactualThresholds,
+)
+from customer_shop_assistant.services.slot_tracker import (
+    extract_conversation_slots,
+    get_missing_required_slots,
+)
 
 # Ensure terminal colors and UTF-8 output
 if sys.platform == "win32":
@@ -29,8 +44,7 @@ async def run_experiment_e1(
 ) -> dict[str, dict[str, float]]:
     """Execute Research Experiment E1: Comparative Study of Clarification Strategies.
 
-    Compares IMMEDIATE_ANSWER vs MINIMAL_CLARIFICATION vs ALWAYS_CLARIFY
-    on a subset of ambiguous inquiries.
+    Compares IMMEDIATE_ANSWER vs CONDITIONAL_CLARIFICATION vs ALWAYS_CLARIFY.
     """
     settings = get_settings()
     cases = load_golden_set(category="clarification_strategy", limit=limit)
@@ -39,7 +53,7 @@ async def run_experiment_e1(
 
     modes = [
         ClarificationMode.IMMEDIATE_ANSWER,
-        ClarificationMode.MINIMAL_CLARIFICATION,
+        ClarificationMode.CONDITIONAL_CLARIFICATION,
         ClarificationMode.ALWAYS_CLARIFY,
     ]
 
@@ -62,7 +76,12 @@ async def run_experiment_e1(
             if mode == ClarificationMode.IMMEDIATE_ANSWER:
                 cloned.ground_truth.should_clarify = False
             elif mode == ClarificationMode.ALWAYS_CLARIFY:
-                cloned.ground_truth.should_clarify = True
+                slots, intent = extract_conversation_slots(
+                    [c.question], user_profile=c.user_profile
+                )
+                cloned.ground_truth.should_clarify = bool(
+                    get_missing_required_slots(intent, slots)
+                )
             mode_cases.append(cloned)
 
         print(f"\n{YELLOW}{BOLD}>>> Running Mode: {mode.value} ...{RESET}")
@@ -115,8 +134,8 @@ def write_markdown_report(
 Đo lường sự đánh đổi giữa độ dài hội thoại, số token tiêu hao,
 độ trễ phản hồi và tỷ lệ thỏa mãn ý định trên 3 chế độ:
 1. `IMMEDIATE_ANSWER`: Đề xuất ngay lập tức, không hỏi lại.
-2. `MINIMAL_CLARIFICATION`: Chỉ hỏi tối đa 1 câu khi thiếu dữ kiện.
-3. `ALWAYS_CLARIFY`: Luôn chủ động đặt câu hỏi làm rõ nhu cầu.
+2. `CONDITIONAL_CLARIFICATION`: Hybrid Hard Guards + Counterfactual KG.
+3. `ALWAYS_CLARIFY`: Kiểm tra Required Slots theo từng intent.
 
 ### 1.2 Bảng Số liệu Tổng hợp
 
@@ -177,7 +196,7 @@ async def async_main() -> None:
         "--experiment",
         type=str,
         default="e1",
-        choices=["e1", "e2", "outfit"],
+        choices=["e1", "e1-kg", "e2", "outfit"],
         help="Experiment code",
     )
     parser.add_argument(
@@ -189,6 +208,29 @@ async def async_main() -> None:
     parser.add_argument(
         "--output", type=str, default=None, help="Output markdown report path"
     )
+    parser.add_argument(
+        "--backend",
+        type=str,
+        default="inmemory",
+        choices=["inmemory", "neo4j"],
+        help="Outfit KG repository backend for e1-kg",
+    )
+    parser.add_argument(
+        "--calibrate",
+        action="store_true",
+        help="Tune and freeze counterfactual thresholds on Dev split",
+    )
+    parser.add_argument(
+        "--ablation",
+        action="store_true",
+        help="Include Catalog-only and KG-only ablations for e1-kg",
+    )
+    parser.add_argument(
+        "--e2e-limit",
+        type=int,
+        default=0,
+        help="Number of scenarios for live LLM E2E sample in e1-kg",
+    )
 
     args = parser.parse_args()
 
@@ -197,6 +239,53 @@ async def async_main() -> None:
         await run_experiment_e1(
             limit=args.limit, dry_run=args.dry_run, output_report_path=out_p
         )
+    elif args.experiment == "e1-kg":
+        dev_scenarios = load_e1_scenarios(split="dev")
+        test_scenarios = load_e1_scenarios(split="test")
+        dev_sweep = None
+        if args.calibrate:
+            thresholds, dev_sweep = calibrate_thresholds_on_dev(
+                dev_scenarios,
+                backend=args.backend,
+                output_path=Path("eval/frozen_thresholds.json"),
+            )
+        else:
+            thresholds = CounterfactualThresholds()
+
+        aggregates, results = run_e1_policy_benchmark(
+            test_scenarios,
+            backend=args.backend,
+            thresholds=thresholds,
+            include_ablation=args.ablation,
+            output_jsonl_path=Path("logs/e1_test_results.jsonl"),
+        )
+        e2e_samples = (
+            await run_e2e_llm_sample(
+                test_scenarios, limit=args.e2e_limit, backend=args.backend
+            )
+            if args.e2e_limit > 0
+            else None
+        )
+        report_path = out_p or Path("docs/research/e1_kg_clarification_report.md")
+        write_e1_markdown_report(
+            aggregates,
+            results,
+            thresholds=thresholds,
+            dev_sweep=dev_sweep,
+            e2e_samples=e2e_samples,
+            backend=args.backend,
+            dev_count=len(dev_scenarios),
+            test_count=len(test_scenarios),
+            output_path=report_path,
+        )
+        export_tier2_judge_sheet(results, test_scenarios)
+        for lbl, m in aggregates.items():
+            print(
+                f"{lbl:<42} | Clarify={m.clarification_rate:5.1f}% | "
+                f"Policy={m.policy_compliance_rate:5.1f}% | "
+                f"Gold={m.gold_alignment_rate:5.1f}% | "
+                f"Probe={m.avg_probe_latency_ms:.2f}ms"
+            )
     elif args.experiment == "outfit":
         await run_experiment_outfit_kg(limit=args.limit, dry_run=args.dry_run)
 

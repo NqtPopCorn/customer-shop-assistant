@@ -1,0 +1,1190 @@
+{
+  "version": "2.0",
+  "_comment": "Controlled E1 Evaluation Dataset (72 scenarios: 24 dev / 48 test across 5 intents & OUTFIT_ADVICE open/anchor)",
+  "scenarios": [
+    {
+      "id": "E1_DEV_OPEN_01",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối đồ cho mình với shop ơi.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Broad empty OPEN outfit request with neither gender nor occasion lacks any actionable anchor.",
+      "expected_clarify_slots": ["target_gender", "occasion"],
+      "user_answers": {
+        "target_gender": "Mình là nam nhé",
+        "occasion": "Đi chơi cuối tuần"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_02",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn giúp mình một bộ đồ đi tiệc tối nay với.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN OUTFIT_ADVICE with occasion=party but missing target_gender diverges completely between Male blazers/shirts and Female skirts/tops.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Mình là nam nhé",
+        "occasion": "Đi tiệc"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_03",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý set đồ đi làm công sở thanh lịch.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN office outfit without target_gender shifts top/bottom category pairs significantly between Male and Female.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Đồ nữ nha bạn"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_04",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn phối đồ cho nam giới.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Gender=MALE is known, but occasion is missing so blueprint shifts across office, hangout, and party.",
+      "expected_clarify_slots": ["occasion"],
+      "user_answers": {
+        "occasion": "Đi làm công sở"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_05",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối đồ đi làm cho nam phong cách smart-casual.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender, occasion, and style are all explicitly provided; proceed immediately.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office",
+        "style": "Smart Casual"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_06",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý bộ đồ đi chơi cho nữ giá dưới 600k.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Both target_gender=FEMALE and occasion=casual plus budget<=600k are resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "casual",
+        "max_price": 600000
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_07",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Set đồ đi chơi cho nữ dễ mặc.",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Required slots target_gender and occasion are resolved; optional budget/style clarification is optional.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "budget": "Tầm 500k",
+        "style": "Trẻ trung"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_DEV_OPEN_08",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý một bộ đồ đi biển hè năm nay với.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN travel_beach outfit missing target_gender diverged cleanly on male vs female sets; user may decline gender to trigger Balanced Multi-Gender fallback.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Không quan trọng, bạn cứ gợi ý giúp mình",
+        "_decline": "DECLINED"
+      },
+      "hard_constraints": {
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_01",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi trắng với quần gì đẹp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Spec Ví dụ B: explicit item anchor áo sơ mi trắng can be covered cleanly with Male and Female alternatives.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam",
+        "occasion": "Đi làm"
+      },
+      "hard_constraints": {
+        "top_category": "Áo sơ mi"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_02",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo polo xanh navy phối với quần nào thì hợp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Explicit anchor top_category=polo + color=Xanh navy supports compact cross-gender alternatives.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "top_category": "Áo polo"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_03",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi trắng cho nam đi làm.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Anchor + gender + occasion all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_04",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Chân váy đen nữ phối áo gì đi hẹn hò?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Bottom anchor + gender + occasion + color all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "bottom_category": "Chân váy"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_05",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo khoác blazer phối quần gì cho lịch sự?",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Anchor jacket + style=lịch sự can proceed with grounded alternatives or optionally confirm gender.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "top_category": "Áo khoác"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_06",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối đồ nam mặc chân váy đi làm thì chọn áo gì?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "CONFLICTING gender constraint (male + female-only skirt) must trigger Hard Ask Guard.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nữ"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "bottom_category": "Chân váy"
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_07",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi với quần tây cho nam đi làm giá dưới 100k.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Unfulfillable hard budget constraint (<100k yields 0 items in snapshot where min_price is 144k).",
+      "expected_clarify_slots": ["budget"],
+      "user_answers": {
+        "budget": "Tầm 500k"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi",
+        "bottom_category": "Quần âu",
+        "max_price": 500000
+      }
+    },
+    {
+      "id": "E1_DEV_ANCHOR_08",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối váy liền với gì cho đẹp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Váy liền is outside top-bottom blueprint scope (supports_top_bottom_blueprint=false); proceed immediately to out-of-scope notice.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "out_of_scope": true
+      }
+    },
+    {
+      "id": "E1_DEV_SEARCH_01",
+      "split": "dev",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Tìm đồ giúp mình với.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Broad empty PRODUCT_SEARCH missing both target_gender and category.",
+      "expected_clarify_slots": ["target_gender", "category"],
+      "user_answers": {
+        "target_gender": "Nam",
+        "category": "Áo sơ mi"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_SEARCH_02",
+      "split": "dev",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Tìm áo sơ mi nam màu trắng dưới 400k.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender and category are resolved; Hard Answer Guard proceeds immediately.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_SEARCH_03",
+      "split": "dev",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Cho mình xem các mẫu đầm nữ màu đen với.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Both target_gender=FEMALE and category=dress are resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_SIZE_01",
+      "split": "dev",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Áo sơ mi nam này mình mặc size gì vừa?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "SIZE_ADVICE missing required measurements triggers Hard Ask Guard in Mode B & Mode C.",
+      "expected_clarify_slots": ["measurements"],
+      "user_answers": {
+        "measurements": "Mình cao 1m72 nặng 65kg"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_SIZE_02",
+      "split": "dev",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Mình nam cao 1m72 nặng 65kg mặc áo polo size nào?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender, category, and height+weight measurements are all provided.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_BODY_01",
+      "split": "dev",
+      "expected_intent": "BODY_FIT_ADVICE",
+      "task_type": "body_fit",
+      "question": "Mình nam bụng hơi to nên mặc áo form gì che bụng?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender=MALE and body_concern=belly are both provided.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_NONSHOP_01",
+      "split": "dev",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Chính sách đổi trả của shop thế nào?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "NON_SHOPPING policy FAQ strictly bypasses clarification in all 3 modes.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_NONSHOP_02",
+      "split": "dev",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Xin chào shop!",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Greeting is NON_SHOPPING and strictly bypasses clarification in all modes.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+
+    {
+      "id": "E1_TEST_OPEN_01",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn set đồ đẹp giúp mình nhé.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Broad empty outfit inquiry lacking gender and occasion.",
+      "expected_clarify_slots": ["target_gender", "occasion"],
+      "user_answers": {
+        "target_gender": "Nữ",
+        "occasion": "Đi làm"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_02",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Mình cần phối một bộ trang phục mới mà chưa biết mặc gì.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Broad empty OPEN outfit inquiry with no anchor slot.",
+      "expected_clarify_slots": ["target_gender", "occasion"],
+      "user_answers": {
+        "target_gender": "Nam",
+        "occasion": "Đi chơi"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_03",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn outfit đi dự tiệc cuối tuần.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN party outfit missing target_gender causes distinct category & product sets.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nữ"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_04",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối đồ đi làm văn phòng lịch sự giúp mình.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN office outfit missing target_gender shifts top/bottom pairs between Male and Female.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_05",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý set đồ đi chơi dạo phố cuối tuần.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN casual outfit missing target_gender.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_06",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn bộ đồ đi đám cưới bạn thân sao cho nổi bật.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN wedding/party outfit missing target_gender.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Không quan trọng, bạn cứ gợi ý giúp mình",
+        "_decline": "DECLINED"
+      },
+      "hard_constraints": {
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_07",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối giúp mình bộ đồ đi hẹn hò buổi tối.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN date outfit missing target_gender.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nữ"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_08",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý một set đồ đi biển mùa hè thoáng mát.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "OPEN beach/travel outfit missing target_gender.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_09",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn phối đồ cho nữ giới.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Gender=FEMALE is given but occasion is unknown, shifting blueprints strongly across office, hangout, and party.",
+      "expected_clarify_slots": ["occasion"],
+      "user_answers": {
+        "occasion": "Đi làm"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_10",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối một set đồ cho bạn nam trẻ trung.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Gender=MALE is given, missing occasion leads to divergent blueprints between office/casual/party.",
+      "expected_clarify_slots": ["occasion"],
+      "user_answers": {
+        "occasion": "Đi chơi dạo phố"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_11",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Gợi ý outfit cho bạn nam nhưng dịp nào cũng không quan trọng lắm.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender=MALE and occasion declined in initial query triggers deterministic fallback immediately.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_12",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối đồ đi làm công sở cho nữ phong cách thanh lịch.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender, occasion, and style are all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "office",
+        "style": "Thanh lịch"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_13",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Set đồ đi chơi dạo phố cho nam phong cách năng động dưới 700k.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender, occasion, style, and budget are all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual",
+        "max_price": 700000
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_14",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Tư vấn set đồ dự tiệc sang trọng cho nữ giới.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender, occasion, and style are all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_15",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối đồ đi làm cho nam dưới 500k.",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Required slots plus budget are known; clarifying style is optional.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "style": "Smart-casual"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office",
+        "max_price": 500000
+      }
+    },
+    {
+      "id": "E1_TEST_OPEN_16",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "open",
+      "question": "Phối bộ đồ đi chơi cho nam giá hợp lý.",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Gender and occasion are resolved; vague budget or style is optional.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "budget": "Tầm 450k"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+
+    {
+      "id": "E1_TEST_ANCHOR_01",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi đen với quần gì đẹp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Item anchor áo sơ mi đen without gender can be answered directly via Male & Female alternatives.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "top_category": "Áo sơ mi"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_02",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo thun trắng phối với quần nào trẻ trung?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Item anchor áo thun trắng + style trẻ trung works across Male/Female alternatives.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nữ"
+      },
+      "hard_constraints": {
+        "top_category": "Áo thun"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_03",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Quần tây đen công sở phối áo gì thanh lịch?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Bottom anchor quần tây đen + occasion office supports balanced Male & Female pairings.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "bottom_category": "Quần âu"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_04",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Quần kaki màu be phối áo màu gì hợp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Bottom anchor quần kaki be has rich color harmony recommendations across genders.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "bottom_category": "Quần kaki"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_05",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo khoác bomber phối quần gì hợp đi chơi?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Outerwear anchor + occasion casual can proceed directly with grounded alternatives.",
+      "expected_clarify_slots": [],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "top_category": "Áo khoác"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_06",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Quần jean xanh cho nam phối áo gì đi chơi?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Anchor + gender + occasion + color all resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "bottom_category": "Quần jeans"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_07",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo polo nam màu trắng phối với quần short đi biển.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Both top and bottom anchors plus gender and occasion are specified.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo polo",
+        "bottom_category": "Quần short"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_08",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi trắng cho nam hay nữ mặc đi làm?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "CONFLICTING gender constraint ('cho nam' and 'nữ') triggers Hard Ask Guard.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_09",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo thun nam mặc với chân váy đi chơi thì sao?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "CONFLICTING gender constraint (male + female-only skirt) triggers Hard Ask Guard.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nữ"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "top_category": "Áo thun",
+        "bottom_category": "Chân váy"
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_10",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo polo nam với quần kaki dưới 200k nhưng trên 500k.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "CONFLICTING budget bounds (max 200k vs min 500k) triggers Hard Ask Guard.",
+      "expected_clarify_slots": ["budget"],
+      "user_answers": {
+        "budget": "Tầm 500k"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo polo",
+        "bottom_category": "Quần kaki",
+        "max_price": 500000
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_11",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo polo nam với quần kaki dưới 100k.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Unfulfillable hard budget constraint (<100k) yields 0 feasible products in snapshot.",
+      "expected_clarify_slots": ["budget"],
+      "user_answers": {
+        "budget": "Dưới 500k"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo polo",
+        "bottom_category": "Quần kaki",
+        "max_price": 500000
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_12",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối áo sơ mi nữ với chân váy giá dưới 90k đi làm.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Unfulfillable hard budget constraint (<90k) yields 0 feasible outfits in snapshot.",
+      "expected_clarify_slots": ["budget"],
+      "user_answers": {
+        "budget": "Dưới 450k"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "top_category": "Áo sơ mi",
+        "bottom_category": "Chân váy",
+        "max_price": 450000
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_13",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Áo thun nữ phối với quần short giá dưới 100k đi chơi.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Unfulfillable hard budget constraint (<100k) triggers counterfactual ASK on budget.",
+      "expected_clarify_slots": ["budget"],
+      "user_answers": {
+        "budget": "Tầm 400k"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "top_category": "Áo thun",
+        "bottom_category": "Quần short",
+        "max_price": 400000
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_14",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối đầm dạ hội nữ với gì cho sang?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Đầm dạ hội is a non-blueprint ONE_PIECE category; proceed immediately to out-of-scope notice.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "out_of_scope": true
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_15",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối túi xách với trang phục gì hợp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Túi xách is an accessory with supports_top_bottom_blueprint=false; proceed directly.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "out_of_scope": true
+      }
+    },
+    {
+      "id": "E1_TEST_ANCHOR_16",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "anchor",
+      "question": "Phối thắt lưng nam với gì đẹp?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Thắt lưng is an accessory outside top-bottom blueprint scope; proceed directly.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "out_of_scope": true
+      }
+    },
+
+    {
+      "id": "E1_TEST_SEARCH_01",
+      "split": "test",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Shop gợi ý cho mình mua vài món đồ với.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Broad empty PRODUCT_SEARCH missing gender and category.",
+      "expected_clarify_slots": ["target_gender", "category"],
+      "user_answers": {
+        "target_gender": "Nam",
+        "category": "Áo thun"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SEARCH_02",
+      "split": "test",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Tìm quần mặc đi chơi giúp mình.",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Category=pants and occasion=casual known, missing required target_gender is a candidate for gray zone.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SEARCH_03",
+      "split": "test",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Tìm quần kaki nam đi làm công sở.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Required slots target_gender=MALE and category=kaki are both resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SEARCH_04",
+      "split": "test",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Cho mình xem các mẫu áo polo nam dưới 350k.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender, category, and budget are resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SEARCH_05",
+      "split": "test",
+      "expected_intent": "PRODUCT_SEARCH",
+      "task_type": "search",
+      "question": "Tìm áo khoác blazer nữ màu đen.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Target gender, category, and color are resolved.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+
+    {
+      "id": "E1_TEST_SIZE_01",
+      "split": "test",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Quần jean nam này mình mặc size nào vừa?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "SIZE_ADVICE missing required measurements triggers Hard Ask Guard.",
+      "expected_clarify_slots": ["measurements"],
+      "user_answers": {
+        "measurements": "Cao 1m75 nặng 70kg vòng bụng 80"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SIZE_02",
+      "split": "test",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Đầm nữ này thì lấy size gì vừa bạn?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "SIZE_ADVICE missing measurements.",
+      "expected_clarify_slots": ["measurements"],
+      "user_answers": {
+        "measurements": "Mình cao 1m58 nặng 48kg"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SIZE_03",
+      "split": "test",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Nữ cao 1m60 nặng 50kg mặc áo sơ mi size nào?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender, category, and height+weight measurements are all provided.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_SIZE_04",
+      "split": "test",
+      "expected_intent": "SIZE_ADVICE",
+      "task_type": "size",
+      "question": "Mình cao 1m70 nặng 64kg mặc áo thun nam size gì?",
+      "user_profile": {
+        "height_cm": 170.0,
+        "weight_kg": 64.0,
+        "gender": "MALE"
+      },
+      "gold_label": "proceed",
+      "gold_rationale": "Profile and utterance resolve gender, category, and measurements.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+
+    {
+      "id": "E1_TEST_BODY_01",
+      "split": "test",
+      "expected_intent": "BODY_FIT_ADVICE",
+      "task_type": "body_fit",
+      "question": "Mình người khá gầy nên mặc áo form gì cho đỡ gầy?",
+      "user_profile": null,
+      "gold_label": "optional_clarify",
+      "gold_rationale": "Body concern=slim known, missing target_gender falls in gray zone.",
+      "expected_clarify_slots": ["target_gender"],
+      "user_answers": {
+        "target_gender": "Nam"
+      },
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_BODY_02",
+      "split": "test",
+      "expected_intent": "BODY_FIT_ADVICE",
+      "task_type": "body_fit",
+      "question": "Bạn nữ nấm lùn cao 1m52 nên mặc quần dáng gì hack chiều cao?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender=FEMALE and body_concern=petite are both provided.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_BODY_03",
+      "split": "test",
+      "expected_intent": "BODY_FIT_ADVICE",
+      "task_type": "body_fit",
+      "question": "Nam cao 1m75 nặng 56kg người gầy mặc sơ mi form gì hợp dáng?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Gender=MALE and body_concern=slim are both provided.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+
+    {
+      "id": "E1_TEST_NONSHOP_01",
+      "split": "test",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Phí ship đơn 300k là bao nhiêu vậy shop?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Shipping policy inquiry is NON_SHOPPING.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_NONSHOP_02",
+      "split": "test",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Mã voucher SUMMER50 áp dụng được cho đơn nào?",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Voucher inquiry is NON_SHOPPING.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_NONSHOP_03",
+      "split": "test",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Hủy giúp mình đơn hàng #1234 với.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Out-of-scope order cancellation is NON_SHOPPING.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    },
+    {
+      "id": "E1_TEST_NONSHOP_04",
+      "split": "test",
+      "expected_intent": "NON_SHOPPING",
+      "task_type": "non_shopping",
+      "question": "Cảm ơn bạn nhiều nhé!",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Thank-you message is NON_SHOPPING.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {}
+    }
+  ]
+}

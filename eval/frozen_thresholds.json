@@ -1,0 +1,105 @@
+{
+  "frozen_at": "2026-11-25T03:51:54.491750+00:00",
+  "dev_count": 24,
+  "backend": "neo4j",
+  "thresholds": {
+    "jaccard_threshold": 0.45,
+    "min_viable_outfits": 1,
+    "min_viable_products": 2,
+    "alternatives_max_branches": 3,
+    "top_k": 5,
+    "wide_pool_product_threshold": 120
+  },
+  "sweep": [
+    {
+      "jaccard_threshold": 0.25,
+      "min_viable_outfits": 1,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 37.93
+    },
+    {
+      "jaccard_threshold": 0.25,
+      "min_viable_outfits": 2,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 64.23
+    },
+    {
+      "jaccard_threshold": 0.35,
+      "min_viable_outfits": 1,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 80.3
+    },
+    {
+      "jaccard_threshold": 0.35,
+      "min_viable_outfits": 2,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 70.19
+    },
+    {
+      "jaccard_threshold": 0.45,
+      "min_viable_outfits": 1,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 75.47
+    },
+    {
+      "jaccard_threshold": 0.45,
+      "min_viable_outfits": 2,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 29.46
+    },
+    {
+      "jaccard_threshold": 0.55,
+      "min_viable_outfits": 1,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 29.92
+    },
+    {
+      "jaccard_threshold": 0.55,
+      "min_viable_outfits": 2,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 24.71
+    },
+    {
+      "jaccard_threshold": 0.65,
+      "min_viable_outfits": 1,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 26.48
+    },
+    {
+      "jaccard_threshold": 0.65,
+      "min_viable_outfits": 2,
+      "gold_alignment_rate": 100.0,
+      "missed_necessary_rate": 0.0,
+      "unnecessary_question_rate": 0.0,
+      "policy_compliance_rate": 100.0,
+      "avg_probe_latency_ms": 18.52
+    }
+  ]
+}
