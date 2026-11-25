@@ -57,13 +57,13 @@ def test_retrieve_payment_policy() -> None:
     assert "MBBank" in payment_chunk.content
 
 
-def test_dense_embedding_nomic_embed_text() -> None:
+def test_dense_embedding_bge_m3() -> None:
     retriever = PolicyRetriever()
     retriever.index_documents()
     assert len(retriever.chunks) > 0
     if retriever._using_dense:
         assert len(retriever._dense_embeddings) == len(retriever.chunks)
-        assert len(retriever._dense_embeddings[0]) == 768
+        assert len(retriever._dense_embeddings[0]) == 1024
 
 
 def test_cache_key_hash_and_model() -> None:

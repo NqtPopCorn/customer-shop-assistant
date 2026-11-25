@@ -4,7 +4,7 @@ Single source of truth for coding agents working on `customer-shop-assistant`.
 
 ## 1. Project Overview & Research Goal
 - **Project**: `customer-shop-assistant`, a research prototype chatbot for an e-commerce clothing store.
-- **Reference Catalog Source**: `H:\Code\PET\e-commerce-clothes` (clothing store domain reference).
+- **Reference Catalog Source**: `H:\Code\PET\e-commerce-clothes` (clothing store domain reference, Backend and Frontend provide DB knowledges and UI of the chatbot).
 - **Product Requirements Document**: [docs/plans/prd.md](file:///h:/Code/PET/customer-shop-assistant/docs/plans/prd.md) (PRD v1.0 specifications & decisions).
 - **Research Goal**: Study how an AI chatbot answers clothing store customer questions (sizes, recommendations, inventory, store policies, clarification modes).
 - **Core Philosophy**: Speed, clarity, and rapid experimentation matter more than production polish. Do NOT over-engineer.
@@ -14,7 +14,7 @@ Single source of truth for coding agents working on `customer-shop-assistant`.
 - **Core Frameworks**: FastAPI, Uvicorn, LangChain (`langchain`, `langchain-ollama`, `langchain-openai`), `pydantic-settings`.
 - **Tooling**: Ruff (linting/formatting), Pytest (testing), HTTPX (testing client).
 - **LLM Providers**: Ollama (`llama3.2`) and LM Studio (`google/gemma-4-e2b`, OpenAI-compatible).
-- **Embedding Providers**: Ollama (`nomic-embed-text`).
+- **Embedding Providers**: Ollama (`bge-m3`).
 
 ### Exact Terminal Commands
 ```powershell

@@ -317,6 +317,42 @@ _OUTFIT_ADVICE_CUES = (
     "kết hợp với",
     "nguyên set",
     "cả bộ",
+    "bên dưới mặc gì",
+    "ở dưới mặc gì",
+    "bên trên mặc gì",
+    "ở trên mặc gì",
+    "đồ mặc bên dưới",
+    "đồ bên dưới",
+    "mặc bên dưới",
+    "phần dưới",
+    "đồ mặc bên trên",
+    "đồ bên trên",
+    "mặc bên trên",
+    "phần trên",
+    "phù hợp với áo",
+    "hợp với áo",
+    "mặc với áo",
+    "đi với áo",
+    "phù hợp với quần",
+    "hợp với quần",
+    "mặc với quần",
+    "đi với quần",
+    "phù hợp với váy",
+    "hợp với váy",
+    "mặc với váy",
+    "đi với váy",
+    "phù hợp với mẫu",
+    "hợp với mẫu",
+    "mặc với mẫu",
+    "mặc thêm gì",
+    "phối thêm gì",
+)
+
+_OUTFIT_ADVICE_PATTERNS = (
+    r"\bmặc\s+(?:gì|đồ\s+gì|loại\s+gì)\s+(?:ở\s+|bên\s+)?(?:dưới|trên)\b",
+    r"\b(?:ở\s+|bên\s+)?(?:dưới|trên)\s+(?:nên\s+)?mặc\s+gì\b",
+    r"\b(?:phù\s+hợp|hợp)\s+với\s+(?:mấy\s+|các\s+|những\s+)?"
+    r"(?:mẫu\s+)?(?:áo|quần|váy|chân\s+váy)\b",
 )
 
 _SINGLE_ITEM_SWITCH_CUES = (
@@ -329,6 +365,50 @@ _SINGLE_ITEM_SWITCH_CUES = (
     "xem mẫu",
     "chỉ tìm áo",
     "chỉ tìm quần",
+)
+
+
+def _has_outfit_advice_cue(lower: str) -> bool:
+    return any(cue in lower for cue in _OUTFIT_ADVICE_CUES) or any(
+        re.search(pat, lower) for pat in _OUTFIT_ADVICE_PATTERNS
+    )
+
+
+
+def _has_outfit_advice_cue(lower: str) -> bool:
+    return any(cue in lower for cue in _OUTFIT_ADVICE_CUES) or any(
+        re.search(pat, lower) for pat in _OUTFIT_ADVICE_PATTERNS
+    )
+
+_TARGET_REFERENCE_SPLIT_CUES = (
+    "phù hợp với",
+    "hợp với",
+    "đi cùng với",
+    "đi cùng",
+    "đi với",
+    "mặc cùng với",
+    "mặc cùng",
+    "mặc chung với",
+    "mặc với",
+    "phối cùng",
+    "phối với",
+    "kết hợp với",
+)
+
+_GENERIC_BOTTOM_CUES = (
+    "đồ mặc bên dưới",
+    "đồ bên dưới",
+    "mặc bên dưới",
+    "phần dưới",
+    "đồ dưới",
+)
+
+_GENERIC_TOP_CUES = (
+    "đồ mặc bên trên",
+    "đồ bên trên",
+    "mặc bên trên",
+    "phần trên",
+    "đồ trên",
 )
 
 _FORM_MULTI_GARMENT_PHRASES = (
@@ -427,7 +507,7 @@ def classify_turn_intent(message: str) -> TurnIntent:
     if any(cue in lower for cue in _BODY_FIT_CUES):
         return TurnIntent.BODY_FIT_ADVICE
 
-    if any(cue in lower for cue in _OUTFIT_ADVICE_CUES):
+    if _has_outfit_advice_cue(lower):
         return TurnIntent.OUTFIT_ADVICE
 
     top_cat, bot_cat, _, _ = _extract_outfit_components(lower)
@@ -560,10 +640,10 @@ def _extract_gender(lower: str) -> str | None:
     return None
 
 
-def _extract_category(lower: str) -> str | None:
+def _extract_category_from_text(text: str) -> str | None:
     # Match multi-garment clarification form answers BEFORE specific keywords
     if any(
-        phrase in lower
+        phrase in text
         for phrase in (
             "áo (sơ mi",
             "áo nam (áo",
@@ -577,7 +657,7 @@ def _extract_category(lower: str) -> str | None:
         return "tops"
 
     if any(
-        phrase in lower
+        phrase in text
         for phrase in (
             "quần (quần âu",
             "quần nam (quần",
@@ -590,7 +670,7 @@ def _extract_category(lower: str) -> str | None:
         return "pants"
 
     if any(
-        phrase in lower
+        phrase in text
         for phrase in (
             "đầm / váy",
             "đầm công sở liền thân",
@@ -599,33 +679,51 @@ def _extract_category(lower: str) -> str | None:
     ):
         return "dress"
 
-    if any(k in lower for k in ("chân váy", "skirt")):
+    if any(k in text for k in ("chân váy", "skirt")):
         return "skirt"
-    if any(k in lower for k in ("đầm", "váy", "dress")):
+    if any(k in text for k in ("đầm", "váy", "dress")):
         return "dress"
-    if "sơ mi" in lower:
+    if "sơ mi" in text:
         return "shirt"
-    if "polo" in lower:
+    if "polo" in text:
         return "polo"
-    if any(k in lower for k in ("áo thun", "t-shirt", "tshirt", "áo phông")):
+    if any(k in text for k in ("áo thun", "t-shirt", "tshirt", "áo phông")):
         return "tshirt"
-    if any(k in lower for k in ("áo khoác", "blazer", "hoodie", "bomber", "jacket")):
+    if any(k in text for k in ("áo khoác", "blazer", "hoodie", "bomber", "jacket")):
         return "jacket"
-    if any(k in lower for k in ("jeans", "jean", "bò")):
+    if any(k in text for k in ("jeans", "jean", "bò")):
         return "jeans"
-    if "kaki" in lower or "khaki" in lower:
+    if "kaki" in text or "khaki" in text:
         return "kaki"
-    if "short" in lower or "quần đùi" in lower:
+    if "short" in text or "quần đùi" in text:
         return "short"
-    if any(k in lower for k in ("quần âu", "quần tây")):
+    if any(k in text for k in ("quần âu", "quần tây")):
         return "pants"
-    if any(k in lower for k in ("thắt lưng", "túi xách", "mũ", "nón", "phụ kiện")):
+    if any(k in text for k in ("thắt lưng", "túi xách", "mũ", "nón", "phụ kiện")):
         return "accessory"
-    if re.search(r"\bquần\b", lower):
+    if any(k in text for k in _GENERIC_BOTTOM_CUES):
         return "pants"
-    if re.search(r"\báo\b", lower):
+    if any(k in text for k in _GENERIC_TOP_CUES):
+        return "tops"
+    if re.search(r"\bquần\b", text):
+        return "pants"
+    if re.search(r"\báo\b", text):
         return "tops"
     return None
+
+
+def _extract_category(lower: str) -> str | None:
+    """Extract target category, prioritizing target clause before pairing cues."""
+    split_positions = [
+        pos for cue in _TARGET_REFERENCE_SPLIT_CUES if (pos := lower.find(cue)) > 0
+    ]
+    if split_positions:
+        target_clause = lower[: min(split_positions)].strip()
+        if target_clause:
+            target_cat = _extract_category_from_text(target_clause)
+            if target_cat is not None:
+                return target_cat
+    return _extract_category_from_text(lower)
 
 
 def _extract_occasion(lower: str) -> str | None:
@@ -929,8 +1027,10 @@ def extract_conversation_slots(
         if gender:
             slots.target_gender = SlotValue(value=gender, source="explicit")
 
+        is_outfit_turn = _has_outfit_advice_cue(lower)
+
         category = _extract_category(lower)
-        if category:
+        if category and not (is_outfit_turn and category in ("tops", "pants")):
             current_cat = slots.value_of("category")
             # Avoid downgrading a specific garment to its generic group in follow-ups
             is_same_group_downgrade = (
@@ -943,7 +1043,7 @@ def extract_conversation_slots(
         if occasion:
             slots.occasion = SlotValue(value=occasion, source="explicit")
 
-        if any(cue in lower for cue in _OUTFIT_ADVICE_CUES):
+        if is_outfit_turn:
             slots.shopping_intent = SlotValue(value="OUTFIT", source="explicit")
         elif category and not slots.has("shopping_intent"):
             slots.shopping_intent = SlotValue(value="PRODUCT", source="explicit")
@@ -1020,6 +1120,22 @@ def extract_conversation_slots(
 
     if intent == TurnIntent.OUTFIT_ADVICE:
         slots.shopping_intent = SlotValue(value="OUTFIT", source="explicit")
+        if (
+            not slots.has("top_category")
+            and slots.value_of("category") in _SPECIFIC_TOP_CATEGORIES
+        ):
+            slots.top_category = SlotValue(
+                value=slots.value_of("category"), source="inferred"
+            )
+        if not slots.has("bottom_category") and slots.value_of("category") in (
+            *_SPECIFIC_PANT_CATEGORIES,
+            "skirt",
+        ):
+            slots.bottom_category = SlotValue(
+                value=slots.value_of("category"), source="inferred"
+            )
+    elif intent == TurnIntent.PRODUCT_SEARCH:
+        slots.shopping_intent = SlotValue(value="PRODUCT", source="explicit")
     elif not slots.has("shopping_intent") and intent != TurnIntent.NON_SHOPPING:
         slots.shopping_intent = SlotValue(value="PRODUCT", source="inferred")
 
@@ -1123,7 +1239,7 @@ def format_slots_for_prompt(
     meas_prio = "P0" if intent == TurnIntent.SIZE_ADVICE else "P3"
     slot_labels = {
         "target_gender": ("Giới tính/Đối tượng", "P0"),
-        "category": ("Danh mục", "P0"),
+        "category": ("Danh mục", "P0"),  # !!!
         "top_category": ("Loại áo phối", "P0"),
         "bottom_category": ("Loại quần/váy phối", "P0"),
         "category_subtype": ("Loại sản phẩm cụ thể", "P0"),
@@ -1154,9 +1270,10 @@ def format_slots_for_prompt(
         "body_concern",
     )
     if intent == TurnIntent.OUTFIT_ADVICE:
+        has_outfit_component = slots.has("top_category") or slots.has("bottom_category")
         ordered_keys = (
             "target_gender",
-            "category",
+            *(("category",) if not has_outfit_component else ()),
             "top_category",
             "bottom_category",
             "occasion",

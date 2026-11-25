@@ -62,14 +62,17 @@ async def test_search_products_tool_mocked(
         ]
     }
 
-    async def mock_get(*args, **kwargs) -> httpx.Response:
+    async def mock_post(*args, **kwargs) -> httpx.Response:
         return httpx.Response(
             status_code=200,
-            json=mock_payload,
-            request=httpx.Request("GET", "http://test/products"),
+            json={
+                "items": mock_payload["items"],
+                "meta": {"total": 1, "strategy": "hybrid_rrf"},
+            },
+            request=httpx.Request("POST", "http://test/products/search"),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     result = await search_products.ainvoke({"keyword": "thun"})
     assert "[1]" in result
@@ -82,49 +85,51 @@ async def test_search_products_tool_mocked(
 async def test_search_products_normalizes_english_category_to_semantic_keyword(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured_params: dict[str, object] = {}
+    captured_payload: dict[str, object] = {}
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        if params:
-            captured_params.update(params)
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        if isinstance(json, dict):
+            captured_payload.update(json)
         return httpx.Response(
             status_code=200,
-            json={"items": []},
-            request=httpx.Request("GET", str(url)),
+            json={"items": [], "meta": {"total": 0}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     await search_products.ainvoke(
         {"keyword": "đi tiệc", "category": "dresses", "target_gender": "female"}
     )
-    assert captured_params.get("mode") == "semantic"
-    assert "đầm váy" in str(captured_params.get("search", ""))
-    assert "category" not in captured_params
-    assert captured_params.get("targetGender") == "FEMALE"
+    filters = captured_payload.get("filters") or {}
+    assert isinstance(filters, dict)
+    assert "đầm váy" in str(captured_payload.get("query", ""))
+    assert "categories" not in filters
+    assert filters.get("targetGender") == "FEMALE"
 
 
 @pytest.mark.anyio
 async def test_search_products_preserves_valid_vietnamese_category(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    captured_params: dict[str, object] = {}
+    captured_payload: dict[str, object] = {}
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        if params:
-            captured_params.update(params)
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        if isinstance(json, dict):
+            captured_payload.update(json)
         return httpx.Response(
             status_code=200,
-            json={"items": []},
-            request=httpx.Request("GET", str(url)),
+            json={"items": [], "meta": {"total": 0}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     await search_products.ainvoke({"keyword": "đầm dự tiệc", "category": "Đầm dạ hội"})
-    assert captured_params.get("mode") == "semantic"
-    assert captured_params.get("search") == "đầm dự tiệc"
-    assert captured_params.get("category") == "Đầm dạ hội"
+    filters = captured_payload.get("filters") or {}
+    assert isinstance(filters, dict)
+    assert captured_payload.get("query") == "đầm dự tiệc"
+    assert filters.get("categories") == ["Đầm dạ hội"]
 
 
 @pytest.mark.anyio
@@ -251,14 +256,14 @@ async def test_empty_search_clears_searched_ids_and_context_resets_after_turn(
         record_searched_products,
     )
 
-    async def mock_empty_get(self, url, params=None, **kwargs) -> httpx.Response:
+    async def mock_empty_post(self, url, json=None, **kwargs) -> httpx.Response:
         return httpx.Response(
             status_code=200,
-            json={"items": []},
-            request=httpx.Request("GET", str(url)),
+            json={"items": [], "meta": {"total": 0}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_empty_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_empty_post)
 
     with product_turn_context():
         record_searched_products(
@@ -326,18 +331,22 @@ async def test_search_products_balanced_gender_returns_2_female_2_male_1_unisex(
         ],
     }
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        call_params = dict(params or {})
-        captured_calls.append(call_params)
-        gender = str(call_params.get("targetGender", ""))
-        limit = int(call_params.get("limit", 5))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        payload = dict(json or {})
+        captured_calls.append(payload)
+        limits = payload.get("genderLimits") or {}
+        combined = [
+            *items_by_gender["FEMALE"][: int(limits.get("FEMALE", 2))],
+            *items_by_gender["MALE"][: int(limits.get("MALE", 2))],
+            *items_by_gender["UNISEX"][: int(limits.get("UNISEX", 1))],
+        ]
         return httpx.Response(
             status_code=200,
-            json={"items": items_by_gender.get(gender, [])[:limit]},
-            request=httpx.Request("GET", str(url)),
+            json={"items": combined, "meta": {"total": len(combined)}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     with product_turn_context(), balanced_gender_search_context(occasion="party"):
         result = await search_products.ainvoke(
@@ -346,12 +355,13 @@ async def test_search_products_balanced_gender_returns_2_female_2_male_1_unisex(
         searched_ids = get_latest_searched_product_ids()
         gender_map = {pid: get_cached_product_gender(pid) for pid in searched_ids}
 
-    assert len(captured_calls) == 3
-    by_gender = {c["targetGender"]: c for c in captured_calls}
-    assert by_gender["FEMALE"]["limit"] == 2
-    assert by_gender["MALE"]["limit"] == 2
-    assert by_gender["UNISEX"]["limit"] == 1
-    male_kw = str(by_gender["MALE"]["search"]).lower()
+    assert len(captured_calls) == 1
+    payload = captured_calls[0]
+    assert payload.get("diversifyByGender") is True
+    assert payload.get("genderLimits") == {"FEMALE": 2, "MALE": 2, "UNISEX": 1}
+    gender_queries = payload.get("genderQueries") or {}
+    assert isinstance(gender_queries, dict)
+    male_kw = str(gender_queries.get("MALE", "")).lower()
     assert "áo sơ mi" in male_kw or "quần âu" in male_kw
 
     assert "=== GỢI Ý CHO NỮ ===" in result
@@ -409,15 +419,19 @@ async def test_search_products_balanced_omits_empty_unisex_without_padding_femal
         "UNISEX": [],
     }
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        gender = str((params or {}).get("targetGender", ""))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        combined = [
+            *items_by_gender["FEMALE"],
+            *items_by_gender["MALE"],
+            *items_by_gender["UNISEX"],
+        ]
         return httpx.Response(
             status_code=200,
-            json={"items": items_by_gender.get(gender, [])},
-            request=httpx.Request("GET", str(url)),
+            json={"items": combined, "meta": {"total": len(combined)}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     with product_turn_context(), balanced_gender_search_context(occasion="party"):
         result = await search_products.ainvoke(
@@ -443,15 +457,15 @@ async def test_search_products_balanced_skipped_when_explicit_gender_given(
 
     captured_calls: list[dict[str, object]] = []
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        captured_calls.append(dict(params or {}))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(json or {}))
         return httpx.Response(
             status_code=200,
-            json={"items": []},
-            request=httpx.Request("GET", str(url)),
+            json={"items": [], "meta": {"total": 0}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     with product_turn_context(), balanced_gender_search_context():
         await search_products.ainvoke(
@@ -459,14 +473,15 @@ async def test_search_products_balanced_skipped_when_explicit_gender_given(
         )
 
     assert len(captured_calls) == 1
-    assert captured_calls[0].get("targetGender") == "MALE"
+    assert captured_calls[0].get("diversifyByGender") is False
+    assert (captured_calls[0].get("filters") or {}).get("targetGender") == "MALE"
 
     captured_calls.clear()
     with product_turn_context():
         await search_products.ainvoke({"keyword": "áo sơ mi công sở"})
 
     assert len(captured_calls) == 1
-    assert "targetGender" not in captured_calls[0]
+    assert "targetGender" not in (captured_calls[0].get("filters") or {})
 
 
 @pytest.mark.anyio
@@ -478,7 +493,7 @@ async def test_search_products_caps_limit_at_five(
         product_turn_context,
     )
 
-    captured_params: dict[str, object] = {}
+    captured_payload: dict[str, object] = {}
     items = [
         {
             "id": 100 + i,
@@ -500,22 +515,95 @@ async def test_search_products_caps_limit_at_five(
         for i in range(10)
     ]
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        if params:
-            captured_params.update(params)
-        req_limit = int(params.get("limit", 5)) if params else 5
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        if isinstance(json, dict):
+            captured_payload.update(json)
+        req_limit = int(captured_payload.get("limit", 5))
         return httpx.Response(
             status_code=200,
-            json={"items": items[:req_limit]},
-            request=httpx.Request("GET", str(url)),
+            json={"items": items[:req_limit], "meta": {"total": 10}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     with product_turn_context():
         result = await search_products.ainvoke({"keyword": "quần âu", "limit": 10})
         ids = get_latest_searched_product_ids()
 
-    assert captured_params.get("limit") == 5
+    assert captured_payload.get("limit") == 5
     assert len(ids) == 5
     assert result.count("Quần Âu Nam Mẫu") == 5
+
+
+@pytest.mark.anyio
+async def test_search_products_passes_color_size_sort_and_formats_relaxed_facets(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured_payload: dict[str, object] = {}
+
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        if isinstance(json, dict):
+            captured_payload.update(json)
+        return httpx.Response(
+            status_code=200,
+            json={
+                "items": [
+                    {
+                        "id": 42,
+                        "name": "Áo Sơ Mi Oxford Trơn",
+                        "slug": "ao-so-mi-oxford",
+                        "material": "100% Cotton Oxford",
+                        "fit": "Regular Fit",
+                        "pattern": "Trơn Basic",
+                        "targetGender": "MALE",
+                        "variants": [
+                            {
+                                "id": 420,
+                                "sku": "SM-L-WHT",
+                                "size": "L",
+                                "color": "Trắng",
+                                "listPrice": 450000,
+                                "sellingPrice": 390000,
+                                "finalPrice": 390000,
+                                "stock": 8,
+                            }
+                        ],
+                    }
+                ],
+                "meta": {
+                    "total": 1,
+                    "strategy": "hybrid_rrf",
+                    "relaxedFilters": ["maxPrice"],
+                    "facets": {
+                        "priceRange": {"min": 350000, "max": 520000},
+                        "availableColors": ["Trắng", "Xanh navy"],
+                        "availableSizes": ["M", "L", "XL"],
+                    },
+                },
+            },
+            request=httpx.Request("POST", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    result = await search_products.ainvoke(
+        {
+            "keyword": "áo sơ mi đi làm",
+            "color": "Trắng",
+            "size": "L",
+            "max_price": 300000,
+            "sort": "price_asc",
+        }
+    )
+
+    filters = captured_payload.get("filters") or {}
+    assert isinstance(filters, dict)
+    assert filters.get("colors") == ["Trắng"]
+    assert filters.get("sizes") == ["L"]
+    assert filters.get("maxPrice") == 300000.0
+    assert captured_payload.get("sort") == "price_asc"
+    assert "nới lỏng tiêu chí: giá tối đa" in result
+    assert "Form: Regular Fit" in result
+    assert "Họa tiết: Trơn Basic" in result
+    assert "Thông tin kho hiện có" in result

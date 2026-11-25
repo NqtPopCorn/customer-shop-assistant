@@ -162,6 +162,16 @@ class ProductSchema(BaseModel):
     provider: str | None = Field(
         default=None, description="Supplier or manufacturer name"
     )
+    pattern: str | None = Field(
+        default=None,
+        description="Fabric pattern or print style (e.g. Trơn Basic, Kẻ Sọc)",
+    )
+    fit: str | None = Field(
+        default=None, description="Garment fit silhouette (e.g. Regular Fit, Slim Fit)"
+    )
+    occasion: str | None = Field(
+        default=None, description="Recommended wearing occasions"
+    )
     rating_average: float = Field(
         default=0.0,
         alias="ratingAverage",
@@ -183,6 +193,9 @@ class ProductSchema(BaseModel):
     )
     similarity: float | None = Field(
         default=None, description="Cosine similarity score for semantic search"
+    )
+    scores: dict[str, float] | None = Field(
+        default=None, description="Hybrid search scores (rrf, dense, fts)"
     )
 
 
@@ -267,3 +280,80 @@ class DiscountItemSchema(BaseModel):
     starts_at: str | None = Field(default=None, alias="startsAt")
     ends_at: str | None = Field(default=None, alias="endsAt")
     active: bool = True
+
+
+class AssistantSearchFilters(BaseModel):
+    """Structured filters for POST /api/products/search."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    categories: list[str] | None = None
+    category_id: int | None = Field(default=None, alias="categoryId")
+    brand_id: int | None = Field(default=None, alias="brandId")
+    target_gender: GenderTarget | None = Field(default=None, alias="targetGender")
+    colors: list[str] | None = None
+    sizes: list[str] | None = None
+    fit: str | None = None
+    pattern: str | None = None
+    occasion: str | None = None
+    min_price: float | None = Field(default=None, alias="minPrice", ge=0)
+    max_price: float | None = Field(default=None, alias="maxPrice", ge=0)
+    in_stock_only: bool = Field(default=True, alias="inStockOnly")
+
+
+class AssistantSearchRequest(BaseModel):
+    """Request payload for POST /api/products/search."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    query: str | None = None
+    filters: AssistantSearchFilters | None = None
+    exclude_product_ids: list[int] | None = Field(
+        default=None, alias="excludeProductIds"
+    )
+    sort: str = Field(default="relevance")
+    diversify_by_gender: bool = Field(default=False, alias="diversifyByGender")
+    gender_queries: dict[str, str] | None = Field(default=None, alias="genderQueries")
+    gender_limits: dict[str, int] | None = Field(default=None, alias="genderLimits")
+    allow_relaxation: bool = Field(default=True, alias="allowRelaxation")
+    limit: int = Field(default=5, ge=1, le=50)
+    page: int = Field(default=1, ge=1)
+
+
+class SearchPriceRange(BaseModel):
+    """Min/max price facet across matching scope."""
+
+    min: float | None = None
+    max: float | None = None
+
+
+class AssistantSearchFacets(BaseModel):
+    """Catalog facets returned by POST /api/products/search."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    price_range: SearchPriceRange = Field(
+        default_factory=SearchPriceRange, alias="priceRange"
+    )
+    available_colors: list[str] = Field(default_factory=list, alias="availableColors")
+    available_sizes: list[str] = Field(default_factory=list, alias="availableSizes")
+
+
+class AssistantSearchMeta(BaseModel):
+    """Metadata returned by POST /api/products/search."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    total: int = 0
+    strategy: str = "hybrid_rrf"
+    relaxed_filters: list[str] = Field(default_factory=list, alias="relaxedFilters")
+    facets: AssistantSearchFacets = Field(default_factory=AssistantSearchFacets)
+
+
+class AssistantSearchResponse(BaseModel):
+    """Response payload from POST /api/products/search."""
+
+    model_config = ConfigDict(populate_by_name=True)
+
+    items: list[ProductSchema] = Field(default_factory=list)
+    meta: AssistantSearchMeta = Field(default_factory=AssistantSearchMeta)

@@ -34,6 +34,7 @@ from customer_shop_assistant.schemas.chat import (
     ClarificationMode,
     OutfitSuggestion,
     StateSnapshotDebug,
+    SystemPromptDebug,
     TurnDebugMeta,
     UserProfile,
 )
@@ -48,13 +49,15 @@ from customer_shop_assistant.services.clarification_planner import (
     validate_or_repair_clarification_form as planner_validate_or_repair,
 )
 from customer_shop_assistant.services.clarification_policy import (
-    INTERVIEW_SYSTEM_PROMPT,
-    PROMPT_A,
-    PROMPT_B_INTERVIEW,
-    PROMPT_C,
     TurnPolicy,
     next_phase,
     resolve_turn_policy,
+)
+from customer_shop_assistant.services.prompt_builder import (
+    SYSTEM_PROMPT_VERSION,
+    build_extractor_system_prompt_with_debug,
+    build_interview_system_prompt_with_debug,
+    build_system_prompt_with_debug,
 )
 from customer_shop_assistant.services.session_manager import (
     ClarifyPhase,
@@ -98,6 +101,18 @@ _PRODUCT_ID_PATTERN = re.compile(
 )
 
 
+def _with_prompt_debug_metadata(
+    config: RunnableConfig | None,
+    prompt_debug: SystemPromptDebug,
+) -> RunnableConfig:
+    """Return a shallow-copied RunnableConfig carrying system_prompt_debug metadata."""
+    next_config: RunnableConfig = dict(config) if config else {}
+    existing_meta = dict(next_config.get("metadata") or {})
+    existing_meta["system_prompt_debug"] = prompt_debug.model_dump()
+    next_config["metadata"] = existing_meta
+    return next_config
+
+
 def _extract_product_ids_from_text(text: str) -> list[str]:
     """Extract unique numeric product IDs from [123], ID: [123], or [ID] 123."""
     found: list[str] = []
@@ -112,70 +127,6 @@ _PRODUCT_PRICE_PATTERN = re.compile(
     r"\b\d{1,3}(?:[.,]\d{3})+\s*(?:đ|vnđ|vnd)\b",
     re.IGNORECASE,
 )
-
-SYSTEM_PROMPT = """Bạn là trợ lý thời trang thông minh của Fashion Shop, \
-chuyên tư vấn và gợi ý sản phẩm phù hợp nhất cho khách hàng.
-
-Phong cách giao tiếp:
-- Tinh gọn, trọng tâm, gu thẩm mỹ tốt, đúng sự thật khách quan (fact-first).
-- Trả lời bằng tiếng Việt lịch sự, thân thiện, nhiệt tình gợi ý phối đồ.
-- Sử dụng cú pháp Markdown chuẩn (xuống dòng tự nhiên, gạch đầu dòng, in đậm).
-  Tuyệt đối KHÔNG viết các thẻ HTML như <br>, <p> vào câu trả lời.
-
-Quy định bắt buộc:
-1. GỢI Ý SẢN PHẨM & PHỐI ĐỒ (TRỌNG TÂM HÀNG ĐẦU):
-   - Khi đã đủ thông tin để tìm 1 loại sản phẩm đơn lẻ theo chế độ làm rõ hiện tại:
-     * BẮT BUỘC gọi tool `search_products` (truyền `limit=5` hoặc nhỏ hơn) trong
-       chính lượt hiện tại để lấy sản phẩm thực tế trong cửa hàng.
-     * CHỈ GIỚI THIỆU tối đa 3-5 sản phẩm tìm được (TUYỆT ĐỐI không quá 5 sản phẩm),
-       viết đúng định dạng `[ID] Tên sản phẩm` (ví dụ: `[485] Áo sơ mi...`) kèm
-       giá tiền thực tế từ tool, nêu bật thiết kế, chất vải, form dáng.
-     * Khi dùng `search_products` để tìm 1 loại sản phẩm, TUYỆT ĐỐI KHÔNG tự trình
-       bày thành `Bộ 1 / Bộ 2` hay viết dòng `- Quần: ... (cần thêm gợi ý)`.
-     * KHÔNG chặn khách để đòi số đo P3 khi khách chỉ đang tìm sản phẩm.
-     * Đơn vị tiền là VNĐ. Nếu nói '300k', '400k' thì truyền vào tool là 300000, 400000.
-   - CHỈ KHI khách hỏi PHỐI ĐỒ, mix & match hoặc tìm SET/BỘ/COMBO (Áo + Quần/Váy):
-     * BẮT BUỘC gọi trực tiếp tool `suggest_outfit` (tối đa `limit=3` bộ, truyền
-       `top_category`, `bottom_category`, `top_color`, `bottom_color`, `occasion`,
-       `gender` hoặc `product_id` nếu đã có ID). TUYỆT ĐỐI KHÔNG gọi `search_products`
-       để chỉ gợi ý 1 loại sản phẩm đơn lẻ.
-     * BẮT BUỘC trình bày kết quả theo từng **Bộ / Combo hoàn chỉnh**, mỗi bộ nêu rõ
-       cả **Áo kèm mã `[ID]` (màu, giá)** VÀ **Quần/Váy kèm mã `[ID]` (màu, giá)**
-       cùng lý do phối đồ, nhắc khách nếu màu đang hết hàng.
-   - Điền vào `product_ids` danh sách ID các sản phẩm thực sự được gợi ý trong \
-câu trả lời (ví dụ: ['ID1', 'ID2']). Trả về danh sách rỗng nếu không gợi ý sản phẩm.
-   - Tuyệt đối KHÔNG tự bịa đặt tên sản phẩm, giá tiền, mã [ID] hay trạng thái tồn kho \
-khi chưa gọi `search_products` hoặc `suggest_outfit` trong lượt hiện tại.
-2. TƯ VẤN SIZE (HỖ TRỢ KÈM THEO):
-   - CHỈ HỎI XIN SỐ ĐO khi khách CHỦ ĐỘNG HỎI VỀ SIZE mà chưa có số đo \
-(ví dụ: 'mình mặc size gì?', 'tư vấn size', 'bảng size'). \
-Khi đó đặt `needs_clarification = True`.
-   - Khi đã có số đo, hãy dùng `recommend_size` để tính toán size chuẩn \
-theo bảng quy đổi.
-3. CHÍNH SÁCH BÁN HÀNG:
-   - Dùng `search_policy` khi khách hỏi về đổi trả, phí vận chuyển, freeship, \
-thanh toán VietQR/COD. Bắt buộc trích dẫn nguồn `[tên_tệp: tiêu_đề_mục]`.
-   - Nếu tài liệu không chứa thông tin, hãy nói rõ là cửa hàng chưa có thông tin \
-về vấn đề này. Tuyệt đối không tự suy diễn hoặc bịa đặt chính sách ngoài tài liệu.
-4. HỒ SƠ & LƯU THÔNG TIN CÁ NHÂN:
-   - Toàn bộ số đo và sở thích của khách CHỈ ĐƯỢC LƯU TẠM THỜI trong phiên hiện tại \
-để gợi ý đồ. TUYỆT ĐỐI KHÔNG tự động lưu vĩnh viễn vào tài khoản.
-   - CHỈ gọi tool `update_customer_preference` khi khách hàng CHỦ ĐỘNG YÊU CẦU LƯU \
-(ví dụ: 'lưu lại số đo này giúp mình', 'nhớ số đo này cho mình nhé') \
-hoặc ĐỒNG Ý RÕ RÀNG.
-   - KHI KHÁCH NÓI CẢM ƠN (ví dụ: 'cảm ơn shop', 'thanks', 'cảm ơn bạn nhé'): \
-Chỉ đáp lại lời cảm ơn một cách thân thiện, lịch sự; \
-TUYỆT ĐỐI KHÔNG gọi tool `update_customer_preference`.
-   - Đối với khách vãng lai (chưa có user_id): Không gọi tool lưu, phản hồi \
-cảm ơn lịch sự và gợi ý khách đăng nhập nếu muốn lưu hồ sơ lâu dài.
-5. CÂU HỎI NGOÀI PHẠM VI:
-   - Nếu câu hỏi không liên quan đến thời trang hay mua sắm tại shop, \
-hãy từ chối ngắn gọn, lịch sự và hướng khách về việc chọn đồ. Đặt `product_ids = []`.
-6. FORM LÀM RÕ:
-   - Khi cần hỏi làm rõ (needs_clarification=True): phần `reply` chỉ viết 1-2 câu \
-dẫn ngắn gọn, lịch sự. Tuyệt đối KHÔNG viết danh sách câu hỏi gạch đầu dòng hay \
-bảng trắc nghiệm vào văn bản `reply`.
-"""
 
 
 def detect_inquiry_slots(
@@ -251,76 +202,37 @@ class ShopAssistantAgent:
         self.graph = self._create_graph()
 
     def _get_active_tools_for_turn(
-        self, intent: TurnIntent, gate_search: bool
+        self,
+        intent: TurnIntent,
+        gate_search: bool,
+        user_id: int | None = None,
     ) -> list[Any]:
-        """Return tools exposed to the LLM for the current turn (strict outfit mode)."""
+        """Return intent-scoped tools exposed to the LLM for the current turn."""
         if gate_search:
             return []
-        if (
-            self.settings.OUTFIT_KG_ENABLED
-            and intent == TurnIntent.OUTFIT_ADVICE
-            and "suggest_outfit" in self.tools_by_name
-        ):
-            return [t for t in self._enabled_tools if t.name != "search_products"]
-        return list(self._enabled_tools)
 
-    @staticmethod
-    def _format_profile_notes(user_profile: UserProfile | None) -> str:
-        """Format known customer measurements and preferences for prompts."""
-        if not user_profile:
-            return ""
-        prof_notes: list[str] = []
-        if user_profile.height_cm:
-            prof_notes.append(f"Chiều cao: {user_profile.height_cm}cm")
-        if user_profile.weight_kg:
-            prof_notes.append(f"Cân nặng: {user_profile.weight_kg}kg")
-        if user_profile.waist_cm:
-            prof_notes.append(f"Vòng eo: {user_profile.waist_cm}cm")
-        if user_profile.chest_cm:
-            prof_notes.append(f"Vòng ngực: {user_profile.chest_cm}cm")
-        if user_profile.hip_cm:
-            prof_notes.append(f"Vòng mông: {user_profile.hip_cm}cm")
-        if user_profile.gender:
-            prof_notes.append(f"Giới tính: {user_profile.gender.value}")
-        if user_profile.fit_preference:
-            prof_notes.append(f"Gu mặc: {user_profile.fit_preference}")
-        if not prof_notes:
-            return ""
-        return (
-            "\nThông tin khách hàng đã biết (áp dụng để gợi ý sản phẩm "
-            f"& chọn size): {', '.join(prof_notes)}"
-        )
-
-    def _build_system_prompt(
-        self,
-        user_profile: UserProfile | None,
-        policy_prompt_block: str = "",
-        clarification_mode: ClarificationMode | None = None,
-    ) -> str:
-        """Construct system prompt with persona, profile, and clarification rules."""
-        sys_content = SYSTEM_PROMPT + self._format_profile_notes(user_profile)
-
-        if policy_prompt_block:
-            sys_content += f"\n{policy_prompt_block}\n"
-        elif clarification_mode == ClarificationMode.IMMEDIATE_ANSWER:
-            sys_content += f"\n{PROMPT_A}\n"
-        elif clarification_mode == ClarificationMode.ALWAYS_CLARIFY:
-            sys_content += f"\n{PROMPT_B_INTERVIEW}\n"
+        if intent == TurnIntent.PRODUCT_SEARCH:
+            allowed = {"search_products", "get_product_detail"}
+        elif intent == TurnIntent.OUTFIT_ADVICE:
+            if (
+                self.settings.OUTFIT_KG_ENABLED
+                and "suggest_outfit" in self.tools_by_name
+            ):
+                allowed = {"suggest_outfit", "get_product_detail"}
+            else:
+                allowed = {"search_products", "get_product_detail"}
+        elif intent in (TurnIntent.SIZE_ADVICE, TurnIntent.BODY_FIT_ADVICE):
+            allowed = {"recommend_size", "search_products", "get_product_detail"}
+        elif intent == TurnIntent.NON_SHOPPING:
+            allowed = {"search_policy", "check_voucher", "get_product_detail"}
+            if user_id is not None:
+                allowed.add("update_customer_preference")
         else:
-            sys_content += f"\n{PROMPT_C}\n"
+            allowed = {t.name for t in self._enabled_tools}
+            if user_id is None:
+                allowed.discard("update_customer_preference")
 
-        return sys_content
-
-    def _build_interview_system_prompt(
-        self,
-        user_profile: UserProfile | None,
-        slot_summary: str = "",
-    ) -> str:
-        """Construct compact system prompt for ALWAYS_CLARIFY INTERVIEW turns."""
-        sys_content = INTERVIEW_SYSTEM_PROMPT + self._format_profile_notes(user_profile)
-        if slot_summary:
-            sys_content += f"\n{slot_summary}\n"
-        return sys_content
+        return [t for t in self._enabled_tools if t.name in allowed]
 
     @staticmethod
     def _should_use_structured_output(
@@ -361,12 +273,16 @@ class ShopAssistantAgent:
         latency_ms: int,
         usage_meta: Any,
         runs: list[Any],
+        user_id: int | None = None,
     ) -> TurnDebugMeta | None:
         """Build TurnDebugMeta capturing executed phase, next phase, and traces."""
         if not self.settings.DEBUG_CHAT_META:
             return None
         active_tools_names = [
-            t.name for t in self._get_active_tools_for_turn(intent, gate_search)
+            t.name
+            for t in self._get_active_tools_for_turn(
+                intent, gate_search, user_id=user_id
+            )
         ]
         state_snapshot = StateSnapshotDebug(
             clarify_phase=executed_phase,
@@ -414,13 +330,13 @@ class ShopAssistantAgent:
                 slot_summary = format_slots_for_prompt(
                     slots, intent, include_missing=False
                 )
-                sys_prompt = self._build_interview_system_prompt(
+                sys_prompt, prompt_debug = build_interview_system_prompt_with_debug(
                     user_profile=state.get("user_profile"),
                     slot_summary=slot_summary,
                 )
             else:
                 active_tools = self._get_active_tools_for_turn(
-                    intent, policy.gate_search
+                    intent, policy.gate_search, user_id=state.get("user_id")
                 )
                 try:
                     bound_model = self.chat_model.bind_tools(active_tools)
@@ -428,17 +344,17 @@ class ShopAssistantAgent:
                     bound_model = self.chat_model
 
                 include_missing = mode != ClarificationMode.IMMEDIATE_ANSWER
-                slot_summary = format_slots_for_prompt(
-                    slots, intent, include_missing=include_missing
-                )
-                policy_block = (
-                    f"{policy.prompt_block}\n{slot_summary}"
+                slot_summary = (
+                    format_slots_for_prompt(
+                        slots, intent, include_missing=include_missing
+                    )
                     if is_shopping_query
-                    else policy.prompt_block
+                    else ""
                 )
-                sys_prompt = self._build_system_prompt(
+                sys_prompt, prompt_debug = build_system_prompt_with_debug(
                     user_profile=state.get("user_profile"),
-                    policy_prompt_block=policy_block,
+                    prompt_key=policy.prompt_key,
+                    slot_summary=slot_summary,
                     clarification_mode=mode,
                 )
 
@@ -452,7 +368,12 @@ class ShopAssistantAgent:
             )
             full_prompt_msgs = [SystemMessage(content=sys_prompt), *trimmed]
 
-            response = await bound_model.ainvoke(full_prompt_msgs, config=config)
+            invoke_config = (
+                _with_prompt_debug_metadata(config, prompt_debug)
+                if self.settings.DEBUG_CHAT_META
+                else config
+            )
+            response = await bound_model.ainvoke(full_prompt_msgs, config=invoke_config)
             return {"messages": [response]}
 
         async def tools_node(
@@ -1396,18 +1317,22 @@ class ShopAssistantAgent:
                     if isinstance(m, (HumanMessage, ToolMessage))
                     or (isinstance(m, AIMessage) and m.content == last_reply_text)
                 ][-3:]
-                sys_extractor = SystemMessage(
-                    content=(
-                        "Bạn là bộ trích xuất thông tin của Fashion Shop. "
-                        "Hãy chuyển phản hồi của lượt hiện tại thành cấu trúc "
-                        "AgentReply. Tuyệt đối không lặp lại câu chào hỏi ban đầu."
-                    )
+                extractor_prompt, extractor_debug = (
+                    build_extractor_system_prompt_with_debug()
                 )
+                sys_extractor = SystemMessage(content=extractor_prompt)
                 eval_msgs: list[BaseMessage] = (
                     [sys_extractor, *recent_msgs] if recent_msgs else turn_messages
                 )
 
-                result = await self.structured_model.ainvoke(eval_msgs, config=config)
+                extractor_config = (
+                    _with_prompt_debug_metadata(config, extractor_debug)
+                    if self.settings.DEBUG_CHAT_META
+                    else config
+                )
+                result = await self.structured_model.ainvoke(
+                    eval_msgs, config=extractor_config
+                )
                 reply_obj: AgentReply | None = None
                 if isinstance(result, AgentReply):
                     reply_obj = result
@@ -1668,6 +1593,7 @@ class ShopAssistantAgent:
                 latency_ms=latency_ms,
                 usage_meta=usage_meta,
                 runs=runs,
+                user_id=user_id,
             )
 
             turn_id = (len(session.messages) // 2) + 1
@@ -1679,6 +1605,7 @@ class ShopAssistantAgent:
                 latency_ms=latency_ms,
                 token_usage=usage_meta,
                 error=None,
+                system_prompt_version=SYSTEM_PROMPT_VERSION,
             )
 
             return ChatResponse(
@@ -1705,6 +1632,7 @@ class ShopAssistantAgent:
                 latency_ms=latency_ms,
                 token_usage=None,
                 error=str(e),
+                system_prompt_version=SYSTEM_PROMPT_VERSION,
             )
             return ChatResponse(
                 reply=(
@@ -1832,6 +1760,7 @@ class ShopAssistantAgent:
                                 latency_ms=latency_ms,
                                 usage_meta=usage_meta,
                                 runs=runs,
+                                user_id=user_id,
                             )
                             debug_meta = (
                                 debug_meta_obj.model_dump() if debug_meta_obj else None
@@ -1846,6 +1775,7 @@ class ShopAssistantAgent:
                                 latency_ms=latency_ms,
                                 token_usage=usage_meta,
                                 error=None,
+                                system_prompt_version=SYSTEM_PROMPT_VERSION,
                             )
 
                             yield {
@@ -1882,6 +1812,7 @@ class ShopAssistantAgent:
                 latency_ms=latency_ms,
                 token_usage=None,
                 error=str(e),
+                system_prompt_version=SYSTEM_PROMPT_VERSION,
             )
             yield {
                 "type": "error",

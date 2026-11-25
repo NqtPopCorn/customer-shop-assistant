@@ -5,6 +5,8 @@ import pytest
 
 from customer_shop_assistant.config import Settings
 from customer_shop_assistant.schemas.shop import (
+    AssistantSearchFilters,
+    AssistantSearchRequest,
     GenderTarget,
     ProductFilterParams,
 )
@@ -236,3 +238,105 @@ async def test_get_and_update_user_preferences(test_settings: Settings) -> None:
         assert updated is not None
         assert updated["weightKg"] == 68.0
         assert updated["fitPreference"] == "LOOSE"
+
+
+@pytest.mark.anyio
+async def test_search_products_assistant_happy_path(test_settings: Settings) -> None:
+    import json
+
+    captured_body: dict[str, Any] = {}
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        assert request.method == "POST"
+        assert request.url.path == "/api/products/search"
+        captured_body.update(json.loads(request.read().decode()))
+        return httpx.Response(
+            200,
+            json={
+                "items": [
+                    {
+                        "id": 10,
+                        "name": "Áo Sơ Mi Nam Regular Fit",
+                        "slug": "ao-so-mi-nam",
+                        "targetGender": "MALE",
+                        "pattern": "Trơn Basic",
+                        "fit": "Regular Fit",
+                        "occasion": "Công sở, Đi làm",
+                        "scores": {"rrf": 0.032, "dense": 0.71, "fts": 0.42},
+                        "variants": [],
+                        "images": [],
+                    }
+                ],
+                "meta": {
+                    "total": 1,
+                    "strategy": "hybrid_rrf",
+                    "relaxedFilters": ["colors"],
+                    "facets": {
+                        "priceRange": {"min": 250000, "max": 550000},
+                        "availableColors": ["Trắng", "Xanh navy"],
+                        "availableSizes": ["M", "L"],
+                    },
+                },
+            },
+        )
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as mock_http:
+        client = ShopClient(settings=test_settings, client=mock_http)
+        req = AssistantSearchRequest(
+            query="áo sơ mi đi làm",
+            filters=AssistantSearchFilters(
+                target_gender=GenderTarget.MALE,
+                colors=["Đỏ"],
+                sizes=["L"],
+            ),
+            limit=5,
+        )
+        resp = await client.search_products_assistant(req)
+
+        assert captured_body["query"] == "áo sơ mi đi làm"
+        assert captured_body["filters"]["colors"] == ["Đỏ"]
+        assert resp.meta.strategy == "hybrid_rrf"
+        assert resp.meta.relaxed_filters == ["colors"]
+        assert resp.meta.facets.available_sizes == ["M", "L"]
+        assert len(resp.items) == 1
+        assert resp.items[0].fit == "Regular Fit"
+        assert resp.items[0].pattern == "Trơn Basic"
+        assert resp.items[0].occasion == "Công sở, Đi làm"
+        assert resp.items[0].scores == {"rrf": 0.032, "dense": 0.71, "fts": 0.42}
+
+
+@pytest.mark.anyio
+async def test_search_products_assistant_404_fallback(
+    test_settings: Settings,
+) -> None:
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.method == "POST" and request.url.path == "/api/products/search":
+            return httpx.Response(404, json={"message": "Not Found"})
+        if request.method == "GET" and request.url.path == "/api/products":
+            return httpx.Response(
+                200,
+                json=[
+                    {
+                        "id": 99,
+                        "name": "Áo Thun Fallback",
+                        "slug": "ao-thun-fallback",
+                        "targetGender": "UNISEX",
+                        "variants": [],
+                        "images": [],
+                    }
+                ],
+            )
+        return httpx.Response(500)
+
+    transport = httpx.MockTransport(handler)
+    async with httpx.AsyncClient(transport=transport) as mock_http:
+        client = ShopClient(settings=test_settings, client=mock_http)
+        resp = await client.search_products_assistant(
+            AssistantSearchRequest(query="áo thun", limit=5)
+        )
+
+        assert resp.meta.strategy == "legacy_get_fallback"
+        assert resp.meta.total == 1
+        assert len(resp.items) == 1
+        assert resp.items[0].id == 99

@@ -1,111 +1,22 @@
-"""Pure functional clarification policy and prompt generation module."""
+"""Pure functional clarification policy and turn state transitions."""
 
 from dataclasses import dataclass
+from enum import StrEnum
 
 from customer_shop_assistant.schemas.chat import ClarificationMode
 from customer_shop_assistant.services.session_manager import ClarifyPhase
 
 MAX_GATED_TURNS = 1
 
-PROMPT_A = """\
-CHẾ ĐỘ TRẢ LỜI NGAY (IMMEDIATE_ANSWER):
-- Khi khách hỏi tìm đồ hoặc gợi ý trang phục: BẮT BUỘC gọi ngay tool `search_products`
-  với thông tin hiện có và giới thiệu ngay 2-5 sản phẩm kèm mã [ID].
-- Nếu thiếu thông tin như giới tính, loại đồ hay ngân sách: TỰ ĐƯA RA GIẢ ĐỊNH HỢP LÝ
-  và nêu ngắn gọn giả định (1 câu ngắn) trong câu trả lời.
-- KHI KẾT QUẢ `search_products` CHIA NHÓM ĐA GIỚI TÍNH (`GỢI Ý CHO NỮ`,
-  `GỢI Ý CHO NAM`, `GỢI Ý UNISEX`): BẮT BUỘC nêu rõ bạn chưa chọn giới tính và
-  giới thiệu ĐẦY ĐỦ sản phẩm của TẤT CẢ các nhóm có trong kết quả (kèm `[ID]` và giá),
-  tuyệt đối không chỉ chọn riêng 1 giới tính.
-- TUYỆT ĐỐI KHÔNG đặt câu hỏi làm rõ về giới tính, dịp mặc, gu, màu sắc hay ngân sách.
-- Chỉ được hỏi lại khi khách hỏi trực tiếp về SIZE mà thiếu số đo bắt buộc cho tool
-  `recommend_size`.
-- Luôn đặt `needs_clarification = False` và `clarification_form = None` (trừ trường
-  hợp hỏi size thiếu số đo bắt buộc).
-- Khi khách hỏi phối đồ / set đồ / bộ đồ / combo áo + quần/váy: BẮT BUỘC gọi
-  trực tiếp `suggest_outfit` (truyền `top_category`, `bottom_category`,
-  `top_color`, `bottom_color`, `occasion`, `gender`, hoặc `product_id` nếu có).
-  TUYỆT ĐỐI KHÔNG gọi `search_products` và không chỉ gợi ý 1 loại sản phẩm đơn lẻ.
-  Bắt buộc trình bày theo từng Bộ phối gồm cả Áo [ID] và Quần/Váy [ID], màu sắc,
-  giá tiền, lý do phối và nhắc nếu màu đang hết hàng.
-"""
 
-PROMPT_B_INTERVIEW = """\
-CHẾ ĐỘ LUÔN LÀM RÕ (ALWAYS_CLARIFY - Giai đoạn tìm hiểu):
-- Khách đang có nhu cầu tìm/tư vấn trang phục hoặc chọn size: CHƯA gợi ý sản phẩm ngay.
-  Đặt needs_clarification=True.
-- Hệ thống đã tạo sẵn bảng câu hỏi trắc nghiệm ưu tiên (P0 -> P1 -> P2) bên dưới
-  lời dẫn của bạn.
-- Phần reply CHỈ ĐƯỢC viết đúng 1 câu chào và dẫn nhập ngắn gọn (15-30 từ) khớp với
-  ngữ cảnh khách vừa nêu để mời khách tích chọn vào bảng bên dưới.
-- TUYỆT ĐỐI KHÔNG tự liệt kê gạch đầu dòng câu hỏi và KHÔNG đòi chiều cao/cân nặng/số đo
-  3 vòng (trừ khi khách hỏi size hoặc vóc dáng).
-"""
+class PromptKey(StrEnum):
+    """Identifier selecting the policy prompt block for the current turn."""
 
-INTERVIEW_SYSTEM_PROMPT = """\
-Bạn là trợ lý thời trang của Fashion Shop (tiếng Việt lịch sự, thân thiện, không dùng \
-thẻ HTML).
-Hệ thống đã hiển thị sẵn bảng câu hỏi trắc nghiệm ưu tiên ngay bên dưới câu trả lời \
-của bạn.
-
-NHIỆM VỤ DUY NHẤT:
-- Viết đúng 1 câu chào và dẫn nhập ngắn gọn (15-30 từ) khớp với nhu cầu khách vừa \
-nêu để mời khách tích chọn vào bảng bên dưới.
-- TUYỆT ĐỐI KHÔNG tự viết danh sách đánh số, gạch đầu dòng, câu hỏi trắc nghiệm, \
-lựa chọn sản phẩm hay hỏi số đo cơ thể.
-"""
-
-PROMPT_B_OPEN = """\
-CHẾ ĐỘ LUÔN LÀM RÕ (ALWAYS_CLARIFY - Giai đoạn chốt đồ):
-- Khách đã cung cấp thông tin làm rõ. BẮT BUỘC dùng đầy đủ thông tin trong phần
-  TÓM TẮT NGỮ CẢNH (đặc biệt `target_gender`, `category`, `budget`) để gọi tool
-  `search_products` (hoặc `recommend_size` nếu hỏi size) và giới thiệu 2-4 sản phẩm
-  phù hợp kèm mã [ID] và giá tiền thực tế từ tool.
-- KHI KHÁCH HỎI TIẾP / ĐỔI LOẠI TRANG PHỤC (ví dụ chuyển từ quần sang áo, hoặc xin
-  thêm gợi ý mới): BẮT BUỘC gọi lại `search_products` ở chính lượt này. TUYỆT ĐỐI
-  KHÔNG tự bịa tên sản phẩm, giá tiền hay mã [ID] từ trí nhớ hoặc lượt trước.
-- TUYỆT ĐỐI KHÔNG hỏi lại hay lặp lại phỏng vấn. Đặt needs_clarification=False.
-- LƯU Ý VỀ GIÁ: Đơn vị là VNĐ. Nếu nói 300k, 400k thì min_price=300000,
-  max_price=400000.
-- Khi khách hỏi phối đồ / set đồ / bộ đồ / combo áo + quần/váy: BẮT BUỘC gọi
-  trực tiếp `suggest_outfit` (truyền `top_category`, `bottom_category`,
-  `top_color`, `bottom_color`, `occasion`, `gender`, hoặc `product_id` nếu có).
-  TUYỆT ĐỐI KHÔNG gọi `search_products` và không chỉ gợi ý 1 loại sản phẩm đơn lẻ.
-  Bắt buộc trình bày theo từng Bộ phối gồm cả Áo [ID] và Quần/Váy [ID], màu sắc,
-  giá tiền, lý do phối và nhắc nếu màu đang hết hàng.
-"""
-
-PROMPT_C = """\
-CHẾ ĐỘ TỰ CÂN NHẮC (CONDITIONAL_CLARIFICATION):
-Hãy đọc TÓM TẮT NGỮ CẢNH (P0 -> P1 -> P2) và tự quyết định theo 3 tiêu chí:
-(1) Ảnh hưởng đến kết quả gợi ý, (2) Mức độ không chắc chắn, (3) Chi phí làm rõ.
-- KHI NÊN HỎI LẠI (needs_clarification=True):
-  * Thiếu thông tin P0 quan trọng làm kết quả dễ sai lệch (đặc biệt thiếu Giới tính
-    Nam/Nữ khi hỏi đồ dùng chung như áo, quần, đồ đi làm/đi chơi; hoặc yêu cầu quá
-    chung chung chưa rõ dịp/danh mục; hoặc khách hỏi size nhưng thiếu số đo).
-  * Chỉ hỏi 1-2 câu có tác động lớn nhất qua `clarification_form` (mỗi câu 2-4 lựa
-    chọn viết theo góc nhìn khách hàng) và viết đúng 1 câu dẫn ngắn ở `reply`.
-  * TUYỆT ĐỐI KHÔNG hỏi lại thông tin đã có trong TÓM TẮT NGỮ CẢNH, và KHÔNG hỏi
-    số đo cơ thể (P3) khi khách chỉ tìm sản phẩm.
-- KHI NÊN GỢI Ý NGAY (needs_clarification=False):
-  * Các thông tin P0 cốt lõi (giới tính hoặc loại đồ đặc thù + ngữ cảnh tìm kiếm) đã
-    đủ rõ để lọc catalog đúng hướng: gọi ngay `search_products` với đúng
-    `target_gender` và tiêu chí đã biết, giới thiệu 2-4 sản phẩm kèm mã [ID].
-- Khi khách hỏi phối đồ / set đồ / bộ đồ / combo áo + quần/váy: BẮT BUỘC gọi
-  trực tiếp `suggest_outfit` (truyền `top_category`, `bottom_category`,
-  `top_color`, `bottom_color`, `occasion`, `gender`, hoặc `product_id` nếu có).
-  TUYỆT ĐỐI KHÔNG gọi `search_products` và không chỉ gợi ý 1 loại sản phẩm đơn lẻ.
-  Bắt buộc trình bày theo từng Bộ phối gồm cả Áo [ID] và Quần/Váy [ID], màu sắc,
-  giá tiền, lý do phối và nhắc nếu màu đang hết hàng.
-"""
-
-PROMPT_NON_SHOPPING = """\
-YÊU CẦU PHI MUA SẮM (CHÍNH SÁCH / VOUCHER / CHI TIẾT MÃ / XÃ GIAO):
-- Khách không đang nhờ tìm kiếm hay chọn lọc danh sách sản phẩm chung.
-- Hãy trả lời trực tiếp bằng công cụ tương ứng (search_policy, check_voucher,
-  get_product_detail) hoặc đáp lại lịch sự ngắn gọn.
-- Đặt needs_clarification=False.
-"""
+    MODE_A = "MODE_A"
+    MODE_B_INTERVIEW = "MODE_B_INTERVIEW"
+    MODE_B_OPEN = "MODE_B_OPEN"
+    MODE_C = "MODE_C"
+    NON_SHOPPING = "NON_SHOPPING"
 
 
 @dataclass(frozen=True)
@@ -113,7 +24,7 @@ class TurnPolicy:
     """Policy resolved for the current turn."""
 
     gate_search: bool
-    prompt_block: str
+    prompt_key: PromptKey
 
 
 def _normalize_mode(mode: ClarificationMode | str) -> ClarificationMode:
@@ -140,17 +51,18 @@ def resolve_turn_policy(
     """Resolve tool gating and prompt instructions deterministically."""
     norm_mode = _normalize_mode(mode)
 
+    if not is_shopping_query:
+        return TurnPolicy(gate_search=False, prompt_key=PromptKey.NON_SHOPPING)
+
     if norm_mode == ClarificationMode.ALWAYS_CLARIFY:
         if phase == ClarifyPhase.INTERVIEW:
-            if is_shopping_query:
-                return TurnPolicy(gate_search=True, prompt_block=PROMPT_B_INTERVIEW)
-            return TurnPolicy(gate_search=False, prompt_block=PROMPT_NON_SHOPPING)
-        return TurnPolicy(gate_search=False, prompt_block=PROMPT_B_OPEN)
+            return TurnPolicy(gate_search=True, prompt_key=PromptKey.MODE_B_INTERVIEW)
+        return TurnPolicy(gate_search=False, prompt_key=PromptKey.MODE_B_OPEN)
 
     if norm_mode == ClarificationMode.IMMEDIATE_ANSWER:
-        return TurnPolicy(gate_search=False, prompt_block=PROMPT_A)
+        return TurnPolicy(gate_search=False, prompt_key=PromptKey.MODE_A)
 
-    return TurnPolicy(gate_search=False, prompt_block=PROMPT_C)
+    return TurnPolicy(gate_search=False, prompt_key=PromptKey.MODE_C)
 
 
 def next_phase(

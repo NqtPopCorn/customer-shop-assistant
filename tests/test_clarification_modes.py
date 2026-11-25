@@ -310,7 +310,8 @@ async def test_mode_b_does_not_gate_non_shopping_and_preserves_interview() -> No
         )
     )
     bound_t1 = [getattr(t, "name", str(t)) for t in (t1_model.last_bound_tools or [])]
-    assert "search_products" in bound_t1
+    assert "search_policy" in bound_t1
+    assert "search_products" not in bound_t1
     assert res1.clarification_asked is False
     sess = session_mgr.get_session(session_id)
     assert sess is not None
@@ -522,18 +523,22 @@ async def test_mode_a_overrides_hallucinated_female_args_and_runs_balanced_searc
         ],
     }
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        call_params = dict(params or {})
-        captured_calls.append(call_params)
-        gender = str(call_params.get("targetGender", ""))
-        limit = int(call_params.get("limit", 5))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        payload = dict(json or {})
+        captured_calls.append(payload)
+        limits = payload.get("genderLimits") or {}
+        combined = [
+            *items_by_gender["FEMALE"][: int(limits.get("FEMALE", 2))],
+            *items_by_gender["MALE"][: int(limits.get("MALE", 2))],
+            *items_by_gender["UNISEX"][: int(limits.get("UNISEX", 1))],
+        ]
         return httpx.Response(
             status_code=200,
-            json={"items": items_by_gender.get(gender, [])[:limit]},
-            request=httpx.Request("GET", str(url)),
+            json={"items": combined, "meta": {"total": len(combined)}},
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     class MessageCapturingFakeModel(InspectableFakeChatModel):
         async def ainvoke(
@@ -579,13 +584,14 @@ async def test_mode_a_overrides_hallucinated_female_args_and_runs_balanced_searc
         )
     )
 
-    assert len(captured_calls) == 3
-    by_gender = {c["targetGender"]: c for c in captured_calls}
-    assert set(by_gender) == {"FEMALE", "MALE", "UNISEX"}
-    for call in captured_calls:
-        assert "category" not in call
-    assert "đầm" not in str(by_gender["MALE"]["search"]).lower()
-    assert "đầm" not in str(by_gender["UNISEX"]["search"]).lower()
+    assert len(captured_calls) == 1
+    payload = captured_calls[0]
+    assert payload.get("diversifyByGender") is True
+    assert "categories" not in (payload.get("filters") or {})
+    gender_queries = payload.get("genderQueries") or {}
+    assert set(gender_queries) == {"FEMALE", "MALE", "UNISEX"}
+    assert "đầm" not in str(gender_queries["MALE"]).lower()
+    assert "đầm" not in str(gender_queries["UNISEX"]).lower()
 
     assert captured_tool_messages
     tool_out = captured_tool_messages[-1]
@@ -603,8 +609,8 @@ async def test_mode_a_respects_explicit_gender_without_balanced_override(
 ) -> None:
     captured_calls: list[dict[str, Any]] = []
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        captured_calls.append(dict(params or {}))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(json or {}))
         return httpx.Response(
             status_code=200,
             json={
@@ -626,12 +632,13 @@ async def test_mode_a_respects_explicit_gender_without_balanced_override(
                             }
                         ],
                     }
-                ]
+                ],
+                "meta": {"total": 1},
             },
-            request=httpx.Request("GET", str(url)),
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     tool_call = AIMessage(
         content="",
@@ -660,7 +667,7 @@ async def test_mode_a_respects_explicit_gender_without_balanced_override(
     )
 
     assert len(captured_calls) == 1
-    assert captured_calls[0].get("targetGender") == "MALE"
+    assert (captured_calls[0].get("filters") or {}).get("targetGender") == "MALE"
     assert [p.id for p in res.products] == [201]
 
 
@@ -670,8 +677,8 @@ async def test_mode_a_respects_female_inferred_garment_like_dress(
 ) -> None:
     captured_calls: list[dict[str, Any]] = []
 
-    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
-        captured_calls.append(dict(params or {}))
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        captured_calls.append(dict(json or {}))
         return httpx.Response(
             status_code=200,
             json={
@@ -693,12 +700,13 @@ async def test_mode_a_respects_female_inferred_garment_like_dress(
                             }
                         ],
                     }
-                ]
+                ],
+                "meta": {"total": 1},
             },
-            request=httpx.Request("GET", str(url)),
+            request=httpx.Request("POST", str(url)),
         )
 
-    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
 
     tool_call = AIMessage(
         content="",
@@ -727,8 +735,8 @@ async def test_mode_a_respects_female_inferred_garment_like_dress(
     )
 
     assert len(captured_calls) == 1
-    assert captured_calls[0].get("targetGender") == "FEMALE"
-    assert "đầm" in str(captured_calls[0].get("search", "")).lower()
+    assert (captured_calls[0].get("filters") or {}).get("targetGender") == "FEMALE"
+    assert "đầm" in str(captured_calls[0].get("query", "")).lower()
     assert [p.id for p in res.products] == [105]
 
 

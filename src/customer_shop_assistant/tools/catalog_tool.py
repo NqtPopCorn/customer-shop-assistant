@@ -1,4 +1,3 @@
-import asyncio
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -12,8 +11,10 @@ from customer_shop_assistant.schemas.chat import (
     OutfitSuggestion,
 )
 from customer_shop_assistant.schemas.shop import (
+    AssistantSearchFacets,
+    AssistantSearchFilters,
+    AssistantSearchRequest,
     GenderTarget,
-    ProductFilterParams,
     ProductSchema,
 )
 from customer_shop_assistant.services.shop_client import ShopClient
@@ -241,10 +242,9 @@ class SearchProductsInput(BaseModel):
     category: str | None = Field(
         default=None,
         description=(
-            "Tên danh mục tiếng Việt chính xác (tùy chọn): Áo thun, Áo sơ mi, "
-            "Áo polo, Áo khoác, Quần âu, Quần kaki, Quần jeans, Quần short, "
-            "Váy liền, Chân váy, Đầm dạ hội, Thắt lưng, Túi xách, Mũ nón. "
-            "Bỏ trống (null) nếu chưa chắc và chỉ cần mô tả vào keyword."
+            "Tên danh mục tiếng Việt nếu khách đã nêu rõ (ví dụ: 'Áo sơ mi', "
+            "'Váy liền', 'Quần jeans'). LUÔN để null nếu khách chưa nêu rõ loại đồ, "
+            "KHÔNG hỏi lại khách."
         ),
     )
     min_price: float | int | None = Field(
@@ -257,7 +257,28 @@ class SearchProductsInput(BaseModel):
         default=None,
         description=(
             "Giới tính mục tiêu: 'MALE', 'FEMALE', hoặc 'UNISEX'. "
-            "Bỏ trống (null) nếu khách chưa nêu rõ giới tính."
+            "LUÔN để null nếu khách chưa nêu rõ giới tính, KHÔNG hỏi lại khách."
+        ),
+    )
+    color: str | None = Field(
+        default=None,
+        description=(
+            "Màu sắc khách yêu cầu nếu có (ví dụ: 'Đen', 'Trắng', 'Xanh navy'). "
+            "Để null nếu khách chưa chọn màu."
+        ),
+    )
+    size: str | None = Field(
+        default=None,
+        description=(
+            "Kích cỡ/size khách yêu cầu nếu có (ví dụ: 'S', 'M', 'L', '31'). "
+            "Để null nếu khách chưa nêu size."
+        ),
+    )
+    sort: str | None = Field(
+        default=None,
+        description=(
+            "Sắp xếp kết quả: 'relevance' (mặc định), 'price_asc' (giá tăng), "
+            "'price_desc' (giá giảm), hoặc 'rating_desc' (đánh giá cao)."
         ),
     )
     limit: int = Field(
@@ -338,6 +359,49 @@ def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
     )
 
 
+def _normalize_sort(sort: str | None) -> str:
+    if not sort:
+        return "relevance"
+    norm = sort.strip().lower()
+    if norm in ("relevance", "price_asc", "price_desc", "rating_desc"):
+        return norm
+    return "relevance"
+
+
+def _format_relaxed_note(relaxed_filters: list[str]) -> str:
+    if not relaxed_filters:
+        return ""
+    label_map = {
+        "sizes": "kích cỡ",
+        "colors": "màu sắc",
+        "maxPrice": "giá tối đa",
+        "minPrice": "giá tối thiểu",
+        "fit": "phom dáng",
+        "pattern": "họa tiết",
+        "occasion": "dịp mặc",
+    }
+    labels = [label_map.get(f, f) for f in relaxed_filters]
+    return (
+        f"[LƯU Ý: Không có sản phẩm khớp 100%, hệ thống đã nới lỏng tiêu chí: "
+        f"{', '.join(labels)}]\n"
+    )
+
+
+def _format_facets_summary(facets: AssistantSearchFacets) -> str:
+    parts: list[str] = []
+    if facets.price_range.min is not None and facets.price_range.max is not None:
+        parts.append(
+            f"Giá: {facets.price_range.min:,.0f}đ–{facets.price_range.max:,.0f}đ"
+        )
+    if facets.available_colors:
+        parts.append(f"Màu có sẵn: {', '.join(facets.available_colors[:6])}")
+    if facets.available_sizes:
+        parts.append(f"Size có sẵn: {', '.join(facets.available_sizes[:8])}")
+    if not parts:
+        return ""
+    return f"[Thông tin kho hiện có — {' | '.join(parts)}]"
+
+
 def _format_product_line(p: ProductSchema) -> str:
     """Format a single product line for LLM tool output."""
     in_stock_sizes = sorted({v.size for v in p.variants if v.size and v.stock > 0})
@@ -351,10 +415,12 @@ def _format_product_line(p: ProductSchema) -> str:
     price_str = f"{price_val:,.0f}đ" if price_val > 0 else "Liên hệ"
 
     material_str = f" | Chất liệu: {p.material}" if p.material else ""
+    fit_str = f" | Form: {p.fit}" if p.fit else ""
+    pattern_str = f" | Họa tiết: {p.pattern}" if p.pattern else ""
     gender_str = f" | Phù hợp: {p.target_gender.value}" if p.target_gender else ""
     return (
         f"- [{p.id}] {p.name} | Giá từ: {price_str} | Size: {size_str}"
-        f"{material_str}{gender_str}"
+        f"{material_str}{fit_str}{pattern_str}{gender_str}"
     )
 
 
@@ -380,9 +446,12 @@ async def _search_products_balanced(
     resolved_cat: str | None,
     min_price: float | int | None,
     max_price: float | int | None,
+    color: str | None,
+    size: str | None,
+    sort: str,
     cfg: BalancedGenderSearchConfig,
 ) -> str:
-    """Fetch balanced FEMALE, MALE, and UNISEX recommendations concurrently."""
+    """Fetch balanced FEMALE, MALE, and UNISEX recommendations via single BE call."""
     branch_keywords = _build_balanced_branch_keywords(
         resolved_kw, resolved_cat, cfg.occasion
     )
@@ -394,47 +463,57 @@ async def _search_products_balanced(
     min_p = float(min_price) if min_price is not None else None
     max_p = float(max_price) if max_price is not None else None
 
+    request = AssistantSearchRequest(
+        query=resolved_kw,
+        filters=AssistantSearchFilters(
+            categories=[resolved_cat] if resolved_cat else None,
+            colors=[color.strip()] if color and color.strip() else None,
+            sizes=[size.strip()] if size and size.strip() else None,
+            min_price=min_p,
+            max_price=max_p,
+            in_stock_only=True,
+        ),
+        sort=sort,
+        diversify_by_gender=True,
+        gender_queries={g.value: kw for g, kw in branch_keywords.items()},
+        gender_limits={g.value: lim for g, lim, _ in branches},
+        allow_relaxation=True,
+        limit=cfg.female_limit + cfg.male_limit + cfg.unisex_limit,
+    )
+
     async with ShopClient() as client:
-        tasks = [
-            client.get_products(
-                ProductFilterParams(
-                    search=branch_keywords[branch_gender],
-                    mode="semantic",
-                    category=resolved_cat,
-                    min_price=min_p,
-                    max_price=max_p,
-                    target_gender=branch_gender,
-                    limit=branch_limit,
-                )
-            )
-            for branch_gender, branch_limit, _ in branches
-        ]
-        results = await asyncio.gather(*tasks)
+        resp = await client.search_products_assistant(request)
 
     seen_ids: set[int] = set()
+    by_gender: dict[GenderTarget, list[ProductSchema]] = {
+        GenderTarget.FEMALE: [],
+        GenderTarget.MALE: [],
+        GenderTarget.UNISEX: [],
+    }
+    for p in resp.items:
+        if p.id in seen_ids:
+            continue
+        seen_ids.add(p.id)
+        bucket_key = p.target_gender or GenderTarget.UNISEX
+        by_gender.setdefault(bucket_key, []).append(p)
+
     bucket_products: list[tuple[GenderTarget, str, list[ProductSchema]]] = []
     all_selected: list[ProductSchema] = []
     gender_map: dict[int, GenderTarget] = {}
 
-    for (branch_gender, branch_limit, header), fetched in zip(
-        branches, results, strict=True
-    ):
-        chosen: list[ProductSchema] = []
-        for p in fetched:
-            if p.id in seen_ids:
-                continue
-            seen_ids.add(p.id)
-            chosen.append(p)
-            all_selected.append(p)
-            gender_map[p.id] = p.target_gender or branch_gender
-            if len(chosen) >= branch_limit:
-                break
+    for branch_gender, branch_limit, header in branches:
+        chosen = by_gender.get(branch_gender, [])[:branch_limit]
         if chosen:
             bucket_products.append((branch_gender, header, chosen))
+            for p in chosen:
+                all_selected.append(p)
+                gender_map[p.id] = p.target_gender or branch_gender
 
     if not all_selected:
         record_searched_products([])
-        return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+        facets_txt = _format_facets_summary(resp.meta.facets)
+        base_msg = "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+        return f"{base_msg}\n{facets_txt}" if facets_txt else base_msg
 
     record_searched_products(
         [product_schema_to_recommended(p) for p in all_selected],
@@ -445,7 +524,9 @@ async def _search_products_balanced(
         "\n".join([header, *(_format_product_line(p) for p in chosen)])
         for _, header, chosen in bucket_products
     ]
+    relaxed_note = _format_relaxed_note(resp.meta.relaxed_filters)
     return (
+        f"{relaxed_note}"
         "[LƯU Ý: Khách chưa nêu giới tính nên hệ thống đã tìm cân bằng theo "
         "Nữ, Nam và Unisex]\n" + "\n\n".join(section_blocks)
     )
@@ -458,12 +539,16 @@ async def search_products(
     min_price: float | int | None = None,
     max_price: float | int | None = None,
     target_gender: str | None = None,
+    color: str | None = None,
+    size: str | None = None,
+    sort: str | None = None,
     limit: int = 5,
 ) -> str:
-    """Tìm kiếm ngữ nghĩa (semantic) sản phẩm thời trang theo mô tả, giá, giới tính."""
+    """Tìm kiếm kết hợp ngữ nghĩa & bộ lọc sản phẩm theo mô tả, giá, màu, size."""
     capped_limit = max(1, min(5, int(limit or 5)))
     gender_enum = _normalize_gender(target_gender)
     resolved_kw, resolved_cat = _normalize_search_terms(keyword, category)
+    normalized_sort = _normalize_sort(sort)
 
     balanced_cfg = _BALANCED_SEARCH_CTX.get()
     if balanced_cfg is not None and gender_enum is None:
@@ -472,24 +557,37 @@ async def search_products(
             resolved_cat=resolved_cat,
             min_price=min_price,
             max_price=max_price,
+            color=color,
+            size=size,
+            sort=normalized_sort,
             cfg=balanced_cfg,
         )
 
-    params = ProductFilterParams(
-        search=resolved_kw,
-        mode="semantic",
-        category=resolved_cat,
-        min_price=float(min_price) if min_price is not None else None,
-        max_price=float(max_price) if max_price is not None else None,
-        target_gender=gender_enum,
+    request = AssistantSearchRequest(
+        query=resolved_kw,
+        filters=AssistantSearchFilters(
+            categories=[resolved_cat] if resolved_cat else None,
+            target_gender=gender_enum,
+            colors=[color.strip()] if color and color.strip() else None,
+            sizes=[size.strip()] if size and size.strip() else None,
+            min_price=float(min_price) if min_price is not None else None,
+            max_price=float(max_price) if max_price is not None else None,
+            in_stock_only=True,
+        ),
+        sort=normalized_sort,
+        allow_relaxation=True,
         limit=capped_limit,
     )
 
-    client = ShopClient()
-    products = (await client.get_products(params))[:capped_limit]
+    async with ShopClient() as client:
+        resp = await client.search_products_assistant(request)
+
+    products = resp.items[:capped_limit]
     if not products:
         record_searched_products([])
-        return "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+        facets_txt = _format_facets_summary(resp.meta.facets)
+        base_msg = "Không tìm thấy sản phẩm nào phù hợp với tiêu chí tìm kiếm."
+        return f"{base_msg}\n{facets_txt}" if facets_txt else base_msg
 
     # Cache structured products into the active per-turn context
     gender_map = {
@@ -500,7 +598,13 @@ async def search_products(
         gender_map=gender_map,
     )
 
-    return "\n".join(_format_product_line(p) for p in products)
+    relaxed_note = _format_relaxed_note(resp.meta.relaxed_filters)
+    body = "\n".join(_format_product_line(p) for p in products)
+    if len(products) < 3:
+        facets_txt = _format_facets_summary(resp.meta.facets)
+        if facets_txt:
+            return f"{relaxed_note}{body}\n{facets_txt}"
+    return f"{relaxed_note}{body}"
 
 
 @tool
@@ -530,6 +634,24 @@ async def get_product_detail(product_id: int | str) -> str:
         f"Sản phẩm: {product.name} (ID: {product.id})",
         f"Giá: {price_val:,.0f}đ",
         f"Chất liệu: {product.material or 'N/A'}",
+        *([f"Phom dáng: {product.fit}"] if product.fit else []),
+        *([f"Họa tiết: {product.pattern}"] if product.pattern else []),
+        *([f"Dịp mặc: {product.occasion}"] if product.occasion else []),
+        *(
+            [f"Phom dáng: {product.fit}"]
+            if product.fit
+            else []
+        ),
+        *(
+            [f"Họa tiết: {product.pattern}"]
+            if product.pattern
+            else []
+        ),
+        *(
+            [f"Dịp mặc: {product.occasion}"]
+            if product.occasion
+            else []
+        ),
         (
             f"Giới tính phù hợp: "
             f"{product.target_gender.value if product.target_gender else 'N/A'}"

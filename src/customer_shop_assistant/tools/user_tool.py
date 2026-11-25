@@ -28,8 +28,8 @@ async def update_customer_preference(
 ) -> str:
     """Cập nhật thông tin sở thích, số đo, phong cách thời trang của khách hàng.
 
-    Gọi tool này khi khách hàng nói cảm ơn để chốt lưu số đo sau khi tư vấn,
-    hoặc khi khách hàng chủ động yêu cầu lưu hồ sơ tài khoản:
+    CHỈ gọi tool này khi khách hàng đã đăng nhập (có user_id) và CHỦ ĐỘNG yêu cầu
+    lưu hồ sơ/số đo vào tài khoản. TUYỆT ĐỐI KHÔNG gọi khi khách chỉ nói cảm ơn:
     - Chiều cao (height_cm), cân nặng (weight_kg), số đo 3 vòng
     - Size thường mặc (preferred_sizes)
     - Gu mặc (fit_preference: tight, regular, oversize)

@@ -62,6 +62,8 @@ class LangChainDebugCallbackHandler(AsyncCallbackHandler):
         serialized_messages = [
             serialize_base_message(msg) for sublist in messages for msg in sublist
         ]
+        clean_metadata = dict(metadata) if metadata else {}
+        system_prompt_data = clean_metadata.pop("system_prompt_debug", None)
         self._runs_by_id[rid] = {
             "run_id": rid,
             "parent_run_id": str(parent_run_id) if parent_run_id else None,
@@ -69,7 +71,8 @@ class LangChainDebugCallbackHandler(AsyncCallbackHandler):
             "run_type": "chat_model",
             "inputs": {"messages": serialized_messages},
             "outputs": {},
-            "metadata": metadata or {},
+            "metadata": clean_metadata,
+            "system_prompt": system_prompt_data,
             "usage_metadata": None,
             "latency_ms": 0,
             "error": None,

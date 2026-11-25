@@ -269,3 +269,86 @@ def test_switching_from_shirt_to_pants_updates_category_and_hides_outfit_slots()
     summary = format_slots_for_prompt(slots, intent)
     assert "Danh mục [P0]=pants" in summary
     assert "Loại áo phối" not in summary
+
+
+def test_followup_pairing_question_transitions_to_outfit_advice() -> None:
+    from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
+
+    from customer_shop_assistant.config import Settings
+    from customer_shop_assistant.services.agent_service import ShopAssistantAgent
+
+    base_history = [
+        HumanMessage(content="Tìm áo sơ mi công sở"),
+        AIMessage(content="Bạn giúp mình chọn thêm tiêu chí nhé:"),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n1. Nữ\n2. Phổ biến (300.000đ – 600.000đ)\n"
+                "3. Form ôm nhẹ gọn gàng, tôn dáng (Slim fit)"
+            )
+        ),
+        AIMessage(content="Dưới đây là 4 mẫu áo sơ mi nữ công sở..."),
+    ]
+
+    for pairing_q in (
+        "mặc gì bên dưới thì phù hợp?",
+        "tìm giúp tôi đồ mặc bên dưới phù hợp với áo",
+        "tìm quần phù hợp với áo sơ mi",
+    ):
+        slots, intent = extract_conversation_slots(
+            [*base_history, HumanMessage(content=pairing_q)]
+        )
+        assert intent == TurnIntent.OUTFIT_ADVICE, f"Failed for: {pairing_q}"
+        assert slots.value_of("shopping_intent") == "OUTFIT"
+        assert slots.value_of("top_category") == "shirt"
+        assert slots.value_of("bottom_category") is None
+        assert slots.value_of("target_gender") == "FEMALE"
+        assert slots.value_of("occasion") == "office"
+
+        summary = format_slots_for_prompt(slots, intent)
+        assert "TÓM TẮT NGỮ CẢNH (OUTFIT_ADVICE)" in summary
+        assert "Loại áo phối [P0]=shirt" in summary
+        assert "Danh mục [P0]" not in summary
+
+        agent = ShopAssistantAgent(
+            chat_model=GenericFakeChatModel(messages=iter([AIMessage(content="ok")])),
+            settings=Settings(_env_file=None, OUTFIT_KG_ENABLED=True),
+        )
+        active_tool_names = [
+            t.name for t in agent._get_active_tools_for_turn(intent, False)
+        ]
+        assert "suggest_outfit" in active_tool_names
+        assert "search_products" not in active_tool_names
+
+    # Specific bottom paired with shirt sets both top_category and bottom_category
+    slots_skirt, intent_skirt = extract_conversation_slots(
+        [*base_history, HumanMessage(content="tìm chân váy hợp với áo sơ mi")]
+    )
+    assert intent_skirt == TurnIntent.OUTFIT_ADVICE
+    assert slots_skirt.value_of("top_category") == "shirt"
+    assert slots_skirt.value_of("bottom_category") == "skirt"
+
+    # Bottom -> asking what to wear on top keeps bottom_category as anchor
+    slots_top, intent_top = extract_conversation_slots(
+        [
+            HumanMessage(content="Tìm quần jeans nữ"),
+            AIMessage(content="Đây là các mẫu quần jeans nữ..."),
+            HumanMessage(content="mặc gì bên trên thì hợp?"),
+        ]
+    )
+    assert intent_top == TurnIntent.OUTFIT_ADVICE
+    assert slots_top.value_of("shopping_intent") == "OUTFIT"
+    assert slots_top.value_of("bottom_category") == "jeans"
+    assert slots_top.value_of("top_category") is None
+
+    # Switching back from OUTFIT_ADVICE to standalone single-item search resets intent
+    slots_back, intent_back = extract_conversation_slots(
+        [
+            *base_history,
+            HumanMessage(content="mặc gì bên dưới thì phù hợp?"),
+            AIMessage(content="Bộ 1: Áo sơ mi + Quần âu..."),
+            HumanMessage(content="tìm quần đi làm"),
+        ]
+    )
+    assert intent_back == TurnIntent.PRODUCT_SEARCH
+    assert slots_back.value_of("shopping_intent") == "PRODUCT"
+    assert slots_back.value_of("category") == "pants"

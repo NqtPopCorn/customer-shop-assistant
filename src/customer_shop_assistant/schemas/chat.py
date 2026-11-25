@@ -271,6 +271,33 @@ class LangChainMessageDump(BaseModel):
     response_metadata: dict[str, Any] | None = None
 
 
+class SystemPromptSectionDebug(BaseModel):
+    """Single constituent section of a SystemMessage sent to the LLM."""
+
+    id: str = Field(
+        ..., description="Section identifier: base | profile | policy | slot_summary"
+    )
+    name: str = Field(
+        ..., description="Formula token name (e.g. SYSTEM_PROMPT, PROMPT_A)"
+    )
+    included: bool = Field(default=True, description="Whether section was included")
+    char_count: int = Field(default=0, ge=0, description="Character length of section")
+    content: str = Field(default="", description="Plain-text content of section")
+
+
+class SystemPromptDebug(BaseModel):
+    """Structured composition breakdown of a SystemMessage for debugging."""
+
+    version: str = Field(default="v1.0", description="System prompt version")
+    formula: str = Field(
+        ..., description="Composition formula (e.g. SYSTEM_PROMPT + PROMPT_A)"
+    )
+    total_chars: int = Field(default=0, ge=0, description="Total SystemMessage length")
+    sections: list[SystemPromptSectionDebug] = Field(
+        default_factory=list, description="Ordered constituent prompt sections"
+    )
+
+
 class LangChainRunTrace(BaseModel):
     """Trace record for a single LangChain execution run (chat model or tool)."""
 
@@ -281,6 +308,7 @@ class LangChainRunTrace(BaseModel):
     inputs: dict[str, Any] = Field(default_factory=dict)
     outputs: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    system_prompt: SystemPromptDebug | None = None
     usage_metadata: LangChainUsageMetadata | dict[str, Any] | None = None
     latency_ms: int = 0
     error: str | None = None

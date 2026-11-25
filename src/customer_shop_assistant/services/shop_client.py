@@ -5,6 +5,9 @@ import httpx
 
 from customer_shop_assistant.config import Settings, get_settings
 from customer_shop_assistant.schemas.shop import (
+    AssistantSearchMeta,
+    AssistantSearchRequest,
+    AssistantSearchResponse,
     CategorySchema,
     ProductFilterParams,
     ProductFit,
@@ -107,6 +110,55 @@ class ShopClient:
         except httpx.HTTPError as exc:
             logger.error("Failed to fetch products from %s: %s", url, exc)
             return []
+
+    async def search_products_assistant(
+        self,
+        request: AssistantSearchRequest,
+    ) -> AssistantSearchResponse:
+        """Search products via dedicated POST /api/products/search endpoint."""
+        client = await self._get_client()
+        url = f"{self.base_url}/products/search"
+        payload = request.model_dump(by_alias=True, exclude_none=True)
+
+        try:
+            logger.info("ShopClient -> POST %s (payload=%s)", url, payload)
+            response = await client.post(url, json=payload)
+            logger.info("ShopClient <- POST %s [%d]", url, response.status_code)
+
+            if response.status_code in (404, 405):
+                filters = request.filters
+                fallback_items = await self.get_products(
+                    ProductFilterParams(
+                        search=request.query,
+                        mode="semantic",
+                        category=(
+                            filters.categories[0]
+                            if filters and filters.categories
+                            else None
+                        ),
+                        category_id=filters.category_id if filters else None,
+                        brand_id=filters.brand_id if filters else None,
+                        target_gender=filters.target_gender if filters else None,
+                        min_price=filters.min_price if filters else None,
+                        max_price=filters.max_price if filters else None,
+                        in_stock_only=filters.in_stock_only if filters else True,
+                        page=request.page,
+                        limit=request.limit,
+                    )
+                )
+                return AssistantSearchResponse(
+                    items=fallback_items,
+                    meta=AssistantSearchMeta(
+                        total=len(fallback_items),
+                        strategy="legacy_get_fallback",
+                    ),
+                )
+
+            response.raise_for_status()
+            return AssistantSearchResponse.model_validate(response.json())
+        except httpx.HTTPError as exc:
+            logger.error("Failed to search products at %s: %s", url, exc)
+            return AssistantSearchResponse()
 
     async def get_product_by_id(self, product_id: int) -> ProductSchema | None:
         """Retrieve single product details by integer ID."""

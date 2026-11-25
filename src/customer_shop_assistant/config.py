@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         ),
     )
     EMBEDDING_PROVIDER: Literal["ollama", "tfidf"] = "ollama"
-    OLLAMA_EMBEDDING_MODEL: str = "nomic-embed-text"
+    OLLAMA_EMBEDDING_MODEL: str = "bge-m3"
 
     @field_validator("OLLAMA_REASONING", mode="before")
     @classmethod
