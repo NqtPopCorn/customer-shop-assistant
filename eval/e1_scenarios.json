@@ -1185,6 +1185,218 @@
       "expected_clarify_slots": [],
       "user_answers": {},
       "hard_constraints": {}
+    },
+    {
+      "id": "E1_DEV_COL_IMP_01",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_implicit",
+      "question": "Phối đồ đi làm cho nam phong cách minimalist.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Spec v1.3: missing color is resolved automatically via Style minimalist + Occasion office + Catalog without asking color.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_DEV_COL_AMB_01",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_ambiguous",
+      "question": "Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition B: explicit ambiguous light vs dark color preference triggers tone counterfactual ASK on color.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu trắng và xanh navy"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_DEV_COL_AMB_02",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_ambiguous",
+      "question": "Phối set đồ dự tiệc cho nữ, mình đang phân vân màu nào nổi bật mà vẫn lịch sự?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition B: explicit ambiguous color inquiry in party setting triggers counterfactual ASK on color.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu đỏ đô"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_DEV_COL_CON_01",
+      "split": "dev",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_constraint",
+      "question": "Phối áo sơ mi nam màu xanh mint với quần âu đi làm.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition A: Male áo sơ mi in xanh_mint has 0 items in snapshot catalog.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu trắng"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi",
+        "bottom_category": "Quần âu"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_IMP_01",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_implicit",
+      "question": "Phối bộ đồ đi tiệc sang trọng cho nữ phong cách thanh lịch.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Spec v1.3: Style elegant + Occasion party resolves color palette cleanly without asking color.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "party"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_IMP_02",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_implicit",
+      "question": "Gợi ý set đồ dạo phố cho nam phong cách streetwear.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Spec v1.3: Style streetwear + Occasion casual uses PREFERS_COLOR palette without asking color.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_IMP_03",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_implicit",
+      "question": "Phối áo sơ mi với quần âu cho nam đi họp.",
+      "user_profile": null,
+      "gold_label": "proceed",
+      "gold_rationale": "Spec v1.3: Occasion meeting uses SUITS_COLOR + HARMONIZES_WITH without asking color.",
+      "expected_clarify_slots": [],
+      "user_answers": {},
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi",
+        "bottom_category": "Quần âu"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_AMB_01",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_ambiguous",
+      "question": "Gợi ý outfit dạo phố cho nam nhưng nên mặc màu gì đẹp?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition B: explicit ambiguous 'mặc màu gì đẹp' triggers counterfactual ASK on color.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu xanh navy"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "occasion": "casual"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_AMB_02",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_ambiguous",
+      "question": "Tư vấn phối đồ công sở cho nữ, không biết chọn tông màu nào tôn da?",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition B: explicit ambiguous tone question 'tông màu nào tôn da' triggers ASK on color.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu be sữa"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "occasion": "office"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_CON_01",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_constraint",
+      "question": "Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition A: requested color đen conflicts with disliked color đen -> Hard Ask Guard on color.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu trắng"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo sơ mi"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_CON_02",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_constraint",
+      "question": "Phối áo polo nam màu xanh lam nhạt với quần kaki đi làm.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition A: Male áo polo in xanh_lam_nhat yields 0 items in snapshot catalog.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu xanh navy"
+      },
+      "hard_constraints": {
+        "target_gender": "MALE",
+        "top_category": "Áo polo",
+        "bottom_category": "Quần kaki"
+      }
+    },
+    {
+      "id": "E1_TEST_COL_CON_03",
+      "split": "test",
+      "expected_intent": "OUTFIT_ADVICE",
+      "task_type": "color_constraint",
+      "question": "Phối áo sơ mi nữ màu cam với quần âu đi làm.",
+      "user_profile": null,
+      "gold_label": "must_clarify",
+      "gold_rationale": "Spec v1.3 Condition A: Female áo sơ mi in cam has 0 items in snapshot catalog.",
+      "expected_clarify_slots": ["color"],
+      "user_answers": {
+        "color": "Màu trắng"
+      },
+      "hard_constraints": {
+        "target_gender": "FEMALE",
+        "top_category": "Áo sơ mi",
+        "bottom_category": "Quần âu"
+      }
     }
   ]
 }

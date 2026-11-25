@@ -1,9 +1,9 @@
-# SPEC v1.2 (SSOT) — Category-level Outfit KG & Counterfactual Clarification Policy
+# SPEC v1.3 (SSOT) — Color-aware Category-level Outfit KG & Counterfactual Clarification Policy
 
 - **Dự án:** `customer-shop-assistant`
-- **Trạng thái:** Approved — Frozen Single Source of Truth (SSOT)
+- **Trạng thái:** Approved — Single Source of Truth (SSOT, nâng cấp từ v1.2)
 - **Tài liệu liên quan:** [clarification_strategy_spec.md](file:///h:/Code/PET/customer-shop-assistant/docs/specs/clarification_strategy_spec.md) (quy ước chung về 5 intents, 3 modes, 8 slot states, `ClarificationForm`, Lifecycle, Fallback, Telemetry; đã hợp nhất toàn bộ quyết định từ bản đề xuất v1.1)
-- **Hướng nghiên cứu:** **Hướng B — Clarification Policy sử dụng đồng thời Category-level Fashion KG (Neo4j) và Fixed 1,000-Product Catalog Snapshot**
+- **Hướng nghiên cứu:** **Hướng B — Clarification Policy sử dụng đồng thời Color-aware Category-level Fashion KG (Neo4j) và Fixed 1,000-Product Catalog Snapshot**
 - **Ngôn ngữ:** Tiếng Việt
 
 ---
@@ -80,22 +80,26 @@ flowchart TD
 - **Phân bổ 14 danh mục (`categoryName`):**
   - **9 danh mục Top-Bottom Blueprint (`740` sản phẩm):** `Áo thun` (100), `Áo sơ mi` (100), `Áo khoác` (95), `Quần jeans` (80), `Áo polo` (75), `Quần kaki` (75), `Quần âu` (75), `Chân váy` (75), `Quần short` (65).
   - **5 danh mục ngoài phạm vi Top-Bottom v1 (`260` sản phẩm):** `Váy liền` (95), `Đầm dạ hội` (70), `Túi xách` (35), `Mũ nón` (30), `Thắt lưng` (30).
-- **Màu sắc:** đúng `33` màu chuẩn, khớp `33/33` với [colours.json](file:///h:/Code/PET/customer-shop-assistant/data/outfit_kg/colours.json) (0 màu chưa ánh xạ).
+- **Màu sắc:** đúng `33` màu chuẩn, khớp `33/33` với [colours.json](file:///h:/Code/PET/customer-shop-assistant/data/outfit_kg/ontology/colours.json) (0 màu chưa ánh xạ).
 
-### 3.2 Chiến lược truy xuất hai tầng (Tránh nghẽn Latency)
+### 3.2 Chiến lược truy xuất hai tầng, Chuẩn hóa Màu & Runtime Catalog ↔ KG Mapping
 
 1. **Counterfactual Probing (Bước đánh giá hỏi lại):** Dùng **`SnapshotCatalogIndex`** (chỉ mục read-only trong RAM nạp từ cùng snapshot `1,000` sản phẩm) để lọc theo `(category_id, target_gender, color_ids, min_price, max_price, in_stock)` → độ trễ **< 30 ms/lượt** thay vì bắn 15–30 HTTP semantic search sang Main BE, đồng thời đảm bảo kết quả thực nghiệm tái lập 100%.
 2. **Product Retrieval cuối cùng:** Sử dụng cùng tập sản phẩm snapshot / Main BE (`ShopClient`) để lấy thông tin hiển thị thật (`product_id`, `name`, `slug`, `price`, `image_url`, `in_stock`).
-3. **Mapping chuẩn bằng Canonical ID:** Mọi trường từ sản phẩm (`categoryName` → `category_id`, `variant.color` → `color_id`) phải ánh xạ qua bảng canonical ID; giá trị không khớp phải báo `unmapped` trong validation report, tuyệt đối không tự tạo node KG lúc chạy.
+3. **Color Normalization & Runtime Catalog ↔ KG Mapping (Bắt buộc):**
+   - Mọi trường từ sản phẩm (`categoryName` → `category_id`, `variant.color` → `color_id`) và từ câu hỏi người dùng phải ánh xạ qua một nguồn chuẩn hóa duy nhất (`resolve_category_id`, `resolve_color_id`: strip khoảng trắng, chuẩn hóa Unicode/chữ thường, khớp `id` / `name` / `aliases`, có hỗ trợ strip dấu tiếng Việt).
+   - **Offline pre-seed validator (`scripts/build_snapshot_manifest.py`, `scripts/seed_neo4j_kg.py`):** **Fail-fast** — bất kỳ `categoryName` hoặc `color` nào của `hm_seed_1000.json` không ánh xạ được đều báo `unmapped` và chặn seed.
+   - **Runtime (live Main BE / truy vấn mở):** Tuyệt đối không tự tạo node KG mới lúc chạy. Nếu live Main BE phát sinh tên màu lạ chưa có trong 33 canonical colors, hệ thống **degrade gracefully**: ghi nhận vào `color_score_breakdown.unmapped_colors`, áp điểm fallback trung tính `0.50` và vẫn giữ sản phẩm hợp lệ trong kết quả.
+   - **Không triển khai `(:Category)-[:HAS_COLOR]->(:Color)`** và **tiếp tục Zero Product Nodes**: tập màu đang còn hàng của từng danh mục được suy động ở Runtime Catalog / `SnapshotCatalogIndex`, không sao chép vào Neo4j.
 
 ---
 
 ## 4. Đặc tả Category-level Fashion KG (Neo4j)
 
-### 4.1 Phạm vi Node Types (Đúng 4 Core Nodes)
+### 4.1 Phạm vi Node Types (Đúng 4 Core Nodes — Zero Product Nodes)
 
 > [!IMPORTANT]
-> Chỉ kích hoạt **4 loại node cốt lõi** cho v1.2: `Category`, `Style`, `Occasion`, `Color`.
+> Chỉ kích hoạt **4 loại node cốt lõi** cho v1.3: `Category`, `Style`, `Occasion`, `Color` (giữ nguyên **33** `Color` nodes, tiếp tục **Zero Product / ProductVariant Nodes**).
 > Các node `Pattern`, `Season`, `BodyType`, `Fit` đều **hoãn (DEFERRED)** để giữ KG sạch, đúng trọng tâm nghiên cứu Clarification Policy.
 
 #### 1. `(:Category)`
@@ -140,10 +144,10 @@ flowchart TD
 
 ---
 
-### 4.2 Phạm vi Relationship Types (Đúng 5 Core Relationships)
+### 4.2 Phạm vi Relationship Types (Đúng 7 Core Relationships)
 
 > [!NOTE]
-> Bỏ `CONFLICTS_WITH` (hard exclusion), bỏ `CLASHES_WITH` tự sinh theo `loud`, hoãn `LAYERS_OVER`, `PREFERS_FIT` và mọi cạnh của node v1.1. Mọi cạnh đều mang provenance chuẩn (`rule_id`, `compatibility`, `confidence`, `reason`, `source`).
+> Bỏ `CONFLICTS_WITH` (hard exclusion), bỏ `CLASHES_WITH` tự sinh theo `loud`, **không triển khai `(:Category)-[:HAS_COLOR]->(:Color)`**, hoãn `LAYERS_OVER` và `PREFERS_FIT`. Mọi cạnh đều mang provenance chuẩn (`rule_id`, `compatibility`, `confidence`, `reason`, `source`).
 
 | # | Relationship Pattern | Thuộc tính bắt buộc | Ngữ nghĩa & Quy tắc sử dụng |
 |---|---|---|---|
@@ -151,16 +155,18 @@ flowchart TD
 | 2 | `(:Occasion)-[:SUITS_CATEGORY]->(:Category)` | `rule_id`, `compatibility`, `confidence`, `reason`, `source` | **Phương án A (Exclusive Branching):** Chỉ dẫn trực tiếp danh mục cho dịp mặc. **Chỉ dùng khi `style` chưa xác định (`UNKNOWN`/`DECLINED`)**, cấm cộng trùng với `RECOMMENDS_CATEGORY`. |
 | 3 | `(:Style)-[:RECOMMENDS_CATEGORY]->(:Category)` | `rule_id`, `compatibility`, `confidence`, `reason`, `source` | Danh mục đặc trưng của phong cách. **Chỉ dùng khi `style` đã được xác định.** |
 | 4 | `(:Category)-[:PAIRS_WITH]->(:Category)` | `rule_id`, `compatibility`, `confidence`, `style_ids`, `occasion_ids`, `reason`, `source` | Cạnh phối đồ cốt lõi. Lưu 1 chiều chuẩn `TOP/OUTERWEAR -> BOTTOM`. Truy vấn Mode A duyệt hai chiều nhưng chuẩn hóa lại vai trò `top`/`bottom`. `compatibility` là tín hiệu xếp hạng (không phải xác suất). |
-| 5 | `(:Color)-[:HARMONIZES_WITH]->(:Color)` | `rule_id`, `kind`, `compatibility`, `confidence`, `reason`, `source` | Cặp màu hài hòa (`classic`, `neutral_contrast`, `tone_sur_tone`, `neutral_safe`). Lưu 1 chiều chuẩn (`c1.id < c2.id`), truy vấn vô hướng. **Tín hiệu mềm & optional**: thiếu màu không bao giờ làm rỗng kết quả ghép category. |
+| 5 | `(:Color)-[:HARMONIZES_WITH]->(:Color)` | `rule_id`, `kind`, `compatibility`, `confidence`, `reason`, `source` | Cặp màu hài hòa chuẩn hóa đúng **4 loại `kind`**: `classic_contrast`, `monochrome_tone`, `neutral_balance`, `analogous_soft`. Lưu 1 chiều chuẩn (`c1.id < c2.id`), truy vấn vô hướng, phủ đủ **33/33** node màu (0 màu cô lập). |
+| 6 | `(:Style)-[:PREFERS_COLOR]->(:Color)` | `rule_id`, `compatibility`, `confidence`, `reason`, `source` | **Bắt buộc triển khai cho đủ 6 `Style`:** Xác định bảng màu đặc trưng của từng phong cách (VD: `minimalist -> den, trang, trang_kem, be_sua, xam_*`; `streetwear -> den, trang, xanh_reu_khaki, do_tuoi, cam...`). |
+| 7 | `(:Occasion)-[:SUITS_COLOR]->(:Color)` | `rule_id`, `compatibility`, `confidence`, `reason`, `source` | **Bổ sung có chọn lọc:** Chỉ gắn cho các dịp có bản sắc màu rõ (`office`, `meeting`, `party`, `date`, `travel_beach`, `sport`); không rải đều cho mọi dịp như `hangout`/`cafe`. |
 
 #### Bảng tổng hợp nhanh theo từng Node
 
 | Node | Outgoing (`->`) | Incoming (`<-`) |
 |---|---|---|
-| `:Occasion` | `FITS_STYLE -> :Style`, `SUITS_CATEGORY -> :Category` | *(Entry node)* |
-| `:Style` | `RECOMMENDS_CATEGORY -> :Category` | `FITS_STYLE <- :Occasion` |
+| `:Occasion` | `FITS_STYLE -> :Style`, `SUITS_CATEGORY -> :Category`, `SUITS_COLOR -> :Color` *(chọn lọc)* | *(Entry node)* |
+| `:Style` | `RECOMMENDS_CATEGORY -> :Category`, `PREFERS_COLOR -> :Color` | `FITS_STYLE <- :Occasion` |
 | `:Category` | `PAIRS_WITH -> :Category` | `SUITS_CATEGORY <- :Occasion`, `RECOMMENDS_CATEGORY <- :Style`, `PAIRS_WITH <- :Category` |
-| `:Color` | `HARMONIZES_WITH -> :Color` *(undirected query)* | `HARMONIZES_WITH <- :Color` |
+| `:Color` | `HARMONIZES_WITH -> :Color` *(undirected query)* | `HARMONIZES_WITH <- :Color`, `PREFERS_COLOR <- :Style`, `SUITS_COLOR <- :Occasion` |
 
 ---
 
@@ -189,8 +195,44 @@ Mọi truy vấn đều khớp theo **canonical `id`** (không khớp `name`) v�
      - `score = 0.50 * pair.compatibility + 0.25 * occ_top.compatibility + 0.25 * occ_bot.compatibility`
 3. **Nhánh 3 — Cả `style_id` và `occasion_id` đều chưa biết (vd Mode A thuần anchor hoặc Fallback)**:
    - Dùng trực tiếp `Category -[:PAIRS_WITH]-> Category`: `score = pair.compatibility`.
-4. **Tầng Màu sắc (tách bước / `OPTIONAL MATCH`)**:
-   - Truy vấn `(:Color {id: $anchor_color_id})-[h:HARMONIZES_WITH]-(c2:Color)` độc lập với bước ghép Category. Nếu sản phẩm neo không có màu chuẩn hóa → vẫn trả đủ `OutfitBlueprint` kèm `color_advice_available = false`.
+4. **Tầng Màu sắc (`Context Color Palette` + `Pair Harmony` — Tách bước / `OPTIONAL MATCH`)**:
+   - **Context Palette (`PREFERS_COLOR` + `SUITS_COLOR`) — Trộn chuẩn hóa 70/30 (không inflate điểm):**
+     - Chỉ có `style_id` (hoặc `occasion_id` không có cạnh `SUITS_COLOR`): `context_fit(c) = 1.0 * style_color(c)`.
+     - Chỉ có `occasion_id` (có `SUITS_COLOR`): `context_fit(c) = 1.0 * occasion_color(c)`.
+     - Có **cả** `style_id` và `occasion_id` (đều có cạnh màu): `context_fit(c) = 0.70 * style_color(c) + 0.30 * occasion_color(c)`.
+     - Màu không nằm trong cạnh nào: fallback `0.65` nếu `c.neutral = true`, `0.50` cho màu thường (hoặc `0.50` nếu gặp màu lạ `unmapped` lúc runtime).
+   - **Pair Harmony (`HARMONIZES_WITH`)**:
+     - Truy vấn trực tiếp `(:Color {id: top_color_id})-[h:HARMONIZES_WITH]-(:Color {id: bottom_color_id})` cho **mọi** cặp áo–quần (kể cả khi khách **không** nêu màu neo).
+     - Nếu có cạnh → lấy `h.compatibility` và `h.kind`; nếu cùng màu trung tính (`top == bottom` & `neutral=true`) → `0.80` (`monochrome_tone`); nếu 1 trong 2 là `neutral=true` → `0.65`; nếu không có cạnh nối → `0.45`; nếu màu `unmapped` runtime → `0.50`.
+
+#### 4.4 Color-aware Outfit Scoring & Debug Breakdown (Bắt buộc)
+
+Tại `OutfitRetrievalAndReranker`, điểm xếp hạng cuối cùng của mỗi bộ phối kết hợp tường minh tầng Category và tầng Màu sắc:
+
+$$\text{final\_score} = 0.70 \times \text{blueprint\_score} + 0.30 \times \text{color\_score}$$
+
+Trong đó `color_score ∈ [0, 1]` được cấu thành rõ ràng để ghi vào **`ColorScoreBreakdown`** phục vụ debug:
+
+- **Khi khách KHÔNG nêu màu (`user_color_match = None`):**
+  $$\text{color\_score} = 0.50 \times \text{pair\_harmony} + 0.50 \times \text{context\_color\_fit}$$
+- **Khi khách CÓ nêu màu (`color` / `top_color` / `bottom_color` / `favorite_colors`):**
+  $$\text{color\_score} = 0.40 \times \text{pair\_harmony} + 0.25 \times \text{context\_color\_fit} + 0.35 \times \text{user\_color\_match}$$
+  - `context_color_fit = 0.5 * (context_fit(top_color) + context_fit(bottom_color))`.
+  - `disliked_colors` vẫn luôn là **hard filter** loại trước bước chấm điểm.
+- Mọi `OutfitSuggestion` trả về **bắt buộc** đính kèm `blueprint_score` và `color_score_breakdown` (`ColorScoreBreakdown`) gồm đủ các điểm thành phần, `harmony_kind`, `top_color_id`, `bottom_color_id`, `color_rule_ids` và `unmapped_colors`.
+
+#### Cypher mẫu — Truy vấn Context Color Palette (`Style + Occasion`)
+```cypher
+OPTIONAL MATCH (s:Style {id: $style_id})-[sp:PREFERS_COLOR]->(c1:Color)
+WITH collect(CASE WHEN c1 IS NOT NULL THEN {
+  color_id: c1.id, compatibility: sp.compatibility, rule_id: sp.rule_id, reason: sp.reason
+} END) AS style_colors
+OPTIONAL MATCH (o:Occasion {id: $occasion_id})-[oc:SUITS_COLOR]->(c2:Color)
+RETURN [x IN style_colors WHERE x IS NOT NULL] AS style_colors,
+       [x IN collect(CASE WHEN c2 IS NOT NULL THEN {
+         color_id: c2.id, compatibility: oc.compatibility, rule_id: oc.rule_id, reason: oc.reason
+       } END) WHERE x IS NOT NULL] AS occasion_colors;
+```
 
 #### Cypher mẫu — Nhánh 1 (`Smart Casual + Office`, Mode B)
 ```cypher
@@ -273,22 +315,37 @@ Với mỗi slot `s` đủ điều kiện đang ở trạng thái `UNKNOWN` ho�
    - VD `occasion`: `["office", "hangout", "party"]` (hoặc các dịp khớp với item neo)
    - VD `style`: các style nối với `occasion` qua `FITS_STYLE` (hoặc top 3–4 style phổ biến)
    - VD `budget`: các phân khúc giá thực tế của snapshot (`<= 300k`, `300k–600k`, `> 600k`) — chỉ xét khi người dùng nhắc đến ngân sách mơ hồ hoặc tập sản phẩm quá rộng/phân hóa mạnh.
+   - VD `color` *(chỉ kích hoạt theo Mục 6.2 — không mặc định probe)*: các nhóm tông màu đại diện khả thi trong catalog (`neutral_classic`, `earth_warm`, `bright_accent`).
 2. **Chạy Counterfactual Probe** cho mỗi `v ∈ V_s`:
-   - Query `OutfitKGRepository` (Neo4j / InMemory) → lấy `OutfitBlueprint` + `applied_rule_ids`.
-   - Query `SnapshotCatalogIndex` (in-memory < 30 ms) → lấy số sản phẩm khả thi, số bộ phối khả thi, Top-K outfit/product IDs, tập `category_ids`.
+   - Query `OutfitKGRepository` (Neo4j / InMemory) → lấy `OutfitBlueprint`, `ContextColorPalette`, `HARMONIZES_WITH` + `applied_rule_ids`.
+   - Query `SnapshotCatalogIndex` (in-memory < 30 ms) → lấy số sản phẩm khả thi, số bộ phối khả thi, Top-K outfit/product IDs, tập `category_ids` và `mean_color_score`.
 3. **Tính các tín hiệu tác động (`impact_signals`)** giữa các ứng viên `v_i, v_j ∈ V_s`:
    - `feasibility_change: bool` — có ứng viên nào dẫn đến 0 kết quả / thiếu hụt sản phẩm nghiêm trọng không.
    - `category_shift: bool` — cặp Category đứng đầu thay đổi đáng kể giữa các ứng viên hay không.
    - `mean_top_k_jaccard: float` — trung bình `Jaccard@K(A, B) = |A ∩ B| / |A ∪ B|` giữa các cặp ứng viên (càng thấp → độ nhạy càng cao).
+   - `color_quality_gain: float` — mức cải thiện `max(mean_color_score(v)) - baseline_mean_color_score` khi thăm dò slot `color`.
 4. **Thứ tự quyết định (`Decision Order`)**:
-   1. **Giải quyết `CONFLICTING` hoặc ràng buộc cứng không khả thi** → `ASK` ngay.
+   1. **Giải quyết `CONFLICTING` hoặc ràng buộc cứng không khả thi** (bao gồm màu yêu cầu không còn hàng hoặc mâu thuẫn `disliked_colors`) → `ASK` ngay.
    2. **Kiểm tra Feasibility** → nếu chọn sai giả định làm kết quả rỗng/sai nhiệm vụ → `ASK`.
-   3. **Kiểm tra độ nhạy kết quả (`category_shift` + `mean_top_k_jaccard`)**.
-   4. **Kiểm tra khả năng bao phủ bằng đa dạng phương án (`Alternatives Check`)**: nếu các ứng viên đều khả thi và có thể trình bày 2–3 phương án đại diện gọn gàng (VD *"Phối áo sơ mi trắng với quần gì?"* đã có item neo rõ → chia phương án Nam & Nữ) → ưu tiên **`PROCEED`** thay vì hỏi.
+   3. **Kiểm tra độ nhạy kết quả (`category_shift` + `mean_top_k_jaccard` + `color_quality_gain`)**.
+   4. **Kiểm tra khả năng bao phủ bằng đa dạng phương án (`Alternatives Check`)**: nếu các ứng viên đều khả thi và có thể trình bày 2–3 phương án đại diện gọn gàng (VD *"Phối áo sơ mi trắng với quần gì?"* đã có item neo rõ → chia phương án Nam & Nữ; hoặc 2–3 bộ phối đa dạng tông màu từ `Style`/`Occasion`) → ưu tiên **`PROCEED`** thay vì hỏi.
    5. **Chi phí tương tác**: nếu cần `ASK`, xếp hạng slot theo tác động giảm dần và chọn **1–2 slot tác động cao nhất** để đưa vào 1 `ClarificationForm` (tuân thủ giới hạn `1` lượt hỏi của `CONDITIONAL_CLARIFICATION`).
 
+### 6.2 Chính sách Hỏi lại cho `color` (Color-aware Clarification — Không mặc định hỏi màu)
+
 > [!IMPORTANT]
-> Không đặt cứng các ngưỡng số cuối cùng (`jaccard_threshold`, `min_viable_outfits`) bằng cảm tính trước khi chạy pilot. Toàn bộ ngưỡng được hiệu chỉnh trên **tập Development**, sau đó **đóng băng (freeze)** trước khi chạy bộ Test chính thức.
+> Khi người dùng **chưa nêu màu yêu thích**, Policy **tuyệt đối không mặc định hỏi màu**. Hệ thống trước hết phải dùng `Style` (`PREFERS_COLOR`), `Occasion` (`SUITS_COLOR`), `HARMONIZES_WITH` và `Catalog` để suy ra các bảng màu khả thi.
+
+Slot `color` chỉ được phép kích hoạt `ASK` trong đúng **3 điều kiện có kiểm chứng**:
+1. **Điều kiện A — Ràng buộc màu không khả thi / mâu thuẫn (`UNFULFILLABLE_COLOR_CONSTRAINT` / `CONFLICTING`):**
+   - Khách nêu màu cụ thể nhưng catalog không có biến thể còn hàng phù hợp hoặc mâu thuẫn trực tiếp với `disliked_colors` → `ASK` xác nhận đổi màu / nới lỏng ràng buộc màu.
+2. **Điều kiện B — Sở thích màu mơ hồ tường minh (`AMBIGUOUS_COLOR_PREFERENCE`):**
+   - Khách chủ động bày tỏ phân vân về màu (VD *"nên chọn màu sáng hay màu tối?"*, *"màu nào nổi bật mà vẫn lịch sự?"*) → chạy counterfactual probe các nhóm tông màu ứng viên (`neutral_classic`, `earth_warm`, `bright_accent`); chỉ `ASK` nếu lựa chọn tông màu thực sự làm phân tách rõ kết quả và không phủ gọn được trong 2–3 bộ phối.
+3. **Điều kiện C — Khoảng trống chất lượng / tính khả thi màu (`LOW_BASELINE_COLOR_QUALITY`):**
+   - Các slot chính (`target_gender`, `occasion` hoặc item anchor) đều đã rõ và không còn slot nào khác có tác động cao hơn, **nhưng** bảng màu mặc định cho tổ hợp đó có chất lượng màu dưới ngưỡng (`baseline_mean_color_score < min_color_quality`), **đồng thời** việc chọn một nhóm tông màu cụ thể đem lại `feasibility_change = true` hoặc `color_quality_gain >= color_gain_threshold` (được hiệu chỉnh trên tập Dev và đóng băng trước Test) mà không thể bao phủ gọn bằng 2–3 phương án đại diện.
+
+> [!IMPORTANT]
+> Không đặt cứng các ngưỡng số cuối cùng (`jaccard_threshold`, `min_viable_outfits`, `min_color_quality`, `color_gain_threshold`) bằng cảm tính trước khi chạy pilot. Toàn bộ ngưỡng được hiệu chỉnh trên **tập Development**, sau đó **đóng băng (freeze)** trước khi chạy bộ Test chính thức.
 
 ---
 
@@ -326,6 +383,14 @@ SlotStatus = Literal[
     "NOT_APPLICABLE",
 ]
 
+ColorHarmonyKind = Literal[
+    "classic_contrast",
+    "monochrome_tone",
+    "neutral_balance",
+    "analogous_soft",
+]
+
+
 class OutfitBlueprint(BaseModel):
     top_category_id: str
     bottom_category_id: str
@@ -334,12 +399,41 @@ class OutfitBlueprint(BaseModel):
     reasons: list[str] = Field(default_factory=list)
     applied_rule_ids: list[str] = Field(default_factory=list)
 
+
 class ColorHarmonyAdvice(BaseModel):
     anchor_color_id: str
     recommended_color_ids: list[str] = Field(default_factory=list)
+    compatibility_by_color: dict[str, float] = Field(default_factory=dict)
+    kind_by_color: dict[str, ColorHarmonyKind] = Field(default_factory=dict)
+    rule_id_by_color: dict[str, str] = Field(default_factory=dict)
     applied_rule_ids: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     available: bool = True
+
+
+class ContextColorPalette(BaseModel):
+    style_id: str | None = None
+    occasion_id: str | None = None
+    scores_by_color: dict[str, float] = Field(default_factory=dict)
+    style_scores_by_color: dict[str, float] = Field(default_factory=dict)
+    occasion_scores_by_color: dict[str, float] = Field(default_factory=dict)
+    rule_ids_by_color: dict[str, list[str]] = Field(default_factory=dict)
+    reasons_by_color: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ColorScoreBreakdown(BaseModel):
+    color_score: float = Field(..., ge=0.0, le=1.0)
+    pair_harmony: float = Field(..., ge=0.0, le=1.0)
+    harmony_kind: ColorHarmonyKind | None = None
+    context_color_fit: float = Field(..., ge=0.0, le=1.0)
+    style_color_fit: float | None = None
+    occasion_color_fit: float | None = None
+    user_color_match: float | None = None
+    top_color_id: str | None = None
+    bottom_color_id: str | None = None
+    color_rule_ids: list[str] = Field(default_factory=list)
+    unmapped_colors: list[str] = Field(default_factory=list)
+
 
 class CandidateOutcome(BaseModel):
     candidate_value: Any
@@ -348,16 +442,22 @@ class CandidateOutcome(BaseModel):
     top_k_ids: list[str] = Field(default_factory=list)
     category_pairs: list[tuple[str, str]] = Field(default_factory=list)
     applied_rule_ids: list[str] = Field(default_factory=list)
+    mean_color_score: float = 0.0
+
 
 class SlotImpactSignals(BaseModel):
     feasibility_change: bool
     category_shift: bool
     mean_top_k_jaccard: float = Field(..., ge=0.0, le=1.0)
     can_cover_with_alternatives: bool
+    color_quality_gain: float = 0.0
+
 
 class ClarificationDecision(BaseModel):
     action: Literal["ASK", "PROCEED"]
-    target_slots: list[str] = Field(default_factory=list)  # 1-2 slots theo mode C, <=3 theo mode B
+    target_slots: list[str] = Field(
+        default_factory=list
+    )  # 1-2 slots theo mode C, <=3 theo mode B
     reason_codes: list[str] = Field(default_factory=list)
     impact_signals: dict[str, SlotImpactSignals] = Field(default_factory=dict)
     evidence_rule_ids: list[str] = Field(default_factory=list)
@@ -372,35 +472,36 @@ class ClarificationDecision(BaseModel):
    - `categories.json`, `styles.json`, `occasions.json`, `colours.json`, `edges.json`.
    - Mọi chỉnh sửa tri thức đều review qua Git diff, không sửa tay rời rạc trong Neo4j.
 2. **Pre-seed Validator & Idempotent Seeder (`scripts/seed_neo4j_kg.py`):**
-   - Trước khi nạp vào Neo4j, bắt buộc chạy validator kiểm tra: trùng `id`, trùng `alias`, cạnh trỏ tới `id` không tồn tại, `categoryName` / `color` trong `hm_seed_1000.json` bị `unmapped`, `slot_code` lệch với `slot_tracker.py`.
+   - Trước khi nạp vào Neo4j, bắt buộc chạy validator kiểm tra: trùng `id`, trùng `alias`, cạnh trỏ tới `id` không tồn tại, `categoryName` / `color` trong `hm_seed_1000.json` bị `unmapped`, `slot_code` lệch với `slot_tracker.py`, đủ 6 `Style` có cạnh `PREFERS_COLOR`, `HARMONIZES_WITH.kind` thuộc đúng 4 loại chuẩn và **33/33** node `Color` không có màu cô lập.
    - Hỗ trợ `--reset` để làm sạch và nạp lại idempotent bằng `MERGE`.
-3. **Neo4j Local Service (`docker-compose.yml`):**
-   - Dùng `neo4j:5-community` (cổng `7474` Neo4j Browser để trực quan hóa/debug, cổng `7687` Bolt).
+3. **Neo4j Local Service (`H:\Code\PET\e-commerce-clothes\docker-compose.yml`):**
+   - Dùng `neo4j:5-community` (cổng `7474` Neo4j Browser để trực quan hóa/debug, cổng `7687` Bolt), đặt chung trong `docker-compose.yml` của backend.
    - Chạy bằng `docker-compose up -d neo4j` (theo quy tắc dự án).
 4. **Repository Pattern cho Testing:**
    - `uv run pytest` mặc định dùng `InMemoryOutfitKGRepository` (đọc cùng thư mục `ontology/`) → chạy nhanh, xanh 100% không phụ thuộc container Neo4j.
-   - Bổ sung integration test có điều kiện (chỉ chạy khi Neo4j đang bật) để xác minh kết quả giữa `Neo4jOutfitKGRepository` và `InMemoryOutfitKGRepository` khớp nhau 100%.
+   - Bổ sung integration test có điều kiện (chỉ chạy khi Neo4j đang bật) để xác minh kết quả giữa `Neo4jOutfitKGRepository` và `InMemoryOutfitKGRepository` khớp nhau 100% (bao gồm cả `get_context_color_palette` và `get_color_harmony`).
 
 ---
 
-## 9. Khung Đánh giá Thực nghiệm (E1 — Hợp nhất 2 tầng)
+## 9. Khung Đánh giá Thực nghiệm (E1 v1.3 — Hợp nhất 2 tầng)
 
-Thực hiện trên **60–100 kịch bản có kiểm soát** (chia **Dev set** để chỉnh ngưỡng và **Frozen Test set** để đánh giá cuối cùng), bao gồm cả tác vụ `OPEN` và `ANCHOR`, gắn nhãn gold (`must_clarify`, `optional_clarify`, `proceed`) kèm rationale độc lập.
+Thực hiện trên **84 kịch bản có kiểm soát** (**28 Dev** để chỉnh & đóng băng ngưỡng / **56 Frozen Test** để đánh giá cuối cùng), bao gồm 72 kịch bản lõi (`OPEN`, `ANCHOR`, `PRODUCT_SEARCH`, `SIZE_ADVICE`, `BODY_FIT_ADVICE`, `NON_SHOPPING`) + **12 kịch bản chuyên biệt về màu sắc** (4 Dev / 8 Test: không nêu màu có Style/Occasion rõ → `proceed`, phân vân tông màu mơ hồ, và màu yêu cầu không khả thi / xung đột `disliked_colors` → `must_clarify`), gắn nhãn gold kèm rationale độc lập.
 
-- **So sánh chính:** `IMMEDIATE_ANSWER` vs. `ALWAYS_CLARIFY` vs. `CONDITIONAL_CLARIFICATION` (KG + Snapshot Counterfactual).
-- **Ablation tùy chọn:** Conditional với *Catalog-only* vs. *KG-only* vs. *KG + Catalog*.
+- **So sánh chính:** `IMMEDIATE_ANSWER` vs. `ALWAYS_CLARIFY` vs. `CONDITIONAL_CLARIFICATION` (Color-aware KG + Snapshot Counterfactual).
+- **Ablation:** Conditional với *Catalog-only* vs. *KG-only* vs. *KG + Catalog* (và đối chiếu chất lượng màu v1.2 vs v1.3).
 - **Chỉ số đo lường (khớp `clarification_strategy_spec.md` Mục 10 + v1.1 Mục 11.4):**
-  - *Tầng 1 (Automated):* `Clarification Rate`, `Clarification Question Count` (số câu/yêu cầu), `Turns to Completion`, `Clarification Policy Compliance`, `Constraint Satisfaction Rate`, `Catalog Grounding / Rule Violation Rate`, `Response Latency (ms)`, `Token Usage`.
-  - *Tầng 2 (Human / LLM-as-a-Judge):* `Recommendation Relevance (1–5)`, `Unnecessary Question Rate`, `Missed Necessary Clarification Rate`, `Task Completion Rate`, `Explanation Faithfulness` (đối chiếu với `applied_rule_ids`).
+  - *Tầng 1 (Automated):* `Clarification Rate`, `Clarification Question Count` (số câu/yêu cầu), `Turns to Completion`, `Clarification Policy Compliance`, `Constraint Satisfaction Rate`, `Catalog Grounding / Rule Violation Rate`, **`Mean Color Score`**, **`Color Harmony Rate`**, `Response Latency (ms)`, `Token Usage`.
+  - *Tầng 2 (Human / LLM-as-a-Judge):* `Recommendation Relevance (1–5)`, `Unnecessary Question Rate`, `Missed Necessary Clarification Rate`, `Task Completion Rate`, `Explanation Faithfulness` (đối chiếu với `applied_rule_ids` + `color_score_breakdown`).
 
 ---
 
-## 10. Tiêu chí nghiệm thu trước khi chạy thực nghiệm
+## 10. Tiêu chí nghiệm thu SPEC v1.3
 
 - [ ] `scripts/build_snapshot_manifest.py` sinh manifest & báo cáo phủ 1,000 sản phẩm từ `data/hm_seed_1000.json` với `0` category/color bị `unmapped`.
-- [ ] Thư mục `data/outfit_kg/ontology/` chứa đủ 4 node types + 5 relationship types (có `rule_id`, `compatibility`, `confidence`, `reason`, `source`) và vượt qua validator.
-- [ ] `scripts/seed_neo4j_kg.py` nạp sạch vào Neo4j; Neo4j không có bất kỳ node `Product` hoặc `ProductVariant` nào.
-- [ ] `Neo4jOutfitKGRepository` và `InMemoryOutfitKGRepository` trả kết quả tương đương cho cả 3 nhánh scoring (Phương án A — không double-counting).
-- [ ] `CounterfactualClarificationPolicy` chạy trên `SnapshotCatalogIndex` (< 30 ms) và tích hợp vào `CONDITIONAL_CLARIFICATION` theo đúng giới hạn Form & Fallback của [clarification_strategy_spec.md](file:///h:/Code/PET/customer-shop-assistant/docs/specs/clarification_strategy_spec.md).
-- [ ] Toàn bộ `uv run ruff check .` và `uv run pytest` xanh 100%; telemetry ghi đủ `decision_reason`, `impact_signals`, `evidence_rule_ids`.
+- [ ] Thư mục `data/outfit_kg/ontology/` chứa đủ **4 node types** (`33` Color, Zero Product Nodes) + **7 relationship types** (có `PREFERS_COLOR` cho đủ 6 Style, `SUITS_COLOR` có chọn lọc, `HARMONIZES_WITH` chuẩn hóa 4 `kind` phủ 33/33 màu, **không** có `Category -[:HAS_COLOR]-> Color`) và vượt qua validator.
+- [ ] `scripts/seed_neo4j_kg.py --reset` nạp sạch vào Neo4j; Neo4j không có bất kỳ node `Product` hoặc `ProductVariant` nào.
+- [ ] `Neo4jOutfitKGRepository` và `InMemoryOutfitKGRepository` trả kết quả khớp 100% cho 3 nhánh Blueprint scoring, `get_context_color_palette` (trộn 70/30), và `get_color_harmony`.
+- [ ] `OutfitRetrievalAndReranker` chấm điểm `0.70 * blueprint_score + 0.30 * color_score`, gắn `ColorScoreBreakdown` đầy đủ để debug, và degrade gracefully (`unmapped_colors` + `0.50`) với màu lạ lúc runtime.
+- [ ] `CounterfactualClarificationPolicy` không mặc định hỏi màu, chỉ hỏi `color` theo đúng 3 điều kiện (A/B/C) tại Mục 6.2 trên `SnapshotCatalogIndex` (< 30 ms).
+- [ ] E1 mở rộng (84 kịch bản: 28 Dev / 56 Frozen Test) báo cáo đủ `Mean Color Score`, `Color Harmony Rate`, `uv run ruff check .` và `uv run pytest` xanh 100%.
 

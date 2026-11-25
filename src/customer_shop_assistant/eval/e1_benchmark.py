@@ -115,6 +115,8 @@ class E1ScenarioResult(BaseModel):
     constraint_satisfied: bool | None = None
     outfit_returned: bool | None = None
     outfit_rule_violation_rate: float | None = None
+    mean_color_score: float | None = None
+    color_harmony_rate: float | None = None
     applied_rule_ids: list[str] = Field(default_factory=list)
     outfits_summary: str = ""
     probe_latency_ms: float = 0.0
@@ -136,6 +138,8 @@ class E1AggregateMetrics(BaseModel):
     constraint_satisfaction_rate: float | None = None
     outfit_returned_rate: float | None = None
     outfit_rule_violation_rate: float | None = None
+    mean_color_score: float | None = None
+    color_harmony_rate: float | None = None
     evidence_rule_coverage_rate: float = 0.0
     avg_probe_latency_ms: float = 0.0
     p95_probe_latency_ms: float = 0.0
@@ -938,6 +942,8 @@ def evaluate_scenario_policy(
     # Run Outfit Retrieval & Grounding check for OUTFIT_ADVICE
     outfit_returned: bool | None = None
     outfit_rule_violation_rate: float | None = None
+    mean_color_score: float | None = None
+    color_harmony_rate: float | None = None
     constraint_satisfied: bool | None = None
     applied_rules: list[str] = []
     outfits_summary = ""
@@ -989,6 +995,20 @@ def evaluate_scenario_policy(
                 ontology,
                 snapshot_index,
             )
+            col_scores = [
+                o.color_score_breakdown.color_score
+                for o in res.outfits
+                if o.color_score_breakdown is not None
+            ]
+            if col_scores:
+                mean_color_score = round(sum(col_scores) / len(col_scores), 4)
+            harm_cnt = sum(
+                1
+                for o in res.outfits
+                if o.color_score_breakdown is not None
+                and o.color_score_breakdown.harmony_kind is not None
+            )
+            color_harmony_rate = round(harm_cnt / len(res.outfits), 4)
             for o in res.outfits:
                 for rid in o.applied_rule_ids:
                     if rid not in applied_rules:
@@ -1033,6 +1053,8 @@ def evaluate_scenario_policy(
         constraint_satisfied=constraint_satisfied,
         outfit_returned=outfit_returned,
         outfit_rule_violation_rate=outfit_rule_violation_rate,
+        mean_color_score=mean_color_score,
+        color_harmony_rate=color_harmony_rate,
         applied_rule_ids=applied_rules,
         outfits_summary=outfits_summary,
         probe_latency_ms=probe_latency_ms,
@@ -1065,6 +1087,10 @@ def aggregate_e1_results(
         r.outfit_rule_violation_rate
         for r in outfit_res
         if r.outfit_rule_violation_rate is not None
+    ]
+    col_res = [r.mean_color_score for r in outfit_res if r.mean_color_score is not None]
+    harm_res = [
+        r.color_harmony_rate for r in outfit_res if r.color_harmony_rate is not None
     ]
     cs_res = [r for r in results if r.constraint_satisfied is not None]
     ev_cov = sum(1 for r in results if r.evidence_rule_ids or r.applied_rule_ids)
@@ -1111,6 +1137,10 @@ def aggregate_e1_results(
         ),
         outfit_rule_violation_rate=(
             round(sum(viol_res) / len(viol_res) * 100.0, 2) if viol_res else None
+        ),
+        mean_color_score=(round(sum(col_res) / len(col_res), 4) if col_res else None),
+        color_harmony_rate=(
+            round(sum(harm_res) / len(harm_res) * 100.0, 2) if harm_res else None
         ),
         evidence_rule_coverage_rate=round(ev_cov / tot * 100.0, 2),
         avg_probe_latency_ms=round(sum(probes) / tot, 2),
@@ -1510,16 +1540,19 @@ def write_e1_markdown_report(
         "",
         (
             "| Chế độ | Clarify (%) | Qs/Req | Turns | Policy (%) | Gold Align (%) | "
-            "Unnecessary (%) | Missed (%) | Constraint (%) | Rule Viol (%) | "
-            "Probe TB (ms) |"
+            "Unnecessary (%) | Missed (%) | Constraint (%) | Color Score | "
+            "Harmony (%) | Probe TB (ms) |"
         ),
-        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
+        "|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|",
     ]
 
     for lbl in primary_labels:
         m = aggregates.get(lbl)
         if m is None:
             continue
+        col_str = (
+            f"{m.mean_color_score:.3f}" if m.mean_color_score is not None else "N/A"
+        )
         lines.append(
             f"| `{m.label}` | {m.clarification_rate:.1f}% | "
             f"{m.avg_question_count:.2f} | {m.avg_turns_to_completion:.2f} | "
@@ -1527,7 +1560,8 @@ def write_e1_markdown_report(
             f"{m.unnecessary_question_rate:.1f}% | "
             f"{m.missed_necessary_rate:.1f}% | "
             f"{_fmt_pct(m.constraint_satisfaction_rate)} | "
-            f"{_fmt_pct(m.outfit_rule_violation_rate)} | "
+            f"{col_str} | "
+            f"{_fmt_pct(m.color_harmony_rate)} | "
             f"{m.avg_probe_latency_ms:.2f} |"
         )
 
@@ -1547,7 +1581,14 @@ def write_e1_markdown_report(
         for group_name, pred in (
             ("OPEN", lambda r: r.task_type == "open"),
             ("ANCHOR", lambda r: r.task_type == "anchor"),
-            ("Other Intents", lambda r: r.task_type not in ("open", "anchor")),
+            ("COLOR", lambda r: r.task_type.startswith("color_")),
+            (
+                "Other Intents",
+                lambda r: (
+                    r.task_type not in ("open", "anchor")
+                    and not r.task_type.startswith("color_")
+                ),
+            ),
         ):
             sub = [
                 r

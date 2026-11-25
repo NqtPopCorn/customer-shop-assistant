@@ -18,13 +18,13 @@ from customer_shop_assistant.services.slot_tracker import (
 
 def test_e1_scenarios_dataset_integrity_and_intent_alignment() -> None:
     all_scenarios = load_e1_scenarios()
-    assert len(all_scenarios) == 72
-    assert len({s.id for s in all_scenarios}) == 72
+    assert len(all_scenarios) == 84
+    assert len({s.id for s in all_scenarios}) == 84
 
     dev = load_e1_scenarios(split="dev")
     test = load_e1_scenarios(split="test")
-    assert len(dev) == 24
-    assert len(test) == 48
+    assert len(dev) == 28
+    assert len(test) == 56
 
     for sc in all_scenarios:
         assert sc.gold_rationale.strip()
@@ -71,6 +71,8 @@ def test_dev_calibration_and_inmemory_e1_benchmark(tmp_path: Path) -> None:
     assert mode_c.policy_compliance_rate == 100.0
     assert mode_c.avg_probe_latency_ms < 30.0
     assert mode_c.outfit_rule_violation_rate == 0.0
+    assert mode_c.mean_color_score >= 0.70
+    assert mode_c.color_harmony_rate > 0.0
 
     # NON_SHOPPING strictly 0% clarification in all 3 modes
     non_shop = [

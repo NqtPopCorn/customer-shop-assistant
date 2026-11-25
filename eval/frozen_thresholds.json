@@ -1,6 +1,6 @@
 {
-  "frozen_at": "2026-11-25T03:51:54.491750+00:00",
-  "dev_count": 24,
+  "frozen_at": "2026-11-25T05:28:56.662116+00:00",
+  "dev_count": 28,
   "backend": "neo4j",
   "thresholds": {
     "jaccard_threshold": 0.45,
@@ -8,7 +8,9 @@
     "min_viable_products": 2,
     "alternatives_max_branches": 3,
     "top_k": 5,
-    "wide_pool_product_threshold": 120
+    "wide_pool_product_threshold": 120,
+    "min_color_quality": 0.72,
+    "color_gain_threshold": 0.12
   },
   "sweep": [
     {
@@ -18,7 +20,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 37.93
+      "avg_probe_latency_ms": 43.93
     },
     {
       "jaccard_threshold": 0.25,
@@ -27,7 +29,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 64.23
+      "avg_probe_latency_ms": 28.46
     },
     {
       "jaccard_threshold": 0.35,
@@ -36,7 +38,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 80.3
+      "avg_probe_latency_ms": 36.68
     },
     {
       "jaccard_threshold": 0.35,
@@ -45,7 +47,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 70.19
+      "avg_probe_latency_ms": 26.77
     },
     {
       "jaccard_threshold": 0.45,
@@ -54,7 +56,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 75.47
+      "avg_probe_latency_ms": 28.94
     },
     {
       "jaccard_threshold": 0.45,
@@ -63,7 +65,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 29.46
+      "avg_probe_latency_ms": 22.93
     },
     {
       "jaccard_threshold": 0.55,
@@ -72,7 +74,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 29.92
+      "avg_probe_latency_ms": 25.19
     },
     {
       "jaccard_threshold": 0.55,
@@ -81,7 +83,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 24.71
+      "avg_probe_latency_ms": 20.44
     },
     {
       "jaccard_threshold": 0.65,
@@ -90,7 +92,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 26.48
+      "avg_probe_latency_ms": 14.0
     },
     {
       "jaccard_threshold": 0.65,
@@ -99,7 +101,7 @@
       "missed_necessary_rate": 0.0,
       "unnecessary_question_rate": 0.0,
       "policy_compliance_rate": 100.0,
-      "avg_probe_latency_ms": 18.52
+      "avg_probe_latency_ms": 16.21
     }
   ]
 }
