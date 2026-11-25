@@ -43,6 +43,16 @@ def test_neo4j_and_inmemory_repositories_match_100_percent() -> None:
         )
         assert prod_count_rows[0]["cnt"] == 0
 
+        # Verify v1.3 color relationship counts in Neo4j
+        rel_rows, _, _ = neo4j_repo._driver.execute_query(
+            "MATCH ()-[r]->() RETURN type(r) AS rel_type, count(r) AS cnt",
+            database_=neo4j_repo._database,
+        )
+        rel_counts = {str(r["rel_type"]): int(r["cnt"]) for r in rel_rows}
+        assert rel_counts["HARMONIZES_WITH"] == 54
+        assert rel_counts["PREFERS_COLOR"] == 48
+        assert rel_counts["SUITS_COLOR"] == 32
+
         # Branch 1: Style + Occasion
         assert mem_repo.get_outfit_blueprints(
             style_id="smart_casual", occasion_id="office", limit=10
@@ -60,9 +70,20 @@ def test_neo4j_and_inmemory_repositories_match_100_percent() -> None:
             anchor_category_id="chan_vay", limit=10
         ) == neo4j_repo.get_outfit_blueprints(anchor_category_id="chan_vay", limit=10)
 
-        # Color harmony parity
+        # Color harmony parity (includes kind, rule_id, and reason maps)
         assert mem_repo.get_color_harmony("xanh_navy") == neo4j_repo.get_color_harmony(
             "xanh_navy"
         )
+
+        # Context color palette 70/30 blend parity across all 4 context modes
+        for s_id, o_id in (
+            ("minimalist", None),
+            (None, "party"),
+            ("minimalist", "party"),
+            ("smart_casual", "cafe"),
+        ):
+            assert mem_repo.get_context_color_palette(
+                style_id=s_id, occasion_id=o_id
+            ) == neo4j_repo.get_context_color_palette(style_id=s_id, occasion_id=o_id)
     finally:
         neo4j_repo.close()

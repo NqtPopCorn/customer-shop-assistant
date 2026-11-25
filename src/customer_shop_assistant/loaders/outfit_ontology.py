@@ -15,9 +15,11 @@ from customer_shop_assistant.schemas.outfit_kg import (
     OccasionNode,
     OutfitOntology,
     PairsWithEdge,
+    PrefersColorEdge,
     RecommendsCategoryEdge,
     StyleNode,
     SuitsCategoryEdge,
+    SuitsColorEdge,
 )
 
 VALID_SLOT_CODES = frozenset({"office", "party", "casual", "sport"})
@@ -27,7 +29,13 @@ def normalize_key(text: str | None) -> str:
     """Normalize Vietnamese/ASCII label for deterministic alias matching."""
     if not text:
         return ""
-    return unicodedata.normalize("NFC", text).strip().lower()
+    return " ".join(unicodedata.normalize("NFC", text).strip().lower().split())
+
+
+def _strip_diacritics(text: str) -> str:
+    """Return ASCII-folded Vietnamese string for accent-insensitive fallback."""
+    decomposed = unicodedata.normalize("NFD", text.replace("đ", "d").replace("Đ", "d"))
+    return "".join(ch for ch in decomposed if unicodedata.category(ch) != "Mn")
 
 
 def _read_json(path: Path) -> Any:
@@ -75,6 +83,13 @@ def load_outfit_ontology(ontology_dir: Path | None = None) -> OutfitOntology:
         harmonizes_with=[
             HarmonizesWithEdge.model_validate(e)
             for e in edges_raw.get("harmonizes_with", [])
+        ],
+        prefers_color=[
+            PrefersColorEdge.model_validate(e)
+            for e in edges_raw.get("prefers_color", [])
+        ],
+        suits_color=[
+            SuitsColorEdge.model_validate(e) for e in edges_raw.get("suits_color", [])
         ],
     )
 
@@ -143,6 +158,8 @@ def validate_ontology(
         ("recommends_category", ontology.recommends_category, style_by_id, cat_by_id),
         ("pairs_with", ontology.pairs_with, cat_by_id, cat_by_id),
         ("harmonizes_with", ontology.harmonizes_with, color_by_id, color_by_id),
+        ("prefers_color", ontology.prefers_color, style_by_id, color_by_id),
+        ("suits_color", ontology.suits_color, occ_by_id, color_by_id),
     ]
     for rel_name, edges, src_map, tgt_map in all_edges:
         for edge in edges:
@@ -195,6 +212,7 @@ def validate_ontology(
                 )
 
     seen_color_pairs: set[tuple[str, str]] = set()
+    covered_colors: set[str] = set()
     for ch in ontology.harmonizes_with:
         if ch.source_id >= ch.target_id:
             errors.append(
@@ -207,6 +225,34 @@ def validate_ontology(
                 f"Duplicate HARMONIZES_WITH pair ({ch.source_id}, {ch.target_id})"
             )
         seen_color_pairs.add(pair)
+        covered_colors.add(ch.source_id)
+        covered_colors.add(ch.target_id)
+
+    for col_id in sorted(set(color_by_id) - covered_colors):
+        errors.append(f"Isolated Color node without HARMONIZES_WITH edge: '{col_id}'")
+
+    seen_prefers: set[tuple[str, str]] = set()
+    styles_with_colors: set[str] = set()
+    for pc in ontology.prefers_color:
+        pair = (pc.source_id, pc.target_id)
+        if pair in seen_prefers:
+            errors.append(
+                f"Duplicate PREFERS_COLOR edge ({pc.source_id}, {pc.target_id})"
+            )
+        seen_prefers.add(pair)
+        styles_with_colors.add(pc.source_id)
+
+    for st_id in sorted(set(style_by_id) - styles_with_colors):
+        errors.append(f"Style node missing PREFERS_COLOR edges: '{st_id}'")
+
+    seen_suits_col: set[tuple[str, str]] = set()
+    for sc in ontology.suits_color:
+        pair = (sc.source_id, sc.target_id)
+        if pair in seen_suits_col:
+            errors.append(
+                f"Duplicate SUITS_COLOR edge ({sc.source_id}, {sc.target_id})"
+            )
+        seen_suits_col.add(pair)
 
     if snapshot_products is not None:
         unmapped_cats: set[str] = set()
@@ -305,5 +351,12 @@ def resolve_color_id(
         if key == normalize_key(col.id) or key == normalize_key(col.name):
             return col.id
         if any(key == normalize_key(a) for a in col.aliases):
+            return col.id
+
+    folded = _strip_diacritics(key)
+    for col in ont.colors:
+        if folded == _strip_diacritics(normalize_key(col.name)):
+            return col.id
+        if any(folded == _strip_diacritics(normalize_key(a)) for a in col.aliases):
             return col.id
     return None

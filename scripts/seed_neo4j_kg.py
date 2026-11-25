@@ -56,6 +56,8 @@ def seed_neo4j_kg(
         "recommends_category": len(ontology.recommends_category),
         "pairs_with": len(ontology.pairs_with),
         "harmonizes_with": len(ontology.harmonizes_with),
+        "prefers_color": len(ontology.prefers_color),
+        "suits_color": len(ontology.suits_color),
         "validated": True,
         "seeded": False,
     }
@@ -189,6 +191,30 @@ def seed_neo4j_kg(
                     r.source = row.source
                 """,
                 rows=[e.model_dump() for e in ontology.harmonizes_with],
+            )
+            session.run(
+                """
+                UNWIND $rows AS row
+                MATCH (a:Style {id: row.source_id}), (b:Color {id: row.target_id})
+                MERGE (a)-[r:PREFERS_COLOR {rule_id: row.rule_id}]->(b)
+                SET r.compatibility = row.compatibility,
+                    r.confidence = row.confidence,
+                    r.reason = row.reason,
+                    r.source = row.source
+                """,
+                rows=[e.model_dump() for e in ontology.prefers_color],
+            )
+            session.run(
+                """
+                UNWIND $rows AS row
+                MATCH (a:Occasion {id: row.source_id}), (b:Color {id: row.target_id})
+                MERGE (a)-[r:SUITS_COLOR {rule_id: row.rule_id}]->(b)
+                SET r.compatibility = row.compatibility,
+                    r.confidence = row.confidence,
+                    r.reason = row.reason,
+                    r.source = row.source
+                """,
+                rows=[e.model_dump() for e in ontology.suits_color],
             )
 
             node_counts = session.run(

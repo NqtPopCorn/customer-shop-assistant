@@ -314,4 +314,3 @@ async def test_strict_outfit_intent_redirects_search_and_fallback_returns_combos
     assert res2.outfits[0].top.product_id == 1
     assert res2.outfits[0].bottom.product_id == 3
     assert "[1]" in res2.reply and "[3]" in res2.reply
-

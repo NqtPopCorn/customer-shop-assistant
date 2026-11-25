@@ -8,6 +8,8 @@ from customer_shop_assistant.loaders.outfit_ontology import get_cached_ontology
 from customer_shop_assistant.schemas.outfit_kg import (
     CategoryNode,
     ColorHarmonyAdvice,
+    ColorNode,
+    ContextColorPalette,
     OutfitBlueprint,
     OutfitOntology,
 )
@@ -39,6 +41,64 @@ class OutfitKGRepository(Protocol):
     def get_category(self, category_id: str) -> CategoryNode | None:
         """Return CategoryNode metadata for canonical category_id if known."""
 
+    def get_color(self, color_id: str) -> ColorNode | None:
+        """Return ColorNode metadata for canonical color_id if known."""
+
+    def get_context_color_palette(
+        self,
+        style_id: str | None = None,
+        occasion_id: str | None = None,
+    ) -> ContextColorPalette:
+        """Return 70/30 normalized palette from Style and Occasion colors."""
+
+
+def _build_context_palette(
+    style_id: str | None,
+    occasion_id: str | None,
+    style_rows: list[dict[str, Any]],
+    occ_rows: list[dict[str, Any]],
+) -> ContextColorPalette:
+    """Compute 70/30 normalized context color scores identically across backends."""
+    style_scores = {str(r["color_id"]): float(r["compatibility"]) for r in style_rows}
+    occ_scores = {str(r["color_id"]): float(r["compatibility"]) for r in occ_rows}
+    rule_ids_by_color: dict[str, list[str]] = {}
+    reasons_by_color: dict[str, list[str]] = {}
+
+    for row in (*style_rows, *occ_rows):
+        cid = str(row["color_id"])
+        rid = row.get("rule_id")
+        rsn = row.get("reason")
+        if rid:
+            rule_ids_by_color.setdefault(cid, [])
+            if rid not in rule_ids_by_color[cid]:
+                rule_ids_by_color[cid].append(str(rid))
+        if rsn:
+            reasons_by_color.setdefault(cid, [])
+            if rsn not in reasons_by_color[cid]:
+                reasons_by_color[cid].append(str(rsn))
+
+    scores_by_color: dict[str, float] = {}
+    all_cids = sorted(set(style_scores) | set(occ_scores))
+    for cid in all_cids:
+        if style_scores and occ_scores:
+            s_val = style_scores.get(cid, 0.50)
+            o_val = occ_scores.get(cid, 0.50)
+            scores_by_color[cid] = round(0.70 * s_val + 0.30 * o_val, 4)
+        elif style_scores:
+            scores_by_color[cid] = round(style_scores[cid], 4)
+        else:
+            scores_by_color[cid] = round(occ_scores[cid], 4)
+
+    return ContextColorPalette(
+        style_id=style_id,
+        occasion_id=occasion_id,
+        scores_by_color=scores_by_color,
+        style_scores_by_color=style_scores,
+        occasion_scores_by_color=occ_scores,
+        rule_ids_by_color=rule_ids_by_color,
+        reasons_by_color=reasons_by_color,
+    )
+
 
 def _dedupe_non_empty(items: list[str | None]) -> list[str]:
     out: list[str] = []
@@ -62,6 +122,44 @@ class InMemoryOutfitKGRepository:
 
     def get_category(self, category_id: str) -> CategoryNode | None:
         return self._categories.get(category_id)
+
+    def get_color(self, color_id: str) -> ColorNode | None:
+        return self._colors_by_id.get(color_id)
+
+    def get_context_color_palette(
+        self,
+        style_id: str | None = None,
+        occasion_id: str | None = None,
+    ) -> ContextColorPalette:
+        style_rows = (
+            [
+                {
+                    "color_id": e.target_id,
+                    "compatibility": e.compatibility,
+                    "rule_id": e.rule_id,
+                    "reason": e.reason,
+                }
+                for e in self.ontology.prefers_color
+                if e.source_id == style_id
+            ]
+            if style_id
+            else []
+        )
+        occ_rows = (
+            [
+                {
+                    "color_id": e.target_id,
+                    "compatibility": e.compatibility,
+                    "rule_id": e.rule_id,
+                    "reason": e.reason,
+                }
+                for e in self.ontology.suits_color
+                if e.source_id == occasion_id
+            ]
+            if occasion_id
+            else []
+        )
+        return _build_context_palette(style_id, occasion_id, style_rows, occ_rows)
 
     def get_styles_for_occasion(self, occasion_id: str) -> list[str]:
         matches = [e for e in self.ontology.fits_style if e.source_id == occasion_id]
@@ -267,6 +365,9 @@ class InMemoryOutfitKGRepository:
             anchor_color_id=anchor_color_id,
             recommended_color_ids=[cid for cid, _ in matches],
             compatibility_by_color={cid: edge.compatibility for cid, edge in matches},
+            kind_by_color={cid: edge.kind for cid, edge in matches},
+            rule_id_by_color={cid: edge.rule_id for cid, edge in matches},
+            reason_by_color={cid: edge.reason for cid, edge in matches},
             applied_rule_ids=_dedupe_non_empty([edge.rule_id for _, edge in matches]),
             reasons=_dedupe_non_empty([edge.reason for _, edge in matches]),
             available=True,
@@ -363,11 +464,34 @@ RETURN c1.id AS anchor_id,
        collect(
          CASE WHEN c2 IS NOT NULL THEN {
            color_id: c2.id,
+           kind: h.kind,
            compatibility: h.compatibility,
            rule_id: h.rule_id,
            reason: h.reason
          } ELSE NULL END
        ) AS matches
+"""
+
+_CONTEXT_COLOR_PALETTE_CYPHER = """
+OPTIONAL MATCH (s:Style {id: $style_id})-[sp:PREFERS_COLOR]->(c1:Color)
+WITH collect(
+       CASE WHEN c1 IS NOT NULL THEN {
+         color_id: c1.id,
+         compatibility: sp.compatibility,
+         rule_id: sp.rule_id,
+         reason: sp.reason
+       } ELSE NULL END
+     ) AS style_colors
+OPTIONAL MATCH (o:Occasion {id: $occasion_id})-[oc:SUITS_COLOR]->(c2:Color)
+RETURN [x IN style_colors WHERE x IS NOT NULL] AS style_colors,
+       [x IN collect(
+         CASE WHEN c2 IS NOT NULL THEN {
+           color_id: c2.id,
+           compatibility: oc.compatibility,
+           rule_id: oc.rule_id,
+           reason: oc.reason
+         } ELSE NULL END
+       ) WHERE x IS NOT NULL] AS occasion_colors
 """
 
 
@@ -412,6 +536,50 @@ class Neo4jOutfitKGRepository:
             role=row["role"],
             base_formality=int(row["base_formality"]),
             supports_top_bottom_blueprint=bool(row["supports_top_bottom_blueprint"]),
+        )
+
+    def get_color(self, color_id: str) -> ColorNode | None:
+        cypher = (
+            "MATCH (c:Color {id: $color_id}) "
+            "RETURN c.id AS id, c.name AS name, c.aliases AS aliases, "
+            "c.family AS family, c.neutral AS neutral, c.lightness AS lightness"
+        )
+        records, _, _ = self._driver.execute_query(
+            cypher, color_id=color_id, database_=self._database
+        )
+        if not records:
+            return None
+        row = records[0]
+        return ColorNode(
+            id=row["id"],
+            name=row["name"],
+            aliases=list(row["aliases"] or []),
+            family=row["family"],
+            neutral=bool(row["neutral"]),
+            lightness=row["lightness"],
+        )
+
+    def get_context_color_palette(
+        self,
+        style_id: str | None = None,
+        occasion_id: str | None = None,
+    ) -> ContextColorPalette:
+        if not style_id and not occasion_id:
+            return ContextColorPalette()
+        records, _, _ = self._driver.execute_query(
+            _CONTEXT_COLOR_PALETTE_CYPHER,
+            style_id=style_id,
+            occasion_id=occasion_id,
+            database_=self._database,
+        )
+        if not records:
+            return ContextColorPalette(style_id=style_id, occasion_id=occasion_id)
+        row = records[0]
+        return _build_context_palette(
+            style_id,
+            occasion_id,
+            list(row["style_colors"] or []),
+            list(row["occasion_colors"] or []),
         )
 
     def get_styles_for_occasion(self, occasion_id: str) -> list[str]:
@@ -499,6 +667,17 @@ class Neo4jOutfitKGRepository:
             recommended_color_ids=[str(m["color_id"]) for m in matches],
             compatibility_by_color={
                 str(m["color_id"]): float(m["compatibility"]) for m in matches
+            },
+            kind_by_color={
+                str(m["color_id"]): m["kind"] for m in matches if m.get("kind")
+            },
+            rule_id_by_color={
+                str(m["color_id"]): str(m["rule_id"])
+                for m in matches
+                if m.get("rule_id")
+            },
+            reason_by_color={
+                str(m["color_id"]): str(m["reason"]) for m in matches if m.get("reason")
             },
             applied_rule_ids=_dedupe_non_empty([str(m["rule_id"]) for m in matches]),
             reasons=_dedupe_non_empty([str(m["reason"]) for m in matches]),

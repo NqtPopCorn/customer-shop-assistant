@@ -6,7 +6,10 @@ from pydantic import BaseModel, Field
 
 CategoryRole = Literal["TOP", "OUTERWEAR", "BOTTOM", "ONE_PIECE", "ACCESSORY"]
 ColorHarmonyKind = Literal[
-    "classic", "neutral_contrast", "tone_sur_tone", "neutral_safe"
+    "classic_contrast",
+    "monochrome_tone",
+    "neutral_balance",
+    "analogous_soft",
 ]
 
 
@@ -93,6 +96,14 @@ class HarmonizesWithEdge(BaseOntologyEdge):
     kind: ColorHarmonyKind
 
 
+class PrefersColorEdge(BaseOntologyEdge):
+    """(:Style)-[:PREFERS_COLOR]->(:Color) edge."""
+
+
+class SuitsColorEdge(BaseOntologyEdge):
+    """(:Occasion)-[:SUITS_COLOR]->(:Color) edge."""
+
+
 class OutfitOntology(BaseModel):
     """Complete Git-tracked Category-level Fashion KG ontology."""
 
@@ -105,6 +116,8 @@ class OutfitOntology(BaseModel):
     recommends_category: list[RecommendsCategoryEdge] = Field(default_factory=list)
     pairs_with: list[PairsWithEdge] = Field(default_factory=list)
     harmonizes_with: list[HarmonizesWithEdge] = Field(default_factory=list)
+    prefers_color: list[PrefersColorEdge] = Field(default_factory=list)
+    suits_color: list[SuitsColorEdge] = Field(default_factory=list)
 
 
 class OutfitBlueprint(BaseModel):
@@ -124,9 +137,40 @@ class ColorHarmonyAdvice(BaseModel):
     anchor_color_id: str
     recommended_color_ids: list[str] = Field(default_factory=list)
     compatibility_by_color: dict[str, float] = Field(default_factory=dict)
+    kind_by_color: dict[str, ColorHarmonyKind] = Field(default_factory=dict)
+    rule_id_by_color: dict[str, str] = Field(default_factory=dict)
+    reason_by_color: dict[str, str] = Field(default_factory=dict)
     applied_rule_ids: list[str] = Field(default_factory=list)
     reasons: list[str] = Field(default_factory=list)
     available: bool = True
+
+
+class ContextColorPalette(BaseModel):
+    """70/30 normalized color palette from Style and Occasion preferences."""
+
+    style_id: str | None = None
+    occasion_id: str | None = None
+    scores_by_color: dict[str, float] = Field(default_factory=dict)
+    style_scores_by_color: dict[str, float] = Field(default_factory=dict)
+    occasion_scores_by_color: dict[str, float] = Field(default_factory=dict)
+    rule_ids_by_color: dict[str, list[str]] = Field(default_factory=dict)
+    reasons_by_color: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class ColorScoreBreakdown(BaseModel):
+    """Transparent debug breakdown of Color-aware Outfit Scoring (SPEC v1.3)."""
+
+    color_score: float = Field(..., ge=0.0, le=1.0)
+    pair_harmony: float = Field(..., ge=0.0, le=1.0)
+    harmony_kind: ColorHarmonyKind | None = None
+    context_color_fit: float = Field(..., ge=0.0, le=1.0)
+    style_color_fit: float | None = None
+    occasion_color_fit: float | None = None
+    user_color_match: float | None = None
+    top_color_id: str | None = None
+    bottom_color_id: str | None = None
+    color_rule_ids: list[str] = Field(default_factory=list)
+    unmapped_colors: list[str] = Field(default_factory=list)
 
 
 class CandidateOutcome(BaseModel):
@@ -138,6 +182,7 @@ class CandidateOutcome(BaseModel):
     top_k_ids: list[str] = Field(default_factory=list)
     category_pairs: list[tuple[str, str]] = Field(default_factory=list)
     applied_rule_ids: list[str] = Field(default_factory=list)
+    mean_color_score: float = Field(default=0.0, ge=0.0, le=1.0)
 
 
 class SlotImpactSignals(BaseModel):
@@ -147,6 +192,7 @@ class SlotImpactSignals(BaseModel):
     category_shift: bool
     mean_top_k_jaccard: float = Field(..., ge=0.0, le=1.0)
     can_cover_with_alternatives: bool
+    color_quality_gain: float = Field(default=0.0)
 
 
 class SnapshotManifest(BaseModel):

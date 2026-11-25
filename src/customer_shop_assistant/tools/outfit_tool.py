@@ -130,6 +130,7 @@ async def suggest_outfit(
             color=color,
             top_color=top_color,
             bottom_color=bottom_color,
+            favorite_colors=sorted(fav_set),
             disliked_colors=sorted(disliked_set),
             min_price=min_price,
             max_price=max_price,

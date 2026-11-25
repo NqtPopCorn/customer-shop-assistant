@@ -49,6 +49,21 @@ def test_ontology_and_snapshot_zero_unmapped() -> None:
     assert len(ontology.styles) == 6
     assert len(ontology.occasions) == 8
     assert len(ontology.colors) == 33
+    assert len(ontology.harmonizes_with) == 54
+    assert len(ontology.prefers_color) == 48
+    assert len(ontology.suits_color) == 32
+
+    allowed_kinds = {
+        "classic_contrast",
+        "monochrome_tone",
+        "neutral_balance",
+        "analogous_soft",
+    }
+    assert {e.kind for e in ontology.harmonizes_with}.issubset(allowed_kinds)
+    covered_colors = {e.source_id for e in ontology.harmonizes_with} | {
+        e.target_id for e in ontology.harmonizes_with
+    }
+    assert covered_colors == {c.id for c in ontology.colors}
 
     with snap_path.open("r", encoding="utf-8") as f:
         products = json.load(f)
@@ -63,6 +78,8 @@ def test_ontology_and_snapshot_zero_unmapped() -> None:
     assert resolve_occasion_id("đi đám cưới", ontology) is None
     assert resolve_occasion_id("đám cưới", ontology) == "party"
     assert resolve_color_id("Xanh navy", ontology) == "xanh_navy"
+    assert resolve_color_id("xanh duong", ontology) == "xanh_duong"
+    assert resolve_color_id("Nau be", ontology) == "nau_be"
 
 
 def test_build_snapshot_manifest_and_latency(tmp_path: Path) -> None:

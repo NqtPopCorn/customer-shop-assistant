@@ -72,9 +72,45 @@ def test_color_harmony_is_decoupled_and_optional() -> None:
     assert "be_sua" in navy.recommended_color_ids
     assert "trang" in navy.recommended_color_ids
     assert any(r.startswith("CH_") for r in navy.applied_rule_ids)
+    assert "classic_contrast" in navy.kind_by_color.values()
+    assert navy.rule_id_by_color
 
     unknown = repo.get_color_harmony("mau_khong_ton_tai")
     assert unknown.available is False
     assert unknown.recommended_color_ids == []
     # Blueprint query remains unaffected even without valid color
     assert repo.get_outfit_blueprints(occasion_id="party")
+
+
+def test_context_color_palette_70_30_blend() -> None:
+    repo = InMemoryOutfitKGRepository()
+
+    style_only = repo.get_context_color_palette(style_id="minimalist", occasion_id=None)
+    assert style_only.style_scores_by_color
+    assert style_only.occasion_scores_by_color == {}
+    assert style_only.scores_by_color == style_only.style_scores_by_color
+    style_rules = [
+        rid for rids in style_only.rule_ids_by_color.values() for rid in rids
+    ]
+    assert style_rules and all(rid.startswith("PC_") for rid in style_rules)
+
+    occ_only = repo.get_context_color_palette(style_id=None, occasion_id="office")
+    assert occ_only.occasion_scores_by_color
+    assert occ_only.style_scores_by_color == {}
+    assert occ_only.scores_by_color == occ_only.occasion_scores_by_color
+    occ_rules = [rid for rids in occ_only.rule_ids_by_color.values() for rid in rids]
+    assert occ_rules and all(rid.startswith("OC_") for rid in occ_rules)
+
+    both = repo.get_context_color_palette(style_id="minimalist", occasion_id="party")
+    assert both.style_scores_by_color
+    assert both.occasion_scores_by_color
+    both_rules = [rid for rids in both.rule_ids_by_color.values() for rid in rids]
+    assert any(rid.startswith("PC_") for rid in both_rules)
+    assert any(rid.startswith("OC_") for rid in both_rules)
+    # Minimalist prefers trang, party suits do_do; 70/30 union preserves both
+    assert "trang" in both.scores_by_color
+    assert "do_do" in both.scores_by_color
+    assert both.scores_by_color["trang"] > both.scores_by_color["do_do"]
+
+    none_ctx = repo.get_context_color_palette(style_id=None, occasion_id=None)
+    assert none_ctx.scores_by_color == {}
