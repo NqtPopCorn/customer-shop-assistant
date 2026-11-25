@@ -184,6 +184,13 @@ VALID_CATALOG_CATEGORIES: dict[str, str] = {
     "mũ nón": "Mũ nón",
 }
 
+_CATEGORY_GROUP_MAP: dict[str, list[str]] = {
+    "quần": ["Quần âu", "Quần kaki", "Quần jeans", "Quần short"],
+    "áo": ["Áo sơ mi", "Áo polo", "Áo thun", "Áo khoác"],
+    "đầm": ["Váy liền", "Đầm dạ hội"],
+    "váy": ["Váy liền", "Chân váy", "Đầm dạ hội"],
+}
+
 _CATEGORY_TO_VI_KEYWORD: dict[str, str] = {
     "dress": "đầm váy",
     "dresses": "đầm váy",
@@ -282,9 +289,9 @@ class SearchProductsInput(BaseModel):
         ),
     )
     limit: int = Field(
-        default=5,
+        default=6,
         ge=1,
-        description="Số lượng sản phẩm tối đa trả về (tối đa 5, mặc định 5).",
+        description="Số lượng sản phẩm tối đa trả về (tối đa 6, mặc định 6).",
     )
 
 
@@ -305,25 +312,36 @@ def _normalize_gender(target_gender: str | None) -> GenderTarget | None:
 
 def _normalize_search_terms(
     keyword: str | None, category: str | None
-) -> tuple[str, str | None]:
-    """Ensure semantic search always gets a Vietnamese keyword and valid category."""
+) -> tuple[str, list[str]]:
+    """Ensure semantic search gets a Vietnamese keyword and expanded categories."""
     resolved_kw = (keyword or "").strip()
-    resolved_cat: str | None = None
+    resolved_cats: list[str] = []
 
     if category and category.strip():
-        cat_clean = category.strip()
-        cat_lower = cat_clean.lower()
-        if cat_lower in VALID_CATALOG_CATEGORIES:
-            resolved_cat = VALID_CATALOG_CATEGORIES[cat_lower]
-        else:
-            mapped_kw = _CATEGORY_TO_VI_KEYWORD.get(cat_lower, cat_clean)
-            if mapped_kw.lower() not in resolved_kw.lower():
-                resolved_kw = f"{mapped_kw} {resolved_kw}".strip()
+        for raw_token in category.split(","):
+            cat_clean = raw_token.strip()
+            if not cat_clean:
+                continue
+            cat_lower = cat_clean.lower()
+            if cat_lower in VALID_CATALOG_CATEGORIES:
+                canonical = VALID_CATALOG_CATEGORIES[cat_lower]
+                if canonical not in resolved_cats:
+                    resolved_cats.append(canonical)
+            elif cat_lower in _CATEGORY_GROUP_MAP:
+                for canonical in _CATEGORY_GROUP_MAP[cat_lower]:
+                    if canonical not in resolved_cats:
+                        resolved_cats.append(canonical)
+            else:
+                mapped_kw = _CATEGORY_TO_VI_KEYWORD.get(cat_lower, cat_clean)
+                if mapped_kw.lower() not in resolved_kw.lower():
+                    resolved_kw = f"{mapped_kw} {resolved_kw}".strip()
 
     if not resolved_kw:
-        resolved_kw = resolved_cat or "trang phục thời trang"
+        resolved_kw = (
+            " ".join(resolved_cats) if resolved_cats else "trang phục thời trang"
+        )
 
-    return resolved_kw, resolved_cat
+    return resolved_kw, resolved_cats
 
 
 def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
@@ -425,10 +443,10 @@ def _format_product_line(p: ProductSchema) -> str:
 
 
 def _build_balanced_branch_keywords(
-    base_kw: str, resolved_cat: str | None, occasion: str | None
+    base_kw: str, resolved_cats: list[str], occasion: str | None
 ) -> dict[GenderTarget, str]:
     """Build branch-specific semantic keywords when target category is open."""
-    if resolved_cat is None and occasion == "party":
+    if not resolved_cats and occasion == "party":
         return {
             GenderTarget.FEMALE: f"{base_kw} đầm váy dự tiệc nữ",
             GenderTarget.MALE: f"{base_kw} áo sơ mi áo khoác quần âu nam dự tiệc",
@@ -443,7 +461,7 @@ def _build_balanced_branch_keywords(
 
 async def _search_products_balanced(
     resolved_kw: str,
-    resolved_cat: str | None,
+    resolved_cats: list[str],
     min_price: float | int | None,
     max_price: float | int | None,
     color: str | None,
@@ -453,8 +471,9 @@ async def _search_products_balanced(
 ) -> str:
     """Fetch balanced FEMALE, MALE, and UNISEX recommendations via single BE call."""
     branch_keywords = _build_balanced_branch_keywords(
-        resolved_kw, resolved_cat, cfg.occasion
+        resolved_kw, resolved_cats, cfg.occasion
     )
+    safe_cats = [c for c in resolved_cats if c.lower() not in FEMALE_ONLY_CATEGORIES]
     branches: list[tuple[GenderTarget, int, str]] = [
         (GenderTarget.FEMALE, cfg.female_limit, "=== GỢI Ý CHO NỮ ==="),
         (GenderTarget.MALE, cfg.male_limit, "=== GỢI Ý CHO NAM ==="),
@@ -466,7 +485,7 @@ async def _search_products_balanced(
     request = AssistantSearchRequest(
         query=resolved_kw,
         filters=AssistantSearchFilters(
-            categories=[resolved_cat] if resolved_cat else None,
+            categories=safe_cats or None,
             colors=[color.strip()] if color and color.strip() else None,
             sizes=[size.strip()] if size and size.strip() else None,
             min_price=min_p,
@@ -542,19 +561,19 @@ async def search_products(
     color: str | None = None,
     size: str | None = None,
     sort: str | None = None,
-    limit: int = 5,
+    limit: int = 6,
 ) -> str:
     """Tìm kiếm kết hợp ngữ nghĩa & bộ lọc sản phẩm theo mô tả, giá, màu, size."""
-    capped_limit = max(1, min(5, int(limit or 5)))
+    capped_limit = max(1, min(6, int(limit or 6)))
     gender_enum = _normalize_gender(target_gender)
-    resolved_kw, resolved_cat = _normalize_search_terms(keyword, category)
+    resolved_kw, resolved_cats = _normalize_search_terms(keyword, category)
     normalized_sort = _normalize_sort(sort)
 
     balanced_cfg = _BALANCED_SEARCH_CTX.get()
     if balanced_cfg is not None and gender_enum is None:
         return await _search_products_balanced(
             resolved_kw=resolved_kw,
-            resolved_cat=resolved_cat,
+            resolved_cats=resolved_cats,
             min_price=min_price,
             max_price=max_price,
             color=color,
@@ -566,7 +585,7 @@ async def search_products(
     request = AssistantSearchRequest(
         query=resolved_kw,
         filters=AssistantSearchFilters(
-            categories=[resolved_cat] if resolved_cat else None,
+            categories=resolved_cats or None,
             target_gender=gender_enum,
             colors=[color.strip()] if color and color.strip() else None,
             sizes=[size.strip()] if size and size.strip() else None,

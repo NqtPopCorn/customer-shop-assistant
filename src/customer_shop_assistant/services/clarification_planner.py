@@ -129,7 +129,7 @@ def _build_category_question(
             options = [
                 "Đầm / Váy dự tiệc sang trọng (Nữ)",
                 "Trang phục dự tiệc Nam (Sơ mi / Blazer + Quần âu)",
-                "Set đồ phối thanh lịch (Áo kiểu / Blazer + Quần / Chân váy)",
+                "Set đồ phối thanh lịch",
             ]
         return ClarificationQuestion(
             id="category",
@@ -265,15 +265,15 @@ def _build_color_question(slots: ConversationSlots) -> ClarificationQuestion:
     occasion = slots.value_of("occasion")
     if occasion == "party":
         options = [
-            "Gam màu nổi bật / Quyến rũ (Đỏ, Đen, Ánh kim)",
-            "Gam màu thanh lịch (Trắng, Be, Pastel)",
-            "Màu trầm sang trọng (Xanh navy, Nâu, Rêu)",
+            "Trung tính cơ bản (Đen, Trắng kem, Navy)",
+            "Điểm nhấn nổi bật (Đỏ đô, Vàng ánh kim, Xanh cổ vịt)",
+            "Tông nhẹ nhàng thanh lịch (Hồng pastel, Be sữa)",
         ]
     else:
         options = [
-            "Màu trung tính dễ phối (Đen, Trắng, Xám, Be)",
-            "Màu sáng trẻ trung (Xanh pastel, Trắng, Kem)",
-            "Màu trầm lịch sự (Xanh navy, Xanh rêu, Nâu)",
+            "Trung tính cơ bản (Đen, Trắng, Navy, Xám)",
+            "Tông đất ấm (Be, Nâu camel, Xanh rêu)",
+            "Điểm nhấn nổi bật (Đỏ đô, Xanh dương, Pastel)",
         ]
     return ClarificationQuestion(
         id="color",
@@ -381,6 +381,22 @@ def _build_conflict_question(
             ],
             allow_custom=True,
             custom_placeholder="Hoặc nhập khoảng giá chính xác (VD: dưới 500k)...",
+        )
+    if slot_name == "color":
+        return ClarificationQuestion(
+            id="color",
+            question=(
+                "Màu sắc bạn nêu đang mâu thuẫn hoặc chưa sẵn có, "
+                "bạn chọn lại tông màu ưu tiên giúp mình nhé?"
+            ),
+            type="single",
+            options=[
+                "Trung tính cơ bản (Đen, Trắng, Navy, Xám)",
+                "Tông đất ấm (Be, Nâu camel, Xanh rêu)",
+                "Điểm nhấn nổi bật (Đỏ đô, Xanh dương, Pastel)",
+            ],
+            allow_custom=True,
+            custom_placeholder="Hoặc nhập màu thay thế bạn thích (VD: trắng, navy)...",
         )
     return _build_question_for_slot(slot_name, slots, intent)
 

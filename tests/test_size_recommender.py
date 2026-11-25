@@ -38,6 +38,19 @@ async def test_boundary_men_shirt(recommender: SizeRecommender) -> None:
     assert result.secondary_size in ("M", "L")
     assert result.secondary_size is not None
 
+    # 171.5cm, 67.5kg recommends L with smaller boundary M -> must say ôm gọn hơn
+    lower_bound = await recommender.recommend_size(
+        height_cm=171.5,
+        weight_kg=67.5,
+        category="tops",
+        gender=GenderTarget.MALE,
+    )
+    assert lower_bound.primary_size == "L"
+    assert lower_bound.secondary_size == "M"
+    assert lower_bound.secondary_direction == "smaller"
+    assert "ôm gọn hơn" in lower_bound.reasoning
+    assert "rộng" not in lower_bound.reasoning
+
 
 @pytest.mark.anyio
 async def test_female_dress(recommender: SizeRecommender) -> None:

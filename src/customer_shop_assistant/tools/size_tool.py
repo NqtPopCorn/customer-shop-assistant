@@ -54,11 +54,15 @@ async def recommend_size(
     if rec.status == "no_size_chart":
         return f"Hiện tại cửa hàng chưa có bảng size chuẩn cho danh mục '{category}'."
 
-    alt_str = (
-        f" (hoặc chọn {rec.secondary_size} nếu muốn mặc rộng hơn)"
-        if rec.secondary_size
-        else ""
-    )
+    if rec.secondary_size:
+        alt_phrase = (
+            "nếu muốn mặc ôm gọn hơn"
+            if rec.secondary_direction == "smaller"
+            else "nếu muốn mặc rộng hơn"
+        )
+        alt_str = f" (hoặc chọn {rec.secondary_size} {alt_phrase})"
+    else:
+        alt_str = ""
     lines = [
         f"Size đề xuất: {rec.primary_size}{alt_str} [Độ tin cậy: {rec.confidence}]",
         f"Giải thích: {rec.reasoning}",

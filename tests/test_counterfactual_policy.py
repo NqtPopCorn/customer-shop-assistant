@@ -195,3 +195,65 @@ def test_anchor_polo_navy_proceeds_with_alternatives() -> None:
     )
     assert dec.action == "PROCEED"
     assert "COVERED_WITH_ALTERNATIVES" in dec.reason_codes
+
+
+def test_spec_v13_color_clarification_conditions_a_b_c() -> None:
+    policy = _make_policy()
+
+    # Condition A1: Explicit unfulfillable color constraint in catalog -> ASK color
+    slots_unfulf, intent_unfulf = extract_conversation_slots(
+        ["Phối áo sơ mi nam màu xanh mint với quần âu đi làm."]
+    )
+    dec_unfulf = evaluate_clarification_policy(
+        ClarificationMode.CONDITIONAL_CLARIFICATION,
+        intent_unfulf,
+        slots_unfulf,
+        clarification_turns=0,
+        gray_zone_evaluator=policy,
+    )
+    assert dec_unfulf.action == "ASK"
+    assert dec_unfulf.target_slots == ["color"]
+    assert "UNFULFILLABLE_COLOR_CONSTRAINT" in dec_unfulf.reason_codes
+
+    # Condition A2: Conflict between liked/top color and disliked color -> ASK color
+    slots_conf, intent_conf = extract_conversation_slots(
+        ["Phối áo sơ mi đen cho nam đi làm nhưng không thích màu đen."]
+    )
+    dec_conf = evaluate_clarification_policy(
+        ClarificationMode.CONDITIONAL_CLARIFICATION,
+        intent_conf,
+        slots_conf,
+        clarification_turns=0,
+        gray_zone_evaluator=policy,
+    )
+    assert dec_conf.action == "ASK"
+    assert dec_conf.target_slots == ["color"]
+
+    # Condition B: Explicit ambiguous color preference -> ASK color
+    slots_amb, intent_amb = extract_conversation_slots(
+        ["Phối đồ đi làm cho nam nhưng chưa biết chọn màu sáng hay màu tối?"]
+    )
+    dec_amb = evaluate_clarification_policy(
+        ClarificationMode.CONDITIONAL_CLARIFICATION,
+        intent_amb,
+        slots_amb,
+        clarification_turns=0,
+        gray_zone_evaluator=policy,
+    )
+    assert dec_amb.action == "ASK"
+    assert dec_amb.target_slots == ["color"]
+    assert "AMBIGUOUS_COLOR_PREFERENCE" in dec_amb.reason_codes
+
+    # Condition C / No-unnecessary-color-question invariant -> PROCEED without color
+    slots_imp, intent_imp = extract_conversation_slots(
+        ["Phối đồ đi làm cho nam phong cách minimalist."]
+    )
+    dec_imp = evaluate_clarification_policy(
+        ClarificationMode.CONDITIONAL_CLARIFICATION,
+        intent_imp,
+        slots_imp,
+        clarification_turns=0,
+        gray_zone_evaluator=policy,
+    )
+    assert dec_imp.action == "PROCEED"
+    assert "color" not in dec_imp.target_slots

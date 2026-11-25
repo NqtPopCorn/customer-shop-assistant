@@ -359,3 +359,76 @@ def test_followup_pairing_question_transitions_to_outfit_advice() -> None:
     assert intent_back == TurnIntent.PRODUCT_SEARCH
     assert slots_back.value_of("shopping_intent") == "PRODUCT"
     assert slots_back.value_of("category") == "pants"
+
+    # Explicit top+bottom pairing questions without 'phối' also trigger OUTFIT_ADVICE
+    slots_shirt_q, intent_shirt_q = extract_conversation_slots(
+        [HumanMessage(content="áo sơ mi trắng thì nên chọn loại quần nào?")]
+    )
+    assert intent_shirt_q == TurnIntent.OUTFIT_ADVICE
+    assert slots_shirt_q.value_of("top_category") == "shirt"
+    assert slots_shirt_q.value_of("top_color") == "Trắng"
+    assert slots_shirt_q.value_of("bottom_category") is None
+
+    slots_pants_q, intent_pants_q = extract_conversation_slots(
+        [HumanMessage(content="quần âu đen thì nên mặc kiểu áo nào?")]
+    )
+    assert intent_pants_q == TurnIntent.OUTFIT_ADVICE
+    assert slots_pants_q.value_of("bottom_category") == "pants"
+    assert slots_pants_q.value_of("bottom_color") == "Đen"
+    assert slots_pants_q.value_of("top_category") is None
+
+
+def test_size_advice_form_submit_preserves_intent_and_parses_ranges_cleanly() -> None:
+    history = [
+        HumanMessage(content="Tư vấn chọn size giúp mình với"),
+        AIMessage(
+            content=(
+                "Chào bạn! Để tư vấn size vừa vặn và chuẩn xác nhất, "
+                "bạn giúp mình chọn hoặc nhập thông tin còn thiếu ở bảng dưới đây nhé:"
+            )
+        ),
+        HumanMessage(
+            content=(
+                "Mình chọn:\n"
+                "1. Nam\n"
+                "2. Áo (Sơ mi / Thun / Polo / Khoác)\n"
+                "3. Cân đối / Đầy đặn – Khung Size L (63–72kg | 1m68–1m75)"
+            )
+        ),
+    ]
+    slots, intent = extract_conversation_slots(history)
+    assert intent == TurnIntent.SIZE_ADVICE
+    assert slots.value_of("target_gender") == "MALE"
+    assert slots.value_of("category") == "tops"
+    assert not slots.has("budget")
+    assert not slots.has("body_concern")
+    meas = slots.value_of("measurements")
+    assert meas is not None
+    assert meas.height_cm == 171.5
+    assert meas.weight_kg == 67.5
+
+    # Custom height/weight submission without word 'size' still preserves SIZE_ADVICE
+    custom_history = [
+        history[0],
+        history[1],
+        HumanMessage(
+            content=(
+                "Mình chọn:\n1. Nam\n2. Áo (Sơ mi / Thun / Polo / Khoác)\n3. 1m70, 65kg"
+            )
+        ),
+    ]
+    slots_custom, intent_custom = extract_conversation_slots(custom_history)
+    assert intent_custom == TurnIntent.SIZE_ADVICE
+    assert slots_custom.value_of("measurements").height_cm == 170.0
+    assert slots_custom.value_of("measurements").weight_kg == 65.0
+
+    # Partial text answer preserves SIZE_ADVICE, while explicit search switches intent
+    _, intent_partial = extract_conversation_slots(
+        [history[0], history[1], HumanMessage(content="Mình là nam")]
+    )
+    assert intent_partial == TurnIntent.SIZE_ADVICE
+
+    _, intent_switch = extract_conversation_slots(
+        [history[0], history[1], HumanMessage(content="Tìm áo sơ mi nam")]
+    )
+    assert intent_switch == TurnIntent.PRODUCT_SEARCH

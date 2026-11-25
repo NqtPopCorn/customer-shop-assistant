@@ -117,6 +117,33 @@ def evaluate_clarification_policy(
 
     if norm_mode == ClarificationMode.ALWAYS_CLARIFY:
         if not missing_req and not declined_req:
+            cat_val = slots.value_of("category")
+            if (
+                intent == TurnIntent.PRODUCT_SEARCH
+                and clarification_turns < MAX_MODE_B_TURNS
+                and cat_val in ("tops", "pants")
+                and not slots.is_declined("category_subtype")
+                and not slots.has("occasion")
+                and not slots.has("budget")
+            ):
+                refine_targets = [
+                    s
+                    for s in ("category_subtype", "occasion", "budget")
+                    if not slots.has(s) and not slots.is_declined(s)
+                ][:MAX_MODE_B_QUESTIONS]
+                if refine_targets:
+                    return ClarificationDecision(
+                        action="ASK",
+                        target_slots=refine_targets,
+                        decision_source="mode_b_required_check",
+                        decision_reason=(
+                            f"Broad category '{cat_val}' needs refinement: "
+                            f"{', '.join(refine_targets)} "
+                            f"(turn {clarification_turns + 1}/{MAX_MODE_B_TURNS})."
+                        ),
+                        reason_codes=["BROAD_CATEGORY_REFINEMENT"],
+                        max_questions=MAX_MODE_B_QUESTIONS,
+                    )
             return ClarificationDecision(
                 action="PROCEED",
                 decision_source="mode_b_required_check",

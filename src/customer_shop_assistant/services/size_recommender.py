@@ -29,6 +29,10 @@ class SizeRecommendationResult(BaseModel):
     secondary_size: str | None = Field(
         default=None, description="Alternative size if close to boundary"
     )
+    secondary_direction: Literal["larger", "smaller"] | None = Field(
+        default=None,
+        description="Whether secondary_size is larger or smaller than primary_size",
+    )
     confidence: Literal["HIGH", "MEDIUM", "LOW"] = Field(
         default="MEDIUM", description="Confidence score of recommendation"
     )
@@ -287,16 +291,25 @@ class SizeRecommender:
             )
         )
 
+        secondary_direction: Literal["larger", "smaller"] | None = None
         if second_size:
+            is_smaller = safe_index(second_size) < safe_index(best_size)
+            secondary_direction = "smaller" if is_smaller else "larger"
+            fit_phrase = (
+                "nếu muốn mặc ôm gọn hơn"
+                if is_smaller
+                else "nếu muốn mặc rộng thoải mái hơn"
+            )
             reasoning += (
                 f" Số đo của bạn nằm tiệm cận giữa size {best_size} và {second_size}: "
-                f"ưu tiên {best_size} vừa vặn hoặc {second_size} nếu muốn rộng hơn."
+                f"ưu tiên {best_size} vừa vặn hoặc {second_size} {fit_phrase}."
             )
 
         return SizeRecommendationResult(
             status="ok",
             primary_size=best_size,
             secondary_size=second_size,
+            secondary_direction=secondary_direction,
             confidence=confidence,
             reasoning=reasoning,
             review_insight=review_insight,

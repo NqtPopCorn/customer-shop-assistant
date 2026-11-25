@@ -531,9 +531,9 @@ async def test_search_products_caps_limit_at_five(
         result = await search_products.ainvoke({"keyword": "quần âu", "limit": 10})
         ids = get_latest_searched_product_ids()
 
-    assert captured_payload.get("limit") == 5
-    assert len(ids) == 5
-    assert result.count("Quần Âu Nam Mẫu") == 5
+    assert captured_payload.get("limit") == 6
+    assert len(ids) == 6
+    assert result.count("Quần Âu Nam Mẫu") == 6
 
 
 @pytest.mark.anyio
@@ -607,3 +607,41 @@ async def test_search_products_passes_color_size_sort_and_formats_relaxed_facets
     assert "Form: Regular Fit" in result
     assert "Họa tiết: Trơn Basic" in result
     assert "Thông tin kho hiện có" in result
+
+
+@pytest.mark.anyio
+async def test_search_products_expands_parent_and_multi_categories(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from customer_shop_assistant.tools.catalog_tool import product_turn_context
+
+    captured_payloads: list[dict[str, object]] = []
+
+    async def mock_post(self, url, json=None, **kwargs) -> httpx.Response:
+        if isinstance(json, dict):
+            captured_payloads.append(dict(json))
+        return httpx.Response(
+            status_code=200,
+            json={"items": [], "meta": {"total": 0}},
+            request=httpx.Request("POST", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "post", mock_post)
+
+    with product_turn_context():
+        await search_products.ainvoke(
+            {"keyword": "quần công sở", "category": "Quần âu, Quần kaki"}
+        )
+        await search_products.ainvoke({"keyword": "gợi ý quần", "category": "Quần"})
+
+    assert len(captured_payloads) == 2
+    filters_1 = captured_payloads[0].get("filters") or {}
+    filters_2 = captured_payloads[1].get("filters") or {}
+    assert isinstance(filters_1, dict) and isinstance(filters_2, dict)
+    assert filters_1.get("categories") == ["Quần âu", "Quần kaki"]
+    assert filters_2.get("categories") == [
+        "Quần âu",
+        "Quần kaki",
+        "Quần jeans",
+        "Quần short",
+    ]

@@ -305,7 +305,7 @@ def test_ollama_reasoning_setting_and_factory_propagation() -> None:
 
 
 @pytest.mark.anyio
-async def test_agent_extracts_bracketed_id_prefix_and_caps_products_at_five() -> None:
+async def test_agent_extracts_bracketed_id_prefix_and_caps_products_at_six() -> None:
     from unittest.mock import AsyncMock
 
     from customer_shop_assistant.schemas.chat import ChatRecommendedProduct
@@ -356,5 +356,5 @@ async def test_agent_extracts_bracketed_id_prefix_and_caps_products_at_five() ->
             clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
         )
     )
-    assert len(res.products) == 5
-    assert [p.id for p in res.products] == [485, 473, 425, 60, 437]
+    assert len(res.products) == 6
+    assert [p.id for p in res.products] == [485, 473, 425, 60, 437, 476]

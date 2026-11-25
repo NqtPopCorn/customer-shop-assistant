@@ -4,6 +4,7 @@ from typing import Any, Literal
 
 from pydantic import AliasChoices, BaseModel, Field, field_validator
 
+from customer_shop_assistant.schemas.outfit_kg import ColorScoreBreakdown
 from customer_shop_assistant.schemas.shop import GenderTarget
 
 logger = logging.getLogger(__name__)
@@ -193,6 +194,12 @@ class OutfitSuggestion(BaseModel):
     top: OutfitItem = Field(..., description="Recommended top item")
     bottom: OutfitItem = Field(..., description="Recommended bottom item")
     score: float = Field(..., ge=0.0, le=1.0, description="KG compatibility score")
+    blueprint_score: float | None = Field(
+        default=None, ge=0.0, le=1.0, description="Category-level blueprint score"
+    )
+    color_score_breakdown: ColorScoreBreakdown | None = Field(
+        default=None, description="Transparent Color-aware scoring debug breakdown"
+    )
     reasons: list[str] = Field(
         default_factory=list, description="Human-readable matching explanations"
     )

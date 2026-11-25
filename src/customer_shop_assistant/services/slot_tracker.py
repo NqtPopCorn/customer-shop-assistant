@@ -542,6 +542,12 @@ _OUTFIT_ADVICE_PATTERNS = (
     r"\bphối\s+(?:giúp|cho)\b",
     r"\bphối\b.+\bvới\b",
     r"\bphối\s+(?:áo|quần|váy|chân\s+váy|đầm)\b",
+    r"\b(?:áo|sơ\s+mi|polo|blazer|hoodie|bomber)\b.+\b"
+    r"(?:chọn|mặc|phối|dùng|lấy|đi)\s+"
+    r"(?:loại\s+|kiểu\s+|mẫu\s+|dáng\s+)?(?:quần|váy|chân\s+váy)\s*(?:nào|gì)\b",
+    r"\b(?:quần|váy|chân\s+váy)\b.+\b"
+    r"(?:chọn|mặc|phối|dùng|lấy|đi)\s+"
+    r"(?:loại\s+|kiểu\s+|mẫu\s+|dáng\s+)?áo\s*(?:nào|gì)\b",
 )
 
 _SINGLE_ITEM_SWITCH_CUES = (
@@ -863,7 +869,14 @@ def classify_turn_intent(message: str) -> TurnIntent:
     ):
         # Allow body-fit advice when user describes physique + asks for garment form
         if any(cue in lower for cue in _BODY_FIT_CUES) and not any(
-            k in lower for k in ("size gì", "size nào", "bảng size", "tư vấn size")
+            k in lower
+            for k in (
+                "size gì",
+                "size nào",
+                "bảng size",
+                "tư vấn size",
+                "khung size",
+            )
         ):
             return TurnIntent.BODY_FIT_ADVICE
         return TurnIntent.SIZE_ADVICE
@@ -907,8 +920,9 @@ def _parse_price_token(num_str: str, unit: str) -> float | None:
 
 def _extract_budget(lower: str) -> BudgetValue | None:
     range_match = re.search(
-        r"(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)?\s*"
-        r"(?:-|–|đến|tới)\s*(\d+(?:[.,]\d+)?)\s*(k|nghìn|ngàn|triệu|tr|đ|vnd)?",
+        r"(?:từ\s*)?(\d+(?:[.,]\d+)?)\s*(?:(k|nghìn|ngàn|triệu|tr|đ|vnđ|vnd)\b)?\s*"
+        r"(?:-|–|đến|tới)\s*(\d+(?:[.,]\d+)?)\s*"
+        r"(?:(k|nghìn|ngàn|triệu|tr|đ|vnđ|vnd)\b)?",
         lower,
     )
     if range_match:
@@ -1204,26 +1218,52 @@ def _extract_measurements(lower: str) -> MeasurementsValue | None:
     weight_kg: float | None = None
     waist_cm: float | None = None
 
-    m_h = re.search(r"(?:cao\s*)?(?:(\d)m(\d{1,2})|(\d{3})\s*cm|cao\s*(\d{3}))", lower)
-    if m_h:
-        if m_h.group(1) and m_h.group(2):
-            cm_part = int(m_h.group(2))
-            cm_norm = cm_part * 10 if cm_part < 10 else cm_part
-            val = float(int(m_h.group(1)) * 100 + cm_norm)
-            if 100 <= val <= 230:
-                height_cm = val
-        elif m_h.group(3) or m_h.group(4):
-            val = float(m_h.group(3) or m_h.group(4))
-            if 100 <= val <= 230:
-                height_cm = val
+    m_h_range = re.search(
+        r"(\d)m(\d{1,2})\s*(?:-|–|đến|tới)\s*(\d)m(\d{1,2})",
+        lower,
+    )
+    if m_h_range:
+        c1 = int(m_h_range.group(2))
+        c2 = int(m_h_range.group(4))
+        h1 = float(int(m_h_range.group(1)) * 100 + (c1 * 10 if c1 < 10 else c1))
+        h2 = float(int(m_h_range.group(3)) * 100 + (c2 * 10 if c2 < 10 else c2))
+        if 100 <= h1 <= 230 and 100 <= h2 <= 230:
+            height_cm = round((h1 + h2) / 2, 1)
 
-    m_w = re.search(r"(?:nặng\s*(\d{2,3})|\b(\d{2,3})\s*(?:kg|ký|kí|cân))", lower)
-    if m_w:
-        w_str = m_w.group(1) or m_w.group(2)
-        if w_str:
-            val = float(w_str)
-            if 30 <= val <= 200:
-                weight_kg = val
+    if height_cm is None:
+        m_h = re.search(
+            r"(?:cao\s*)?(?:(\d)m(\d{1,2})|(\d{3})\s*cm|cao\s*(\d{3}))", lower
+        )
+        if m_h:
+            if m_h.group(1) and m_h.group(2):
+                cm_part = int(m_h.group(2))
+                cm_norm = cm_part * 10 if cm_part < 10 else cm_part
+                val = float(int(m_h.group(1)) * 100 + cm_norm)
+                if 100 <= val <= 230:
+                    height_cm = val
+            elif m_h.group(3) or m_h.group(4):
+                val = float(m_h.group(3) or m_h.group(4))
+                if 100 <= val <= 230:
+                    height_cm = val
+
+    m_w_range = re.search(
+        r"\b(\d{2,3})\s*(?:-|–|đến|tới)\s*(\d{2,3})\s*(?:kg|ký|kí|cân)\b",
+        lower,
+    )
+    if m_w_range:
+        w1 = float(m_w_range.group(1))
+        w2 = float(m_w_range.group(2))
+        if 30 <= w1 <= 200 and 30 <= w2 <= 200:
+            weight_kg = round((w1 + w2) / 2, 1)
+
+    if weight_kg is None:
+        m_w = re.search(r"(?:nặng\s*(\d{2,3})|\b(\d{2,3})\s*(?:kg|ký|kí|cân))", lower)
+        if m_w:
+            w_str = m_w.group(1) or m_w.group(2)
+            if w_str:
+                val = float(w_str)
+                if 30 <= val <= 200:
+                    weight_kg = val
 
     m_waist = re.search(r"(?:eo|vòng 2|vòng bụng)\s*[:=]?\s*(\d{2,3})", lower)
     if m_waist:
@@ -1245,15 +1285,35 @@ def _extract_color(lower: str) -> str | None:
     return None
 
 
+_NEGATED_COLOR_PHRASE = re.compile(
+    r"(?:không\s+thích|tránh|đừng\s+(?:lấy|chọn|gợi\s+ý)|ghét|bỏ)\s+(?:màu\s+)?"
+    r"([a-zA-ZÀ-ỹ\s,]+?)(?:[.;!?]|$|\bnhưng\b|\bmà\b|\bcho\b|\bvà\b)",
+    re.IGNORECASE,
+)
+
+_AMBIGUOUS_COLOR_CUES = (
+    "màu sáng hay tối",
+    "màu sáng hay màu tối",
+    "màu tối hay sáng",
+    "màu tối hay màu sáng",
+    "màu nào nổi bật",
+    "màu nào tôn da",
+    "màu nào hợp da",
+    "chọn màu nào",
+    "chọn màu gì",
+    "tông màu nào",
+    "phân vân màu",
+    "phân vân về màu",
+    "chưa biết chọn màu",
+    "nên mặc màu gì",
+    "mặc màu gì đẹp",
+)
+
+
 def _extract_disliked_colors(lower: str) -> list[str]:
     """Extract explicitly disliked colors from negative preference phrases."""
     disliked: list[str] = []
-    neg_pattern = re.compile(
-        r"(?:không\s+thích|tránh|đừng\s+(?:lấy|chọn|gợi\s+ý)|ghét|bỏ)\s+(?:màu\s+)?"
-        r"([a-zA-ZÀ-ỹ\s,]+?)(?:[.;!?]|$|\bnhưng\b|\bmà\b|\bcho\b|\bvà\b)",
-        re.IGNORECASE,
-    )
-    for match in neg_pattern.finditer(lower):
+    for match in _NEGATED_COLOR_PHRASE.finditer(lower):
         segment = match.group(1).strip().lower()
         for cue, label in _COLOR_LIST:
             if re.search(rf"\b{re.escape(cue)}\b", segment) and label not in disliked:
@@ -1355,11 +1415,24 @@ def _extract_size_label(lower: str) -> str | None:
 
 
 def _extract_body_concern(lower: str) -> str | None:
-    if any(k in lower for k in ("gầy", "đỡ gầy")):
+    body_text = "\n".join(
+        line for line in lower.splitlines() if "khung size" not in line
+    )
+    if any(k in body_text for k in ("gầy", "đỡ gầy")):
         return "slim"
-    if any(k in lower for k in ("che bụng", "có bụng", "béo bụng", "đầy đặn")):
+    if any(k in body_text for k in ("che bụng", "có bụng", "béo bụng", "đầy đặn")):
         return "belly"
-    if any(k in lower for k in ("hack chiều cao", "nấm lùn", "trông cao hơn", "thấp")):
+    if any(
+        k in body_text
+        for k in (
+            "hack chiều cao",
+            "hack dáng",
+            "chiều cao khiêm tốn",
+            "nấm lùn",
+            "trông cao hơn",
+            "thấp",
+        )
+    ):
         return "petite"
     return None
 
@@ -1489,11 +1562,50 @@ def _apply_turn_extractions(
     if disliked:
         slots.disliked_colors = SlotValue(value=disliked, source=source, status=status)
 
-    color = _extract_color(lower)
-    if color and color not in disliked:
-        slots.color = SlotValue(value=color, source=source, status=status)
+    pos_lower = _NEGATED_COLOR_PHRASE.sub(" ", lower)
+    color = _extract_color(pos_lower)
+    top_cat, bot_cat, top_col, bot_col = _extract_outfit_components(pos_lower)
 
-    top_cat, bot_cat, top_col, bot_col = _extract_outfit_components(lower)
+    explicit_cols = [c for c in (color, top_col, bot_col) if c is not None]
+    conflicting_col = next((c for c in explicit_cols if c in disliked), None)
+    is_ambiguous_phrase = is_outfit_turn and any(
+        cue in pos_lower for cue in _AMBIGUOUS_COLOR_CUES
+    )
+    if check_conflicts and conflicting_col is not None:
+        slots.color = SlotValue(
+            value=None,
+            source=source,
+            status="CONFLICTING",
+            conflict_detail=(
+                f"Màu '{conflicting_col}' vừa được yêu cầu vừa không thích."
+            ),
+        )
+    elif is_ambiguous_phrase:
+        slots.color = SlotValue(value=None, source=source, status="AMBIGUOUS")
+        top_col = None
+        bot_col = None
+    elif color and color not in disliked:
+        was_conflicting = (
+            slots.color is not None and slots.color.status == "CONFLICTING"
+        )
+        slots.color = SlotValue(value=color, source=source, status=status)
+        if top_cat is None and bot_cat is None and status == "PROVIDED":
+            if slots.top_color is not None and (
+                was_conflicting or slots.top_color.value in disliked or top_col is None
+            ):
+                if slots.bottom_color is None:
+                    slots.top_color = SlotValue(
+                        value=color, source=source, status=status
+                    )
+            elif (
+                slots.bottom_color is not None
+                and slots.top_color is None
+                and bot_col is None
+            ):
+                slots.bottom_color = SlotValue(
+                    value=color, source=source, status=status
+                )
+
     if top_cat:
         slots.top_category = SlotValue(value=top_cat, source=source, status=status)
     if bot_cat:
@@ -1578,6 +1690,7 @@ def extract_conversation_slots_with_lifecycle(
             user_texts.append(str(msg.content or ""))
 
     running_intent: TurnIntent | None = None
+    latest_resolved_intent: TurnIntent | None = None
     topic_switched = False
 
     # 2. Extract chronologically across history and current turn
@@ -1587,6 +1700,7 @@ def extract_conversation_slots_with_lifecycle(
             continue
 
         is_latest = idx == len(user_texts) - 1
+        is_form_submit = lower.startswith("mình chọn:")
         turn_intent = classify_turn_intent(text)
         if (
             turn_intent == TurnIntent.PRODUCT_SEARCH
@@ -1595,6 +1709,26 @@ def extract_conversation_slots_with_lifecycle(
             and not any(cue in lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES)
         ):
             turn_intent = TurnIntent.OUTFIT_ADVICE
+        elif (
+            running_intent == TurnIntent.SIZE_ADVICE
+            and turn_intent in (TurnIntent.PRODUCT_SEARCH, TurnIntent.BODY_FIT_ADVICE)
+            and (
+                is_form_submit
+                or (
+                    turn_intent == TurnIntent.PRODUCT_SEARCH
+                    and not any(cue in lower for cue in _SINGLE_ITEM_SWITCH_CUES)
+                    and not any(cue in lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES)
+                    and not any(cue in lower for cue in _INVENTORY_STOCK_CUES)
+                )
+            )
+        ):
+            turn_intent = TurnIntent.SIZE_ADVICE
+        elif (
+            running_intent == TurnIntent.BODY_FIT_ADVICE
+            and turn_intent == TurnIntent.PRODUCT_SEARCH
+            and is_form_submit
+        ):
+            turn_intent = TurnIntent.BODY_FIT_ADVICE
 
         switched = detect_topic_switch(slots, running_intent, text, turn_intent)
         if switched:
@@ -1604,6 +1738,8 @@ def extract_conversation_slots_with_lifecycle(
 
         if turn_intent != TurnIntent.NON_SHOPPING:
             running_intent = turn_intent
+        if is_latest:
+            latest_resolved_intent = turn_intent
 
         turn_status: SlotStatus = "PROVIDED" if is_latest else "RESOLVED_FROM_CONTEXT"
         turn_source: SlotSource = "explicit" if is_latest else "history"
@@ -1618,14 +1754,11 @@ def extract_conversation_slots_with_lifecycle(
 
     latest_text = user_texts[-1] if user_texts else ""
     latest_lower = latest_text.strip().lower()
-    intent = classify_turn_intent(latest_text)
-    if (
-        intent == TurnIntent.PRODUCT_SEARCH
-        and slots.value_of("shopping_intent") == "OUTFIT"
-        and not any(cue in latest_lower for cue in _SINGLE_ITEM_SWITCH_CUES)
-        and not any(cue in latest_lower for cue in _EXPLICIT_TOPIC_SWITCH_CUES)
-    ):
-        intent = TurnIntent.OUTFIT_ADVICE
+    intent = (
+        latest_resolved_intent
+        if latest_resolved_intent is not None
+        else classify_turn_intent(latest_text)
+    )
 
     # 3. Apply persisted declined_slots (unless topic switched or provided now)
     if declined_slots and not topic_switched:

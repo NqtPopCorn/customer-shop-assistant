@@ -96,8 +96,8 @@ NON_SHOPPING_DIRECTIVE = """YÊU CẦU PHI MUA SẮM \
 - Không hỏi làm rõ nhu cầu tìm đồ."""
 
 PRODUCT_RULES = """QUY ĐỊNH GỢI Ý SẢN PHẨM & PHỐI ĐỒ:
-- Tìm 1 loại sản phẩm đơn lẻ: gọi `search_products` (`limit<=5`), chỉ giới thiệu \
-tối đa 3-5 sản phẩm đúng định dạng `[ID] Tên sản phẩm` kèm giá thực tế từ tool, \
+- Tìm 1 loại sản phẩm đơn lẻ: gọi `search_products` (`limit<=6`), chỉ giới thiệu \
+tối đa 3-6 sản phẩm đúng định dạng `[ID] Tên sản phẩm` kèm giá thực tế từ tool, \
 nêu bật thiết kế, chất vải, form dáng. KHÔNG tự chia thành `Bộ 1 / Bộ 2`, KHÔNG đòi \
 số đo P3 khi chỉ tìm đồ. Đơn vị tiền là VNĐ (`300k` -> `300000`).
 - Phối đồ / mix & match / set / bộ / combo (Áo + Quần/Váy): gọi trực tiếp \

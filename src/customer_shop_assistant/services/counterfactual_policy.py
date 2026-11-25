@@ -15,6 +15,8 @@ from customer_shop_assistant.loaders.outfit_ontology import (
 from customer_shop_assistant.schemas.clarification import ClarificationDecision
 from customer_shop_assistant.schemas.outfit_kg import (
     CandidateOutcome,
+    ColorHarmonyAdvice,
+    ContextColorPalette,
     OutfitBlueprint,
     OutfitOntology,
     SlotImpactSignals,
@@ -29,6 +31,48 @@ from customer_shop_assistant.services.snapshot_catalog_index import SnapshotCata
 
 logger = logging.getLogger(__name__)
 
+COLOR_TONE_GROUPS: dict[str, set[str]] = {
+    "neutral_classic": {
+        "den",
+        "trang",
+        "trang_kem",
+        "xam_tieu",
+        "xam_dam",
+        "xam_nhat",
+        "bac",
+        "xanh_navy",
+    },
+    "earth_warm": {
+        "be_sua",
+        "be_sang",
+        "nau_be",
+        "nau_camel",
+        "xanh_reu_khaki",
+        "cam_dat",
+        "vang_mu_tat",
+    },
+    "bright_accent": {
+        "xanh_duong",
+        "xanh_lam_nhat",
+        "xanh_co_vit",
+        "xanh_ngoc",
+        "xanh_ngoc_bich",
+        "xanh_la",
+        "xanh_mint",
+        "hong_pastel",
+        "hong",
+        "hong_dat",
+        "do_do",
+        "do_tuoi",
+        "cam_dao",
+        "cam",
+        "vang_kem",
+        "vang_anh_kim",
+        "tim_than",
+        "tim_lilac",
+    },
+}
+
 
 class CounterfactualThresholds(BaseModel):
     """Tunable counterfactual decision thresholds (Dev-tuned, Test-frozen)."""
@@ -39,6 +83,8 @@ class CounterfactualThresholds(BaseModel):
     alternatives_max_branches: int = Field(default=3, ge=1)
     top_k: int = Field(default=5, ge=1)
     wide_pool_product_threshold: int = Field(default=120, ge=1)
+    min_color_quality: float = Field(default=0.72, ge=0.0, le=1.0)
+    color_gain_threshold: float = Field(default=0.12, ge=0.0, le=1.0)
 
 
 class CandidateValueBuilder:
@@ -232,6 +278,203 @@ class CounterfactualClarificationPolicy:
             top_k=self.thresholds.top_k,
         )
 
+    def _has_strict_color_match(
+        self,
+        *,
+        ctx: dict[str, Any],
+        target_color_id: str,
+    ) -> bool:
+        """Return True if explicit requested color has >=1 feasible in-stock match."""
+        anchor_cat_id: str | None = ctx["anchor_category_id"]
+        bps = self.kg_repo.get_outfit_blueprints(
+            style_id=ctx["style_id"],
+            occasion_id=ctx["occasion_id"],
+            anchor_category_id=anchor_cat_id,
+            limit=10,
+        )
+        if not bps and anchor_cat_id is not None:
+            bps = self.kg_repo.get_outfit_blueprints(
+                anchor_category_id=anchor_cat_id, limit=10
+            )
+        if ctx["top_category_id"] and ctx["bottom_category_id"]:
+            bps = [
+                bp
+                for bp in bps
+                if bp.top_category_id == ctx["top_category_id"]
+                and bp.bottom_category_id == ctx["bottom_category_id"]
+            ]
+
+        disliked = ctx["disliked_color_ids"]
+        if target_color_id in disliked:
+            return False
+
+        check_bot_side = (
+            ctx["bottom_category_id"] is not None and ctx["top_category_id"] is None
+        )
+        for bp in bps:
+            top_cols = None if check_bot_side else {target_color_id}
+            bot_cols = {target_color_id} if check_bot_side else None
+            tops = self.snapshot_index.query_products(
+                bp.top_category_id,
+                target_gender=ctx["target_gender"],
+                color_ids=top_cols,
+                disliked_color_ids=disliked,
+                min_price=ctx["min_price"],
+                max_price=ctx["max_price"],
+            )
+            bots = self.snapshot_index.query_products(
+                bp.bottom_category_id,
+                target_gender=ctx["target_gender"],
+                color_ids=bot_cols,
+                disliked_color_ids=disliked,
+                min_price=ctx["min_price"],
+                max_price=ctx["max_price"],
+            )
+            if tops and bots:
+                return True
+        return False
+
+    def _probe_color_tone_outcome(
+        self,
+        *,
+        ctx: dict[str, Any],
+        candidate_label: str,
+        tone_color_ids: set[str] | None,
+        palette: ContextColorPalette,
+        harmony_cache: dict[str, ColorHarmonyAdvice],
+    ) -> CandidateOutcome:
+        """Probe snapshot feasibility and mean color quality for a tone group."""
+        colors_by_id = {c.id: c for c in self.ontology.colors}
+        bps = self.kg_repo.get_outfit_blueprints(
+            style_id=ctx["style_id"],
+            occasion_id=ctx["occasion_id"],
+            anchor_category_id=ctx["anchor_category_id"],
+            limit=6,
+        )
+        if not bps and ctx["anchor_category_id"] is not None:
+            bps = self.kg_repo.get_outfit_blueprints(
+                anchor_category_id=ctx["anchor_category_id"], limit=6
+            )
+        if ctx["top_category_id"] and ctx["bottom_category_id"]:
+            bps = [
+                bp
+                for bp in bps
+                if bp.top_category_id == ctx["top_category_id"]
+                and bp.bottom_category_id == ctx["bottom_category_id"]
+            ]
+
+        disliked = ctx["disliked_color_ids"]
+        feasible_pairs: list[tuple[str, str]] = []
+        top_k_ids: list[str] = []
+        seen_top_ids: set[str] = set()
+        prod_ids: set[int] = set()
+        color_scores: list[float] = []
+
+        def _best_rec_color(rec: Any, allowed: set[str] | None) -> str | None:
+            pool = [c for c in rec.in_stock_color_ids if c not in disliked]
+            if allowed is not None:
+                pool = [c for c in pool if c in allowed]
+            if not pool:
+                return None
+            pool.sort(
+                key=lambda cid: (
+                    -palette.scores_by_color.get(
+                        cid,
+                        0.65
+                        if (cid in colors_by_id and colors_by_id[cid].neutral)
+                        else 0.50,
+                    ),
+                    cid,
+                )
+            )
+            return pool[0]
+
+        for bp in bps:
+            tops = self.snapshot_index.query_products(
+                bp.top_category_id,
+                target_gender=ctx["target_gender"],
+                color_ids=tone_color_ids,
+                disliked_color_ids=disliked,
+                min_price=ctx["min_price"],
+                max_price=ctx["max_price"],
+            )
+            bots = self.snapshot_index.query_products(
+                bp.bottom_category_id,
+                target_gender=ctx["target_gender"],
+                color_ids=tone_color_ids,
+                disliked_color_ids=disliked,
+                min_price=ctx["min_price"],
+                max_price=ctx["max_price"],
+            )
+            if not tops or not bots:
+                continue
+            feasible_pairs.append((bp.top_category_id, bp.bottom_category_id))
+            for r in tops:
+                prod_ids.add(r.deterministic_id)
+            for r in bots:
+                prod_ids.add(r.deterministic_id)
+
+            for t_rec in tops[:2]:
+                t_cid = _best_rec_color(t_rec, tone_color_ids)
+                if t_cid is None:
+                    continue
+                adv = harmony_cache.get(t_cid)
+                if adv is None:
+                    adv = self.kg_repo.get_color_harmony(t_cid)
+                    harmony_cache[t_cid] = adv
+                t_ctx = palette.scores_by_color.get(
+                    t_cid,
+                    0.65
+                    if (t_cid in colors_by_id and colors_by_id[t_cid].neutral)
+                    else 0.50,
+                )
+                for b_rec in bots[:2]:
+                    if t_rec.deterministic_id == b_rec.deterministic_id:
+                        continue
+                    b_cid = _best_rec_color(b_rec, tone_color_ids)
+                    if b_cid is None:
+                        continue
+                    if b_cid in adv.compatibility_by_color:
+                        harm = adv.compatibility_by_color[b_cid]
+                    elif t_cid == b_cid and (
+                        t_cid in colors_by_id and colors_by_id[t_cid].neutral
+                    ):
+                        harm = 0.80
+                    elif (t_cid in colors_by_id and colors_by_id[t_cid].neutral) or (
+                        b_cid in colors_by_id and colors_by_id[b_cid].neutral
+                    ):
+                        harm = 0.65
+                    else:
+                        harm = 0.45
+                    b_ctx = palette.scores_by_color.get(
+                        b_cid,
+                        0.65
+                        if (b_cid in colors_by_id and colors_by_id[b_cid].neutral)
+                        else 0.50,
+                    )
+                    c_score = 0.50 * harm + 0.50 * (0.50 * (t_ctx + b_ctx))
+                    color_scores.append(c_score)
+                    if len(top_k_ids) < self.thresholds.top_k:
+                        token = (
+                            f"{t_rec.deterministic_id}:{t_cid}"
+                            f"+{b_rec.deterministic_id}:{b_cid}"
+                        )
+                        if token not in seen_top_ids:
+                            seen_top_ids.add(token)
+                            top_k_ids.append(token)
+
+        mean_cs = (
+            round(sum(color_scores) / len(color_scores), 4) if color_scores else 0.0
+        )
+        return CandidateOutcome(
+            candidate_value=candidate_label,
+            feasible_product_count=len(prod_ids),
+            feasible_blueprint_count=len(feasible_pairs),
+            top_k_ids=top_k_ids[: self.thresholds.top_k],
+            category_pairs=feasible_pairs,
+            mean_color_score=mean_cs,
+        )
+
     @staticmethod
     def _build_unfulfillable_decision(
         ctx: dict[str, Any],
@@ -289,7 +532,141 @@ class CounterfactualClarificationPolicy:
         )
         if base_outcome.feasible_blueprint_count == 0:
             return self._build_unfulfillable_decision(ctx, slots, base_outcome)
+
+        # Condition A: explicit color yields 0 feasible outfits in stock
+        anchor_color_id: str | None = ctx["anchor_color_id"]
+        if anchor_color_id is not None and not self._has_strict_color_match(
+            ctx=ctx, target_color_id=anchor_color_id
+        ):
+            return ClarificationDecision(
+                action="ASK",
+                target_slots=["color"],
+                max_questions=1,
+                decision_source="mode_c_counterfactual",
+                decision_reason=(
+                    f"Requested color '{anchor_color_id}' has 0 feasible matching "
+                    "items in stock; clarifying alternative color."
+                ),
+                reason_codes=["UNFULFILLABLE_COLOR_CONSTRAINT"],
+                evidence_rule_ids=base_outcome.applied_rule_ids,
+                question_intent="resolve_unfulfillable_color",
+            )
+
+        color_decision = self._evaluate_color_clarification(
+            ctx=ctx,
+            slots=slots,
+            clarification_turns=clarification_turns,
+            has_item_anchor=bool(anchor_cat_id or ctx["anchor_product_id"]),
+            impact_signals={},
+            evidence_rules=list(base_outcome.applied_rule_ids),
+        )
+        if color_decision is not None:
+            return color_decision
         return None
+
+    def _evaluate_color_clarification(
+        self,
+        *,
+        ctx: dict[str, Any],
+        slots: ConversationSlots,
+        clarification_turns: int,
+        has_item_anchor: bool,
+        impact_signals: dict[str, SlotImpactSignals],
+        evidence_rules: list[str],
+    ) -> ClarificationDecision | None:
+        """Apply Spec v1.3 Condition B/C color clarification (never default-ask)."""
+        no_explicit_color = (
+            not slots.has("color")
+            and not slots.has("top_color")
+            and not slots.has("bottom_color")
+            and not slots.is_declined("color")
+        )
+        is_ambiguous_color = slots.status_of("color") == "AMBIGUOUS"
+        ready_context = slots.has("target_gender") and (
+            slots.has("occasion") or has_item_anchor
+        )
+        if not (
+            clarification_turns < 1
+            and no_explicit_color
+            and (is_ambiguous_color or ready_context)
+        ):
+            return None
+
+        palette = self.kg_repo.get_context_color_palette(
+            style_id=ctx["style_id"], occasion_id=ctx["occasion_id"]
+        )
+        harmony_cache: dict[str, ColorHarmonyAdvice] = {}
+        base_col_out = self._probe_color_tone_outcome(
+            ctx=ctx,
+            candidate_label="baseline_palette",
+            tone_color_ids=None,
+            palette=palette,
+            harmony_cache=harmony_cache,
+        )
+        if not (
+            is_ambiguous_color
+            or base_col_out.mean_color_score < self.thresholds.min_color_quality
+        ):
+            return None
+
+        tone_outcomes = [
+            self._probe_color_tone_outcome(
+                ctx=ctx,
+                candidate_label=tone_name,
+                tone_color_ids=tone_ids,
+                palette=palette,
+                harmony_cache=harmony_cache,
+            )
+            for tone_name, tone_ids in COLOR_TONE_GROUPS.items()
+        ]
+        t_viable = [
+            o.feasible_blueprint_count >= self.thresholds.min_viable_outfits
+            and o.feasible_product_count >= self.thresholds.min_viable_products
+            for o in tone_outcomes
+        ]
+        t_feas_chg = any(t_viable) and not all(t_viable)
+        t_jaccard = _mean_pairwise_jaccard([o.top_k_ids for o in tone_outcomes])
+        best_tone_cs = max((o.mean_color_score for o in tone_outcomes), default=0.0)
+        col_gain = round(best_tone_cs - base_col_out.mean_color_score, 4)
+
+        col_sig = SlotImpactSignals(
+            feasibility_change=t_feas_chg,
+            category_shift=False,
+            mean_top_k_jaccard=t_jaccard,
+            can_cover_with_alternatives=False,
+            color_quality_gain=col_gain,
+        )
+        impact_signals["color"] = col_sig
+
+        should_ask_b = is_ambiguous_color and (
+            t_feas_chg or t_jaccard < self.thresholds.jaccard_threshold
+        )
+        should_ask_c = (not is_ambiguous_color) and (
+            t_feas_chg or col_gain >= self.thresholds.color_gain_threshold
+        )
+        if not (should_ask_b or should_ask_c):
+            return None
+
+        col_reason_code = (
+            "AMBIGUOUS_COLOR_PREFERENCE"
+            if is_ambiguous_color
+            else "LOW_BASELINE_COLOR_QUALITY"
+        )
+        return ClarificationDecision(
+            action="ASK",
+            target_slots=["color"],
+            max_questions=1,
+            decision_source="mode_c_counterfactual",
+            decision_reason=(
+                f"Color clarification triggered ({col_reason_code}): "
+                f"baseline_color_score={base_col_out.mean_color_score:.2f}, "
+                f"gain={col_gain:.2f}."
+            ),
+            reason_codes=[col_reason_code],
+            impact_signals={k: v.model_dump() for k, v in impact_signals.items()},
+            evidence_rule_ids=evidence_rules,
+            question_intent="clarify_color",
+        )
 
     def evaluate(
         self,
@@ -336,6 +713,28 @@ class CounterfactualClarificationPolicy:
 
         if base_outcome.feasible_blueprint_count == 0 and clarification_turns < 1:
             return self._build_unfulfillable_decision(ctx, slots, base_outcome)
+
+        anchor_color_id: str | None = ctx["anchor_color_id"]
+        if (
+            anchor_color_id is not None
+            and clarification_turns < 1
+            and not self._has_strict_color_match(
+                ctx=ctx, target_color_id=anchor_color_id
+            )
+        ):
+            return ClarificationDecision(
+                action="ASK",
+                target_slots=["color"],
+                max_questions=1,
+                decision_source="mode_c_counterfactual",
+                decision_reason=(
+                    f"Requested color '{anchor_color_id}' has 0 feasible matching "
+                    "items in stock; clarifying alternative color."
+                ),
+                reason_codes=["UNFULFILLABLE_COLOR_CONSTRAINT"],
+                evidence_rule_ids=base_outcome.applied_rule_ids,
+                question_intent="resolve_unfulfillable_color",
+            )
 
         # 2. Select eligible unresolved slots for single-slot counterfactual probing
         eligible_slots: list[str] = []
@@ -478,6 +877,18 @@ class CounterfactualClarificationPolicy:
                 evidence_rule_ids=evidence_rules,
                 question_intent=f"clarify_{'_'.join(chosen_slots)}",
             )
+
+        # 3b. Color Clarification Policy (Spec v1.3 Sec 6.2: never default-ask color)
+        color_decision = self._evaluate_color_clarification(
+            ctx=ctx,
+            slots=slots,
+            clarification_turns=clarification_turns,
+            has_item_anchor=has_item_anchor,
+            impact_signals=impact_signals,
+            evidence_rules=evidence_rules,
+        )
+        if color_decision is not None:
+            return color_decision
 
         reason_codes = ["COUNTERFACTUAL_PROCEED"]
         if any(s.can_cover_with_alternatives for s in impact_signals.values()):
