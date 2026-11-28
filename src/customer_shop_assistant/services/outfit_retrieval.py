@@ -1,6 +1,8 @@
 """Category-level Outfit Retrieval & Lightweight Reranker (Spec v1.2)."""
 
+import hashlib
 import math
+from dataclasses import dataclass
 from typing import Any, Literal
 
 from pydantic import BaseModel, Field
@@ -43,6 +45,31 @@ class OutfitRetrievalResult(BaseModel):
     products_by_id: dict[int, ChatRecommendedProduct] = Field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class _ScoredOutfitCandidate:
+    """Internal unpenalized candidate scored prior to diversity-aware selection."""
+
+    combo_score: float
+    suggestion: OutfitSuggestion
+    bp_key: tuple[str, str]
+    color_key: tuple[str, str]
+    top_color_id: str
+    bottom_color_id: str
+
+
+type _ColorPairEntry = tuple[
+    float,
+    str,
+    str,
+    bool,
+    str,
+    str,
+    bool,
+    ColorScoreBreakdown,
+    list[str],
+]
+
+
 def _records_from_product_schemas(
     products: list[ProductSchema], ontology: OutfitOntology
 ) -> list[SnapshotProductRecord]:
@@ -56,6 +83,9 @@ def _records_from_product_schemas(
         color_prices: dict[str, float] = {}
         color_names: dict[str, str] = {}
         color_images: dict[str, str | None] = {}
+        color_variant_ids: dict[str, int] = {}
+        color_sizes: dict[str, str | None] = {}
+        color_best_rank: dict[str, tuple[bool, bool, float, int]] = {}
         prices: list[float] = []
 
         for v in p.variants:
@@ -75,6 +105,13 @@ def _records_from_product_schemas(
                 in_stock_cols.add(cid)
                 if cid not in color_prices or price < color_prices[cid]:
                     color_prices[cid] = price
+            rank = (not (v.stock > 0), not bool(v.image_url), price, v.id)
+            if cid not in color_best_rank or rank < color_best_rank[cid]:
+                color_best_rank[cid] = rank
+                color_variant_ids[cid] = v.id
+                color_sizes[cid] = v.size
+                if v.image_url:
+                    color_images[cid] = v.image_url
 
         primary_img = p.images[0].url if p.images else None
         records.append(
@@ -94,6 +131,8 @@ def _records_from_product_schemas(
                 color_price_map=color_prices,
                 color_name_by_id=color_names,
                 color_image_by_id=color_images,
+                color_variant_id_by_id=color_variant_ids,
+                color_size_by_id=color_sizes,
                 primary_image_url=primary_img,
                 in_stock=bool(in_stock_cols),
             )
@@ -189,6 +228,238 @@ class OutfitRetrievalAndReranker:
 
         if not picked:
             picked.append(("", "Tiêu chuẩn", rec.in_stock))
+
+        return picked
+
+    @staticmethod
+    def _select_diverse_product_pool(
+        records: list[SnapshotProductRecord],
+        *,
+        category_id: str,
+        preferred_color_ids: list[str],
+        disliked_ids: set[str],
+        palette: ContextColorPalette,
+        colors_by_id: dict[str, ColorNode],
+        max_items: int = 8,
+        rotation_seed: str | None = None,
+    ) -> list[SnapshotProductRecord]:
+        """Select a color-stratified product pool with optional session rotation."""
+        if not records:
+            return []
+
+        def _color_rank(cid: str) -> tuple[float, str]:
+            if cid in palette.scores_by_color:
+                return (-palette.scores_by_color[cid], cid)
+            node = colors_by_id.get(cid)
+            if node and node.neutral:
+                return (-0.65, cid)
+            return (-0.50 if cid else -0.40, cid)
+
+        def _primary_color_for_record(rec: SnapshotProductRecord) -> str:
+            for cid in preferred_color_ids:
+                if cid not in disliked_ids and (
+                    cid in rec.in_stock_color_ids or cid in rec.all_color_ids
+                ):
+                    return cid
+            in_stock = [
+                cid for cid in rec.in_stock_color_ids if cid not in disliked_ids
+            ]
+            if in_stock:
+                in_stock.sort(key=_color_rank)
+                return in_stock[0]
+            all_valid = [cid for cid in rec.all_color_ids if cid not in disliked_ids]
+            if all_valid:
+                all_valid.sort(key=_color_rank)
+                return all_valid[0]
+            return ""
+
+        buckets: dict[str, list[SnapshotProductRecord]] = {}
+        for rec in records:
+            buckets.setdefault(_primary_color_for_record(rec), []).append(rec)
+
+        def _item_sort_key(rec: SnapshotProductRecord) -> tuple[bytes, int] | int:
+            if rotation_seed is None:
+                return rec.deterministic_id
+            digest = hashlib.blake2b(
+                f"{rotation_seed}:{category_id}:{rec.deterministic_id}".encode(),
+                digest_size=8,
+            ).digest()
+            return (digest, rec.deterministic_id)
+
+        for recs in buckets.values():
+            recs.sort(key=_item_sort_key)
+
+        ordered_cids = sorted(buckets.keys(), key=_color_rank)
+        selected: list[SnapshotProductRecord] = []
+        round_idx = 0
+        while len(selected) < max_items:
+            added_in_round = False
+            for cid in ordered_cids:
+                bucket = buckets[cid]
+                if round_idx < len(bucket):
+                    selected.append(bucket[round_idx])
+                    added_in_round = True
+                    if len(selected) >= max_items:
+                        break
+            if not added_in_round:
+                break
+            round_idx += 1
+
+        return selected
+
+    @staticmethod
+    def _top_color_pairs_for_sku_pair(
+        *,
+        t_cands: list[tuple[str, str, bool]],
+        b_cands: list[tuple[str, str, bool]],
+        palette: ContextColorPalette,
+        colors_by_id: dict[str, ColorNode],
+        harmony_lookup: dict[str, ColorHarmonyAdvice],
+        get_harmony_fn: Any,
+        req_top_cid: str | None,
+        req_bot_cid: str | None,
+        fav_ids: set[str],
+        max_pairs: int = 2,
+        score_margin: float = 0.12,
+    ) -> list[_ColorPairEntry]:
+        """Score color combinations and retain top distinct pairs within margin."""
+        all_pairs: list[_ColorPairEntry] = []
+        for t_cid, t_lbl, t_stock in t_cands:
+            for b_cid, b_lbl, b_stock in b_cands:
+                brk, col_reasons = OutfitRetrievalAndReranker._score_color_pair(
+                    top_cid=t_cid,
+                    top_label=t_lbl,
+                    bot_cid=b_cid,
+                    bot_label=b_lbl,
+                    palette=palette,
+                    colors_by_id=colors_by_id,
+                    harmony_lookup=harmony_lookup,
+                    get_harmony_fn=get_harmony_fn,
+                    req_top_cid=req_top_cid,
+                    req_bot_cid=req_bot_cid,
+                    fav_ids=fav_ids,
+                )
+                all_pairs.append(
+                    (
+                        brk.color_score,
+                        t_cid,
+                        t_lbl,
+                        t_stock,
+                        b_cid,
+                        b_lbl,
+                        b_stock,
+                        brk,
+                        col_reasons,
+                    )
+                )
+
+        if not all_pairs:
+            return []
+
+        # Canonical sort fixes t_cid vs t_lbl tie-break mismatch.
+        all_pairs.sort(key=lambda item: (-item[0], item[1], item[4]))
+        best = all_pairs[0]
+        selected: list[_ColorPairEntry] = [best]
+        if max_pairs <= 1 or len(all_pairs) == 1:
+            return selected
+
+        best_score, best_t_cid, _, _, best_b_cid, _, _, _, _ = best
+        min_allowed = best_score - score_margin
+        eligible = [
+            p
+            for p in all_pairs[1:]
+            if p[0] >= min_allowed and (p[1], p[4]) != (best_t_cid, best_b_cid)
+        ]
+        if not eligible:
+            return selected
+
+        both_diff = [p for p in eligible if p[1] != best_t_cid and p[4] != best_b_cid]
+        selected.append(both_diff[0] if both_diff else eligible[0])
+        return selected
+
+    @staticmethod
+    def _select_diverse_outfits(
+        candidates: list[_ScoredOutfitCandidate],
+        *,
+        target_count: int,
+        is_category_locked: bool,
+        anchor_top_id: int | None,
+        anchor_bot_id: int | None,
+        excl_pids: set[int],
+        excl_pairs: set[tuple[int, int]],
+    ) -> list[OutfitSuggestion]:
+        """Greedy MMR selection diversifying blueprints, items, and color palettes."""
+        picked: list[OutfitSuggestion] = []
+        picked_exact_pairs: set[tuple[int, int]] = set()
+        used_tops: set[int] = set()
+        used_bots: set[int] = set()
+        used_blueprints: dict[tuple[str, str], int] = {}
+        used_color_pairs: dict[tuple[str, str], int] = {}
+        used_top_colors: set[str] = set()
+        used_bot_colors: set[str] = set()
+
+        while len(picked) < target_count:
+            best_cand: _ScoredOutfitCandidate | None = None
+            best_rank: tuple[float, float, int, int] | None = None
+
+            for cand in candidates:
+                top_id = cand.suggestion.top.product_id
+                bot_id = cand.suggestion.bottom.product_id
+                exact_pair = (top_id, bot_id)
+                if exact_pair in picked_exact_pairs:
+                    continue
+
+                penalty = 0.0
+                if exact_pair in excl_pairs:
+                    penalty += 0.50
+                if top_id in excl_pids and top_id != anchor_top_id:
+                    penalty += 0.18
+                if bot_id in excl_pids and bot_id != anchor_bot_id:
+                    penalty += 0.18
+                if top_id in used_tops and top_id != anchor_top_id:
+                    penalty += 0.30
+                if bot_id in used_bots and bot_id != anchor_bot_id:
+                    penalty += 0.30
+
+                if not is_category_locked:
+                    bp_cnt = used_blueprints.get(cand.bp_key, 0)
+                    if bp_cnt > 0:
+                        penalty += 0.10 * bp_cnt
+
+                col_pair_cnt = used_color_pairs.get(cand.color_key, 0)
+                if col_pair_cnt > 0:
+                    penalty += 0.08 * col_pair_cnt
+                else:
+                    if cand.top_color_id and cand.top_color_id in used_top_colors:
+                        penalty += 0.03
+                    if cand.bottom_color_id and cand.bottom_color_id in used_bot_colors:
+                        penalty += 0.03
+
+                eff_score = round(cand.combo_score - penalty, 6)
+                rank_key = (-eff_score, -cand.combo_score, top_id, bot_id)
+                if best_rank is None or rank_key < best_rank:
+                    best_rank = rank_key
+                    best_cand = cand
+
+            if best_cand is None:
+                break
+
+            top_id = best_cand.suggestion.top.product_id
+            bot_id = best_cand.suggestion.bottom.product_id
+            picked.append(best_cand.suggestion)
+            picked_exact_pairs.add((top_id, bot_id))
+            used_tops.add(top_id)
+            used_bots.add(bot_id)
+            used_blueprints[best_cand.bp_key] = (
+                used_blueprints.get(best_cand.bp_key, 0) + 1
+            )
+            used_color_pairs[best_cand.color_key] = (
+                used_color_pairs.get(best_cand.color_key, 0) + 1
+            )
+            if best_cand.top_color_id:
+                used_top_colors.add(best_cand.top_color_id)
+            if best_cand.bottom_color_id:
+                used_bot_colors.add(best_cand.bottom_color_id)
 
         return picked
 
@@ -334,6 +605,8 @@ class OutfitRetrievalAndReranker:
             slug=rec.slug,
             category=rec.category_name,
             color=color_label,
+            variant_id=rec.color_variant_id_by_id.get(cid) if cid else None,
+            size=rec.color_size_by_id.get(cid) if cid else None,
             in_stock=in_stock,
             image_url=img,
             price=price,
@@ -357,8 +630,15 @@ class OutfitRetrievalAndReranker:
         min_price: float | None = None,
         max_price: float | None = None,
         limit: int = 3,
+        exclude_product_ids: set[int] | list[int] | None = None,
+        exclude_pairs: set[tuple[int, int]] | list[tuple[int, int]] | None = None,
+        rotation_seed: str | None = None,
     ) -> OutfitRetrievalResult:
         """Retrieve and rerank complete top-bottom outfits grounded in KG + catalog."""
+        excl_pids: set[int] = {int(pid) for pid in (exclude_product_ids or ())}
+        excl_pairs: set[tuple[int, int]] = {
+            (int(a), int(b)) for a, b in (exclude_pairs or ())
+        }
         index, prod_map = self._build_working_index(live_products)
         if not index.records:
             return OutfitRetrievalResult()
@@ -469,7 +749,10 @@ class OutfitRetrievalAndReranker:
         def _pick_for_gender(
             gender_filter: str | None, target_count: int
         ) -> list[OutfitSuggestion]:
-            scored: list[tuple[float, OutfitSuggestion]] = []
+            candidates: list[_ScoredOutfitCandidate] = []
+            t_pref_cols = [eff_top_col_id] if eff_top_col_id else []
+            b_pref_cols = [eff_bot_col_id] if eff_bot_col_id else []
+
             for bp in blueprints:
                 if (
                     anchor_rec is not None
@@ -479,16 +762,15 @@ class OutfitRetrievalAndReranker:
                         [anchor_rec] if anchor_rec.matches_gender(gender_filter) else []
                     )
                 else:
-                    top_pref = [eff_top_col_id] if eff_top_col_id else []
                     tops = index.query_products(
                         bp.top_category_id,
                         target_gender=gender_filter,
-                        color_ids=set(top_pref) if top_pref else None,
+                        color_ids=set(t_pref_cols) if t_pref_cols else None,
                         disliked_color_ids=disliked_ids,
                         min_price=min_price,
                         max_price=max_price,
                     )
-                    if not tops and top_pref:
+                    if not tops and t_pref_cols:
                         tops = index.query_products(
                             bp.top_category_id,
                             target_gender=gender_filter,
@@ -501,6 +783,16 @@ class OutfitRetrievalAndReranker:
                                 f"Chưa có mẫu áo màu '{top_color or color}', "
                                 "gợi ý theo màu hiện còn hàng."
                             )
+                    tops = self._select_diverse_product_pool(
+                        tops,
+                        category_id=bp.top_category_id,
+                        preferred_color_ids=t_pref_cols,
+                        disliked_ids=disliked_ids,
+                        palette=palette,
+                        colors_by_id=colors_by_id,
+                        max_items=8,
+                        rotation_seed=rotation_seed,
+                    )
 
                 if (
                     anchor_rec is not None
@@ -510,16 +802,15 @@ class OutfitRetrievalAndReranker:
                         [anchor_rec] if anchor_rec.matches_gender(gender_filter) else []
                     )
                 else:
-                    bot_pref = [eff_bot_col_id] if eff_bot_col_id else []
                     bots = index.query_products(
                         bp.bottom_category_id,
                         target_gender=gender_filter,
-                        color_ids=set(bot_pref) if bot_pref else None,
+                        color_ids=set(b_pref_cols) if b_pref_cols else None,
                         disliked_color_ids=disliked_ids,
                         min_price=min_price,
                         max_price=max_price,
                     )
-                    if not bots and bot_pref:
+                    if not bots and b_pref_cols:
                         bots = index.query_products(
                             bp.bottom_category_id,
                             target_gender=gender_filter,
@@ -527,12 +818,23 @@ class OutfitRetrievalAndReranker:
                             min_price=min_price,
                             max_price=max_price,
                         )
+                    bots = self._select_diverse_product_pool(
+                        bots,
+                        category_id=bp.bottom_category_id,
+                        preferred_color_ids=b_pref_cols,
+                        disliked_ids=disliked_ids,
+                        palette=palette,
+                        colors_by_id=colors_by_id,
+                        max_items=8,
+                        rotation_seed=rotation_seed,
+                    )
 
                 if not tops or not bots:
                     continue
 
-                for t_rec in tops[:3]:
-                    t_pref_cols = [eff_top_col_id] if eff_top_col_id else []
+                bp_score = round(bp.score, 4)
+                bp_key = (bp.top_category_id, bp.bottom_category_id)
+                for t_rec in tops:
                     t_cands = self._candidate_color_slots(
                         t_rec,
                         t_pref_cols,
@@ -540,10 +842,9 @@ class OutfitRetrievalAndReranker:
                         palette,
                         colors_by_id,
                     )
-                    for b_rec in bots[:3]:
+                    for b_rec in bots:
                         if t_rec.deterministic_id == b_rec.deterministic_id:
                             continue
-                        b_pref_cols = [eff_bot_col_id] if eff_bot_col_id else []
                         b_cands = self._candidate_color_slots(
                             b_rec,
                             b_pref_cols,
@@ -551,94 +852,79 @@ class OutfitRetrievalAndReranker:
                             palette,
                             colors_by_id,
                         )
-                        best_pair: (
-                            tuple[
-                                float,
-                                str,
-                                bool,
-                                str,
-                                bool,
-                                ColorScoreBreakdown,
-                                list[str],
-                            ]
-                            | None
-                        ) = None
-                        for t_cid, t_lbl, t_stock in t_cands:
-                            for b_cid, b_lbl, b_stock in b_cands:
-                                brk, col_reasons = self._score_color_pair(
-                                    top_cid=t_cid,
-                                    top_label=t_lbl,
-                                    bot_cid=b_cid,
-                                    bot_label=b_lbl,
-                                    palette=palette,
-                                    colors_by_id=colors_by_id,
-                                    harmony_lookup=harmony_lookup,
-                                    get_harmony_fn=self.kg_repo.get_color_harmony,
-                                    req_top_cid=eff_top_col_id,
-                                    req_bot_cid=eff_bot_col_id,
-                                    fav_ids=fav_ids,
+                        color_pairs = self._top_color_pairs_for_sku_pair(
+                            t_cands=t_cands,
+                            b_cands=b_cands,
+                            palette=palette,
+                            colors_by_id=colors_by_id,
+                            harmony_lookup=harmony_lookup,
+                            get_harmony_fn=self.kg_repo.get_color_harmony,
+                            req_top_cid=eff_top_col_id,
+                            req_bot_cid=eff_bot_col_id,
+                            fav_ids=fav_ids,
+                        )
+                        for (
+                            _,
+                            t_cid,
+                            t_col_lbl,
+                            t_stock,
+                            b_cid,
+                            b_col_lbl,
+                            b_stock,
+                            brk,
+                            c_reasons,
+                        ) in color_pairs:
+                            combo_score = round(
+                                min(1.0, 0.70 * bp_score + 0.30 * brk.color_score),
+                                4,
+                            )
+                            all_rules = list(
+                                dict.fromkeys(
+                                    [*bp.applied_rule_ids, *brk.color_rule_ids]
                                 )
-                                cand_key = (brk.color_score, t_cid, b_cid)
-                                if best_pair is None or cand_key > (
-                                    best_pair[0],
-                                    best_pair[1],
-                                    best_pair[3],
-                                ):
-                                    best_pair = (
-                                        brk.color_score,
-                                        t_lbl,
-                                        t_stock,
-                                        b_lbl,
-                                        b_stock,
-                                        brk,
-                                        col_reasons,
-                                    )
-                        assert best_pair is not None
-                        _, t_col_lbl, t_stock, b_col_lbl, b_stock, brk, c_reasons = (
-                            best_pair
-                        )
-                        bp_score = round(bp.score, 4)
-                        combo_score = round(
-                            min(1.0, 0.70 * bp_score + 0.30 * brk.color_score), 4
-                        )
-                        all_rules = list(
-                            dict.fromkeys([*bp.applied_rule_ids, *brk.color_rule_ids])
-                        )
-                        all_reasons = list(dict.fromkeys([*bp.reasons, *c_reasons[:2]]))
-                        suggestion = OutfitSuggestion(
-                            top=self._to_outfit_item(t_rec, t_col_lbl, t_stock),
-                            bottom=self._to_outfit_item(b_rec, b_col_lbl, b_stock),
-                            score=combo_score,
-                            blueprint_score=bp_score,
-                            color_score_breakdown=brk,
-                            reasons=all_reasons[:4],
-                            applied_rule_ids=all_rules,
-                        )
-                        scored.append((combo_score, suggestion))
+                            )
+                            all_reasons = list(
+                                dict.fromkeys([*bp.reasons, *c_reasons[:2]])
+                            )
+                            suggestion = OutfitSuggestion(
+                                top=self._to_outfit_item(t_rec, t_col_lbl, t_stock),
+                                bottom=self._to_outfit_item(b_rec, b_col_lbl, b_stock),
+                                score=combo_score,
+                                blueprint_score=bp_score,
+                                color_score_breakdown=brk,
+                                reasons=all_reasons[:4],
+                                applied_rule_ids=all_rules,
+                            )
+                            candidates.append(
+                                _ScoredOutfitCandidate(
+                                    combo_score=combo_score,
+                                    suggestion=suggestion,
+                                    bp_key=bp_key,
+                                    color_key=(t_cid, b_cid),
+                                    top_color_id=t_cid,
+                                    bottom_color_id=b_cid,
+                                )
+                            )
 
-            scored.sort(
-                key=lambda x: (
-                    -x[0],
-                    x[1].top.product_id,
-                    x[1].bottom.product_id,
-                )
+            anchor_top_id = (
+                anchor_rec.deterministic_id
+                if (anchor_rec is not None and anchor_rec.category_id == top_cat_id)
+                else None
             )
-
-            picked: list[OutfitSuggestion] = []
-            used_tops: set[int] = set()
-            used_bots: set[int] = set()
-            for _, cand in scored:
-                if (
-                    cand.top.product_id in used_tops
-                    and cand.bottom.product_id in used_bots
-                ):
-                    continue
-                picked.append(cand)
-                used_tops.add(cand.top.product_id)
-                used_bots.add(cand.bottom.product_id)
-                if len(picked) >= target_count:
-                    break
-            return picked
+            anchor_bot_id = (
+                anchor_rec.deterministic_id
+                if (anchor_rec is not None and anchor_rec.category_id == bot_cat_id)
+                else None
+            )
+            return self._select_diverse_outfits(
+                candidates,
+                target_count=target_count,
+                is_category_locked=bool(top_cat_id and bot_cat_id),
+                anchor_top_id=anchor_top_id,
+                anchor_bot_id=anchor_bot_id,
+                excl_pids=excl_pids,
+                excl_pairs=excl_pairs,
+            )
 
         if eff_gender_str is not None:
             outfits = _pick_for_gender(eff_gender_str, cap)

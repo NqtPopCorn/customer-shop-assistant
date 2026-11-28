@@ -16,6 +16,7 @@ from customer_shop_assistant.schemas.shop import (
     ProductVariantSchema,
 )
 from customer_shop_assistant.services.agent_service import ShopAssistantAgent
+from customer_shop_assistant.services.session_manager import SessionManager
 from customer_shop_assistant.tools.catalog_tool import (
     get_latest_outfits,
     product_turn_context,
@@ -314,3 +315,104 @@ async def test_strict_outfit_intent_redirects_search_and_fallback_returns_combos
     assert res2.outfits[0].top.product_id == 1
     assert res2.outfits[0].bottom.product_id == 3
     assert "[1]" in res2.reply and "[3]" in res2.reply
+
+
+@pytest.mark.anyio
+async def test_multi_turn_agent_session_diversity_and_topic_switch(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    empty_payload = {
+        "data": [],
+        "meta": {"total": 0, "page": 1, "limit": 2000, "totalPages": 1},
+    }
+
+    async def mock_get(self, url, params=None, **kwargs) -> httpx.Response:
+        return httpx.Response(
+            status_code=200,
+            json=empty_payload,
+            request=httpx.Request("GET", str(url)),
+        )
+
+    monkeypatch.setattr(httpx.AsyncClient, "get", mock_get)
+
+    class FakeToolModel(GenericFakeChatModel):
+        def bind_tools(self, tools: Any, **kwargs: Any) -> Any:
+            return self
+
+    def _tool_turn(occasion: str, call_id: str) -> list[AIMessage]:
+        return [
+            AIMessage(
+                content="",
+                tool_calls=[
+                    {
+                        "name": "suggest_outfit",
+                        "args": {"occasion": occasion, "gender": "nam", "limit": 3},
+                        "id": call_id,
+                    }
+                ],
+            ),
+            AIMessage(content=f"Đã gợi ý 3 bộ phối đồ phù hợp cho dịp {occasion}."),
+        ]
+
+    sess_mgr = SessionManager()
+    agent = ShopAssistantAgent(
+        chat_model=FakeToolModel(
+            messages=iter(
+                [
+                    *_tool_turn("công sở", "call_turn_1"),
+                    *_tool_turn("công sở", "call_turn_2"),
+                    *_tool_turn("đi biển", "call_turn_3"),
+                ]
+            )
+        ),
+        settings=Settings(_env_file=None, OUTFIT_KG_ENABLED=True),
+        session_manager=sess_mgr,
+    )
+
+    sid = "diversity-session-1"
+    res1 = await agent.chat(
+        ChatRequest(
+            message="Gợi ý 3 bộ đồ công sở cho nam",
+            session_id=sid,
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    assert len(res1.outfits) == 3
+    pairs1 = {(o.top.product_id, o.bottom.product_id) for o in res1.outfits}
+    pids1 = {
+        pid for o in res1.outfits for pid in (o.top.product_id, o.bottom.product_id)
+    }
+    assert len(pids1) == 6
+    assert len({(o.top.category, o.bottom.category) for o in res1.outfits}) == 3
+
+    sess = sess_mgr.get_session(sid)
+    assert sess is not None
+    assert set(sess.shown_outfit_pairs) == pairs1
+
+    res2 = await agent.chat(
+        ChatRequest(
+            message="Gợi ý thêm 3 bộ khác đi",
+            session_id=sid,
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    assert len(res2.outfits) == 3
+    pairs2 = {(o.top.product_id, o.bottom.product_id) for o in res2.outfits}
+    pids2 = {
+        pid for o in res2.outfits for pid in (o.top.product_id, o.bottom.product_id)
+    }
+    assert pairs2.isdisjoint(pairs1)
+    assert pids2.isdisjoint(pids1)
+    assert set(sess.shown_outfit_pairs) == (pairs1 | pairs2)
+
+    # Topic switch (công sở -> đi biển) clears old shown outfit history
+    res3 = await agent.chat(
+        ChatRequest(
+            message="Đổi sang gợi ý đồ đi biển cho nam",
+            session_id=sid,
+            clarification_mode=ClarificationMode.IMMEDIATE_ANSWER,
+        )
+    )
+    assert len(res3.outfits) == 3
+    pairs3 = {(o.top.product_id, o.bottom.product_id) for o in res3.outfits}
+    assert set(sess.shown_outfit_pairs) == pairs3

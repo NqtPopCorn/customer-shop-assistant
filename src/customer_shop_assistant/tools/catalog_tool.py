@@ -1,3 +1,4 @@
+import unicodedata
 from collections.abc import Iterator
 from contextlib import contextmanager
 from contextvars import ContextVar
@@ -16,6 +17,7 @@ from customer_shop_assistant.schemas.shop import (
     AssistantSearchRequest,
     GenderTarget,
     ProductSchema,
+    ProductVariantSchema,
 )
 from customer_shop_assistant.services.shop_client import ShopClient
 
@@ -344,8 +346,104 @@ def _normalize_search_terms(
     return resolved_kw, resolved_cats
 
 
-def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
+def _normalize_match_text(text: str) -> str:
+    """Normalize text for accent- and case-insensitive variant matching."""
+    replaced = text.replace("đ", "d").replace("Đ", "D")
+    nfkd = unicodedata.normalize("NFKD", replaced)
+    stripped = "".join(ch for ch in nfkd if not unicodedata.combining(ch))
+    return " ".join(stripped.lower().split())
+
+
+def _select_matching_variant(
+    p: ProductSchema,
+    preferred_color: str | None = None,
+    preferred_size: str | None = None,
+) -> ProductVariantSchema | None:
+    """Select the best variant matching preferred color and/or size criteria."""
+    norm_color = _normalize_match_text(preferred_color) if preferred_color else ""
+    norm_size = (preferred_size or "").strip().upper()
+    if not norm_color and not norm_size:
+        return None
+
+    candidates: list[
+        tuple[tuple[bool, bool, bool, bool, bool, float, int], ProductVariantSchema]
+    ] = []
+    for v in p.variants:
+        v_color = _normalize_match_text(v.color or "")
+        v_size = (v.size or "").strip().upper()
+
+        color_match = bool(
+            norm_color and v_color and (norm_color in v_color or v_color in norm_color)
+        )
+        size_match = bool(norm_size and v_size and v_size == norm_size)
+
+        if not color_match and not size_match:
+            continue
+
+        eff_price = float(
+            v.final_price
+            if v.final_price is not None
+            else (v.selling_price or v.list_price or 0.0)
+        )
+        rank = (
+            not (color_match and size_match),
+            not color_match,
+            not size_match,
+            not (v.stock > 0),
+            not bool(v.image_url),
+            eff_price,
+            v.id,
+        )
+        candidates.append((rank, v))
+
+    if not candidates:
+        return None
+    candidates.sort(key=lambda item: item[0])
+    return candidates[0][1]
+
+
+def product_schema_to_recommended(
+    p: ProductSchema,
+    *,
+    preferred_color: str | None = None,
+    preferred_size: str | None = None,
+) -> ChatRecommendedProduct:
     """Map live ProductSchema to frontend ChatRecommendedProduct."""
+    matched = _select_matching_variant(
+        p, preferred_color=preferred_color, preferred_size=preferred_size
+    )
+    default_img = (
+        p.images[0].url
+        if p.images
+        else (p.variants[0].image_url if p.variants else None)
+    )
+    if matched is not None:
+        eff_price = float(
+            matched.final_price
+            if matched.final_price is not None
+            else matched.selling_price
+        )
+        list_price = float(matched.list_price or eff_price)
+        discount_pct = (
+            round(((list_price - eff_price) / list_price) * 100)
+            if list_price > eff_price
+            else None
+        )
+        return ChatRecommendedProduct(
+            id=p.id,
+            name=p.name,
+            slug=p.slug,
+            price=eff_price,
+            original_price=list_price if list_price > eff_price else None,
+            discount_percent=discount_pct,
+            image_url=matched.image_url or default_img,
+            category=p.category.name if p.category else None,
+            brand=p.brand.name if p.brand else None,
+            variant_id=matched.id,
+            color=matched.color,
+            size=matched.size,
+        )
+
     prices = [
         v.final_price if v.final_price is not None else v.selling_price
         for v in p.variants
@@ -358,11 +456,6 @@ def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
         if max_list_price > min_price
         else None
     )
-    img = (
-        p.images[0].url
-        if p.images
-        else (p.variants[0].image_url if p.variants else None)
-    )
 
     return ChatRecommendedProduct(
         id=p.id,
@@ -371,7 +464,7 @@ def product_schema_to_recommended(p: ProductSchema) -> ChatRecommendedProduct:
         price=min_price,
         original_price=max_list_price if max_list_price > min_price else None,
         discount_percent=discount_pct,
-        image_url=img,
+        image_url=default_img,
         category=p.category.name if p.category else None,
         brand=p.brand.name if p.brand else None,
     )
@@ -535,7 +628,10 @@ async def _search_products_balanced(
         return f"{base_msg}\n{facets_txt}" if facets_txt else base_msg
 
     record_searched_products(
-        [product_schema_to_recommended(p) for p in all_selected],
+        [
+            product_schema_to_recommended(p, preferred_color=color, preferred_size=size)
+            for p in all_selected
+        ],
         gender_map=gender_map,
     )
 
@@ -613,7 +709,10 @@ async def search_products(
         p.id: p.target_gender for p in products if p.target_gender is not None
     }
     record_searched_products(
-        [product_schema_to_recommended(p) for p in products],
+        [
+            product_schema_to_recommended(p, preferred_color=color, preferred_size=size)
+            for p in products
+        ],
         gender_map=gender_map,
     )
 

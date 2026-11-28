@@ -32,6 +32,7 @@ from customer_shop_assistant.schemas.chat import (
     ChatResponse,
     ClarificationForm,
     ClarificationMode,
+    OutfitItem,
     OutfitSuggestion,
     StateSnapshotDebug,
     SystemPromptDebug,
@@ -102,6 +103,7 @@ from customer_shop_assistant.tools.catalog_tool import (
     product_turn_context,
     record_product,
 )
+from customer_shop_assistant.tools.outfit_tool import outfit_diversity_context
 
 logger = logging.getLogger(__name__)
 
@@ -1044,6 +1046,8 @@ class ShopAssistantAgent:
                     sess.last_asked_slots = list(asked_slots)
                 else:
                     sess.last_asked_slots = []
+                if outfits:
+                    sess.record_shown_outfits(outfits)
                 sess_mgr.add_assistant_message(session_id, agent_reply.reply)
 
             return {
@@ -1075,6 +1079,32 @@ class ShopAssistantAgent:
 
         return builder.compile(checkpointer=MemorySaver())
 
+    @staticmethod
+    def _enrich_recommended_from_outfit_item(
+        cached: ChatRecommendedProduct, item: OutfitItem
+    ) -> ChatRecommendedProduct:
+        """Override default product preview with the chosen outfit variant data."""
+        eff_price = item.price if item.price > 0 else cached.price
+        orig_price = cached.original_price
+        discount_pct = cached.discount_percent
+        if orig_price is not None and orig_price > eff_price:
+            discount_pct = round(((orig_price - eff_price) / orig_price) * 100)
+        elif orig_price is not None and orig_price <= eff_price:
+            orig_price = None
+            discount_pct = None
+
+        return cached.model_copy(
+            update={
+                "image_url": item.image_url or cached.image_url,
+                "variant_id": item.variant_id,
+                "color": item.color,
+                "size": item.size,
+                "price": eff_price,
+                "original_price": orig_price,
+                "discount_percent": discount_pct,
+            }
+        )
+
     async def _collect_turn_outputs(
         self,
         *,
@@ -1094,7 +1124,9 @@ class ShopAssistantAgent:
                     seen_outfit_pids.add(item.product_id)
                     cached = get_cached_product(item.product_id)
                     if cached is not None:
-                        outfit_products.append(cached)
+                        outfit_products.append(
+                            self._enrich_recommended_from_outfit_item(cached, item)
+                        )
 
         if "search_products" in tools_used or "get_product_detail" in tools_used:
             searched_ids = (
@@ -2198,7 +2230,9 @@ class ShopAssistantAgent:
                     seen_pids.add(item.product_id)
                     cached = get_cached_product(item.product_id)
                     if cached is not None:
-                        products.append(cached)
+                        products.append(
+                            self._enrich_recommended_from_outfit_item(cached, item)
+                        )
             if outfits:
                 reply = self._format_immediate_outfit_fallback_reply(outfits, slots)
                 return outfits, products, reply
@@ -2600,7 +2634,17 @@ class ShopAssistantAgent:
                 "configurable": {"thread_id": session_id},
                 "callbacks": [debug_handler],
             }
-            with product_turn_context():
+            rotation_seed = (
+                session_id if self.settings.OUTFIT_SESSION_ROTATION else None
+            )
+            with (
+                product_turn_context(),
+                outfit_diversity_context(
+                    exclude_product_ids=list(session.shown_outfit_product_ids),
+                    exclude_pairs=list(session.shown_outfit_pairs),
+                    rotation_seed=rotation_seed,
+                ),
+            ):
                 result_state = await self.graph.ainvoke(initial_state, config=config)
 
             latency_ms = int((time.time() - start_time) * 1000)
@@ -2793,8 +2837,16 @@ class ShopAssistantAgent:
         tools_used: list[str] = []
         full_reply_parts: list[str] = []
 
+        rotation_seed = session_id if self.settings.OUTFIT_SESSION_ROTATION else None
         try:
-            with product_turn_context():
+            with (
+                product_turn_context(),
+                outfit_diversity_context(
+                    exclude_product_ids=list(session.shown_outfit_product_ids),
+                    exclude_pairs=list(session.shown_outfit_pairs),
+                    rotation_seed=rotation_seed,
+                ),
+            ):
                 async for chunk_mode, payload in self.graph.astream(
                     initial_state,
                     config=config,

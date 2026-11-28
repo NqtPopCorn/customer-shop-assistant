@@ -1,6 +1,10 @@
 """LangChain tool for Knowledge-Graph-backed top + bottom outfit matching."""
 
 import logging
+from collections.abc import Iterator
+from contextlib import contextmanager
+from contextvars import ContextVar
+from dataclasses import dataclass
 
 from langchain_core.tools import tool
 
@@ -28,6 +32,42 @@ from customer_shop_assistant.tools.catalog_tool import (
 )
 
 logger = logging.getLogger(__name__)
+
+
+@dataclass(frozen=True)
+class OutfitDiversityConfig:
+    """Per-turn cross-session exclusion & rotation settings for suggest_outfit."""
+
+    exclude_product_ids: frozenset[int] = frozenset()
+    exclude_pairs: frozenset[tuple[int, int]] = frozenset()
+    rotation_seed: str | None = None
+
+
+_OUTFIT_DIVERSITY_CTX: ContextVar[OutfitDiversityConfig | None] = ContextVar(
+    "outfit_diversity_context", default=None
+)
+
+
+@contextmanager
+def outfit_diversity_context(
+    exclude_product_ids: set[int] | list[int] | None = None,
+    exclude_pairs: set[tuple[int, int]] | list[tuple[int, int]] | None = None,
+    rotation_seed: str | None = None,
+) -> Iterator[OutfitDiversityConfig]:
+    """Activate cross-turn outfit exclusion and rotation for the current turn."""
+    cfg = OutfitDiversityConfig(
+        exclude_product_ids=frozenset(int(x) for x in (exclude_product_ids or ())),
+        exclude_pairs=frozenset((int(a), int(b)) for a, b in (exclude_pairs or ())),
+        rotation_seed=rotation_seed,
+    )
+    token = _OUTFIT_DIVERSITY_CTX.set(cfg)
+    try:
+        yield cfg
+    finally:
+        try:
+            _OUTFIT_DIVERSITY_CTX.reset(token)
+        except ValueError:
+            _OUTFIT_DIVERSITY_CTX.set(None)
 
 
 def _parse_gender(gender: str | None) -> GenderTarget | None:
@@ -116,6 +156,7 @@ async def suggest_outfit(
     parsed_gender = _parse_gender(gender)
 
     kg_repo = get_outfit_kg_repository(settings)
+    div_cfg = _OUTFIT_DIVERSITY_CTX.get()
     try:
         snap_idx = None if live_products else get_snapshot_catalog_index(settings)
         reranker = OutfitRetrievalAndReranker(kg_repo=kg_repo, snapshot_index=snap_idx)
@@ -135,6 +176,11 @@ async def suggest_outfit(
             min_price=min_price,
             max_price=max_price,
             limit=limit,
+            exclude_product_ids=(
+                set(div_cfg.exclude_product_ids) if div_cfg else None
+            ),
+            exclude_pairs=set(div_cfg.exclude_pairs) if div_cfg else None,
+            rotation_seed=div_cfg.rotation_seed if div_cfg else None,
         )
     finally:
         if isinstance(kg_repo, Neo4jOutfitKGRepository):

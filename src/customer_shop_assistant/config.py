@@ -119,6 +119,13 @@ class Settings(BaseSettings):
         default="inmemory",
         description="Category-level KG repository backend: inmemory or neo4j",
     )
+    OUTFIT_SESSION_ROTATION: bool = Field(
+        default=False,
+        description=(
+            "Enable deterministic session_id-seeded SKU rotation within "
+            "equal-rank color buckets (keep False for fixed E1/E2E benchmarks)"
+        ),
+    )
     COUNTERFACTUAL_POLICY_ENABLED: bool = Field(
         default=True,
         description="Enable CounterfactualClarificationPolicy in Mode C Gray Zone",

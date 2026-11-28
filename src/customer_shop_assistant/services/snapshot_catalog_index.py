@@ -42,6 +42,8 @@ class SnapshotProductRecord:
     color_price_map: dict[str, float] = field(default_factory=dict)
     color_name_by_id: dict[str, str] = field(default_factory=dict)
     color_image_by_id: dict[str, str | None] = field(default_factory=dict)
+    color_variant_id_by_id: dict[str, int] = field(default_factory=dict)
+    color_size_by_id: dict[str, str | None] = field(default_factory=dict)
     primary_image_url: str | None = None
     in_stock: bool = True
 
@@ -111,17 +113,22 @@ class SnapshotCatalogIndex:
             color_prices: dict[str, float] = {}
             color_names: dict[str, str] = {}
             color_images: dict[str, str | None] = {}
+            color_variant_ids: dict[str, int] = {}
+            color_sizes: dict[str, str | None] = {}
+            color_best_rank: dict[str, tuple[bool, bool, float, int]] = {}
             prices: list[float] = []
 
-            for variant in item.get("variants") or []:
+            for v_idx, variant in enumerate(item.get("variants") or []):
                 raw_col = str(variant.get("color") or "").strip()
                 cid = resolve_color_id(raw_col, ont)
                 if cid is None:
                     continue
                 all_cols.add(cid)
                 color_names.setdefault(cid, raw_col)
-                if variant.get("imageUrl") and cid not in color_images:
-                    color_images[cid] = str(variant["imageUrl"])
+                raw_img = variant.get("imageUrl")
+                img_url = str(raw_img) if raw_img else None
+                if img_url and cid not in color_images:
+                    color_images[cid] = img_url
 
                 raw_price = variant.get(
                     "finalPrice",
@@ -135,6 +142,20 @@ class SnapshotCatalogIndex:
                     in_stock_cols.add(cid)
                     if cid not in color_prices or price < color_prices[cid]:
                         color_prices[cid] = price
+
+                rank = (not (stock > 0), not bool(img_url), price, v_idx)
+                if cid not in color_best_rank or rank < color_best_rank[cid]:
+                    color_best_rank[cid] = rank
+                    raw_vid = variant.get("id")
+                    if raw_vid is not None:
+                        try:
+                            color_variant_ids[cid] = int(raw_vid)
+                        except (TypeError, ValueError):
+                            pass
+                    raw_size = variant.get("size")
+                    color_sizes[cid] = str(raw_size) if raw_size else None
+                    if img_url:
+                        color_images[cid] = img_url
 
             images = item.get("images") or []
             primary_img = (
@@ -161,6 +182,8 @@ class SnapshotCatalogIndex:
                     color_price_map=color_prices,
                     color_name_by_id=color_names,
                     color_image_by_id=color_images,
+                    color_variant_id_by_id=color_variant_ids,
+                    color_size_by_id=color_sizes,
                     primary_image_url=primary_img,
                     in_stock=bool(in_stock_cols),
                 )

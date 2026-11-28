@@ -171,6 +171,9 @@ class ChatRecommendedProduct(BaseModel):
     image_url: str | None = Field(default=None, description="Primary product image URL")
     category: str | None = Field(default=None, description="Category name")
     brand: str | None = Field(default=None, description="Brand name")
+    variant_id: int | None = Field(default=None, description="Selected SKU variant ID")
+    color: str | None = Field(default=None, description="Selected variant color label")
+    size: str | None = Field(default=None, description="Selected variant size label")
 
 
 class OutfitItem(BaseModel):
@@ -181,6 +184,12 @@ class OutfitItem(BaseModel):
     slug: str | None = Field(default=None, description="Product URL slug")
     category: str | None = Field(default=None, description="Category name")
     color: str = Field(..., description="Selected variant colour")
+    variant_id: int | None = Field(
+        default=None, description="Representative variant ID for selected color"
+    )
+    size: str | None = Field(
+        default=None, description="Representative variant size label"
+    )
     in_stock: bool = Field(
         ..., description="Whether at least one variant of this colour has stock > 0"
     )

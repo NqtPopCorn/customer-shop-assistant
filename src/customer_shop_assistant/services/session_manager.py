@@ -36,6 +36,8 @@ class SessionState:
     declined_slots: set[str] = field(default_factory=set)
     last_asked_slots: list[str] = field(default_factory=list)
     last_shopping_intent: str | None = None
+    shown_outfit_pairs: list[tuple[int, int]] = field(default_factory=list)
+    shown_outfit_product_ids: list[int] = field(default_factory=list)
 
     def reset_task_clarification(self) -> None:
         """Reset task-scoped clarification counters on topic switch."""
@@ -44,6 +46,31 @@ class SessionState:
         self.clarification_turns = 0
         self.declined_slots.clear()
         self.last_asked_slots.clear()
+        self.shown_outfit_pairs.clear()
+        self.shown_outfit_product_ids.clear()
+
+    def record_shown_outfits(self, outfits: list[Any], max_pairs: int = 18) -> None:
+        """Record shown outfit pairs and item IDs for cross-turn diversity."""
+        for outfit in outfits:
+            top = getattr(outfit, "top", None)
+            bottom = getattr(outfit, "bottom", None)
+            if top is None or bottom is None:
+                continue
+            pair = (int(top.product_id), int(bottom.product_id))
+            if pair in self.shown_outfit_pairs:
+                self.shown_outfit_pairs.remove(pair)
+            self.shown_outfit_pairs.append(pair)
+            for pid in pair:
+                if pid in self.shown_outfit_product_ids:
+                    self.shown_outfit_product_ids.remove(pid)
+                self.shown_outfit_product_ids.append(pid)
+
+        if len(self.shown_outfit_pairs) > max_pairs:
+            self.shown_outfit_pairs = self.shown_outfit_pairs[-max_pairs:]
+        max_ids = max_pairs * 2
+        if len(self.shown_outfit_product_ids) > max_ids:
+            self.shown_outfit_product_ids = self.shown_outfit_product_ids[-max_ids:]
+        self.touch()
 
     def reset_clarification(self, mode: str | None) -> None:
         """Reset clarification state machine when switching mode."""
