@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Client, Backend &amp; AI Assistant · Architecture</title>
+  <link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Serif:ital@0;1&family=Noto+Sans+KR:wght@400;500;600&family=Noto+Serif+KR:wght@400&family=Noto+Sans+TC:wght@400;500;600&family=Noto+Serif+TC:wght@400&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --color-paper:   #f5f5f5;   /* white-smoke */
+      --color-ink:     #2d3142;   /* jet-black */
+      --color-muted:   #4f5d75;   /* blue-slate */
+      --color-accent:  #bf4520;   /* burnt-tangerine */
+      --font-sans:     'Geist', system-ui, sans-serif;
+      --font-serif:    'Instrument Serif', 'Noto Serif', 'Noto Serif KR', serif;
+      --font-mono:     'Geist Mono', ui-monospace, monospace;
+    }
+
+    body {
+      font-family: var(--font-sans);
+      background: var(--color-paper);
+      color: var(--color-ink);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 3rem 2rem;
+    }
+
+    .frame { max-width: 1200px; width: 100%; }
+    /* The SVG holds its readable width (min-width == the viewBox width, so the
+       type ramp is never silently scaled down). This wrapper lets a narrow
+       screen scroll the diagram instead of the whole page. */
+    .diagram-container { width: 100%; overflow-x: auto; }
+
+    .eyebrow {
+      font-family: var(--font-mono);
+      font-size: 0.66rem;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--color-muted);
+      margin-bottom: 0.5rem;
+    }
+
+    h1 {
+      font-family: var(--font-serif);
+      font-size: clamp(1.5rem, 2.4vw + 0.75rem, 2rem);
+      font-weight: 400;
+      letter-spacing: -0.02em;
+      line-height: 1.15;
+      color: var(--color-ink);
+      margin-bottom: 1.5rem;
+    }
+
+    svg { width: 100%; min-width: 960px; display: block; }
+    /* Paper has no scrollbar, so the local scroller would clip instead of
+       scroll. Let the diagram scale down to the sheet: smaller but whole
+       beats sharp but cut off. Must come after the svg rule above - a media
+       query adds no specificity, so a later plain rule would win. */
+    @media print {
+      .diagram-container { overflow-x: visible; }
+      svg { min-width: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="frame">
+    <p class="eyebrow">Architecture · Customer Shop Assistant</p>
+    <h1>Client, Backend &amp; AI Assistant</h1>
+
+    <div class="diagram-container">
+      <svg viewBox="0 0 960 600" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="app-architecture-title app-architecture-desc">
+        <title id="app-architecture-title">Client, Backend and AI Assistant Architecture</title>
+        <desc id="app-architecture-desc">System architecture showing the Next.js storefront and chat client connecting to the NestJS main backend with PostgreSQL pgvector and the FastAPI LangGraph AI assistant backed by domain tools, an outfit knowledge graph, and a local LLM runtime.</desc>
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#4f5d75"/></marker>
+          <marker id="arrow-accent" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#bf4520"/></marker>
+          <marker id="arrow-link" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto"><polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+        </defs>
+
+        <!-- Clean paper ground -->
+        <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+        <!-- Zones (drawn before arrows and nodes) -->
+        <rect x="280" y="48" width="432" height="124" rx="8"
+              fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="292" y="52" width="84" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="334" y="61" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.14em">MAIN BACKEND</text>
+
+        <rect x="280" y="276" width="432" height="232" rx="8"
+              fill="rgba(45,49,66,0.02)" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <rect x="292" y="280" width="84" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="334" y="289" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.14em">AI ASSISTANT</text>
+
+        <!-- Arrows (drawn before nodes) -->
+        <!-- 1. Storefront & Chat -> Fashion Shop API -->
+        <path d="M 208,208 H 328 Q 336,208 336,200 V 152"
+              fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- 2. Storefront & Chat -> Shop Assistant API (focal primary chat flow) -->
+        <path d="M 208,240 H 328 Q 336,240 336,248 V 316"
+              fill="none" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <!-- 3. Shop Assistant API -> Fashion Shop API -->
+        <line x1="376" y1="316" x2="376" y2="152"
+              stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- 4. Fashion Shop API -> Postgres + pgvector -->
+        <line x1="456" y1="120" x2="536" y2="120"
+              stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- 5. Fashion Shop API -> Local LLM Runtime (dashed secondary embeddings) -->
+        <path d="M 416,152 V 200 Q 416,208 424,208 H 760"
+              fill="none" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <!-- 6. Shop Assistant API -> Local LLM Runtime -->
+        <path d="M 416,316 V 248 Q 416,240 424,240 H 760"
+              fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <!-- 7. Shop Assistant API -> Tools & Policy RAG -->
+        <line x1="456" y1="348" x2="536" y2="348"
+              stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <!-- 8. Tools & Policy RAG -> Outfit KG -->
+        <line x1="616" y1="380" x2="616" y2="428"
+              stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+
+        <!-- Arrow labels (opaque paper mask + 8px gap from stroke) -->
+        <rect x="236" y="188" width="60" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="266" y="197" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">REST · JWT</text>
+
+        <rect x="240" y="248" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="268" y="257" fill="#bf4520" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">SSE · JWT</text>
+
+        <rect x="312" y="218" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="340" y="227" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">SHOP API</text>
+
+        <rect x="468" y="100" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="496" y="109" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">SQL · VEC</text>
+
+        <rect x="580" y="188" width="68" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="614" y="197" fill="#5a6580" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">EMBEDDINGS</text>
+
+        <rect x="576" y="248" width="76" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="614" y="257" fill="#2e5aa8" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">LLM · EMBED</text>
+
+        <rect x="476" y="328" width="40" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="496" y="337" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">TOOLS</text>
+
+        <rect x="624" y="398" width="56" height="12" rx="2" fill="#f5f5f5"/>
+        <text x="652" y="407" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.06em">KG QUERY</text>
+
+        <!-- Nodes -->
+        <!-- 1. Storefront & Chat (input) -->
+        <rect x="40" y="192" width="168" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="40" y="192" width="168" height="64" rx="6" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <rect x="48" y="200" width="40" height="12" rx="2" fill="transparent" stroke="rgba(90,101,128,0.40)" stroke-width="0.8"/>
+        <text x="68" y="209" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">CLIENT</text>
+        <text x="124" y="228" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Storefront &amp; Chat</text>
+        <text x="124" y="244" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Next.js 15 · :5000</text>
+
+        <!-- 2. Fashion Shop API (backend) -->
+        <rect x="296" y="88" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="296" y="88" width="160" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="304" y="96" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="322" y="105" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">BE API</text>
+        <text x="376" y="124" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Fashion Shop API</text>
+        <text x="376" y="140" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">NestJS 11 · :3000</text>
+
+        <!-- 3. Postgres + pgvector (store) -->
+        <rect x="536" y="88" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="536" y="88" width="160" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="544" y="96" width="36" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="562" y="105" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">STORE</text>
+        <text x="616" y="124" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Postgres + pgvector</text>
+        <text x="616" y="140" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Prisma 7 · :5432</text>
+
+        <!-- 4. Shop Assistant API (focal coral) -->
+        <rect x="296" y="316" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="296" y="316" width="160" height="64" rx="6" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <rect x="304" y="324" width="36" height="12" rx="2" fill="transparent" stroke="rgba(191,69,32,0.50)" stroke-width="0.8"/>
+        <text x="322" y="333" fill="#bf4520" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">AGENT</text>
+        <text x="376" y="352" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Shop Assistant API</text>
+        <text x="376" y="368" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">FastAPI · :8000</text>
+
+        <!-- 5. Tools & Policy RAG (backend) -->
+        <rect x="536" y="316" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="536" y="316" width="160" height="64" rx="6" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <rect x="544" y="324" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.40)" stroke-width="0.8"/>
+        <text x="562" y="333" fill="#2d3142" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">TOOLS</text>
+        <text x="616" y="352" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Tools &amp; Policy RAG</text>
+        <text x="616" y="368" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Catalog · Size · MD</text>
+
+        <!-- 6. Outfit KG (store) -->
+        <rect x="536" y="428" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="536" y="428" width="160" height="64" rx="6" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <rect x="544" y="436" width="36" height="12" rx="2" fill="transparent" stroke="rgba(79,93,117,0.50)" stroke-width="0.8"/>
+        <text x="562" y="445" fill="#4f5d75" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">GRAPH</text>
+        <text x="616" y="464" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Outfit KG</text>
+        <text x="616" y="480" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Neo4j / Mem · :7687</text>
+
+        <!-- 7. Local LLM Runtime (external) -->
+        <rect x="760" y="192" width="160" height="64" rx="6" fill="#f5f5f5"/>
+        <rect x="760" y="192" width="160" height="64" rx="6" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <rect x="768" y="200" width="36" height="12" rx="2" fill="transparent" stroke="rgba(45,49,66,0.22)" stroke-width="0.8"/>
+        <text x="786" y="209" fill="#5a6580" font-size="7" font-family="'Geist Mono', ui-monospace, monospace"
+              text-anchor="middle" letter-spacing="0.08em">MODEL</text>
+        <text x="840" y="228" fill="#2d3142" font-size="12" font-weight="600"
+              font-family="'Geist', system-ui, sans-serif" text-anchor="middle">Local LLM Runtime</text>
+        <text x="840" y="244" fill="#4f5d75" font-size="9"
+              font-family="'Geist Mono', ui-monospace, monospace" text-anchor="middle">Ollama · LM Studio</text>
+
+        <!-- Legend strip -->
+        <line x1="40" y1="524" x2="920" y2="524" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+        <text x="40" y="540" fill="#4f5d75" font-size="8" font-family="'Geist Mono', ui-monospace, monospace"
+              letter-spacing="0.18em">LEGEND</text>
+
+        <!-- Legend Row 1: Node treatments -->
+        <rect x="40" y="552" width="14" height="10" rx="2" fill="rgba(191,69,32,0.08)" stroke="#bf4520" stroke-width="1"/>
+        <text x="60" y="560" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Focal agent</text>
+
+        <rect x="160" y="552" width="14" height="10" rx="2" fill="rgba(79,93,117,0.10)" stroke="#5a6580" stroke-width="1"/>
+        <text x="180" y="560" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Client UI</text>
+
+        <rect x="272" y="552" width="14" height="10" rx="2" fill="#ffffff" stroke="#2d3142" stroke-width="1"/>
+        <text x="292" y="560" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Backend / tools</text>
+
+        <rect x="412" y="552" width="14" height="10" rx="2" fill="rgba(45,49,66,0.05)" stroke="#4f5d75" stroke-width="1"/>
+        <text x="432" y="560" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Data store</text>
+
+        <rect x="532" y="552" width="14" height="10" rx="2" fill="rgba(45,49,66,0.03)" stroke="rgba(45,49,66,0.30)" stroke-width="1"/>
+        <text x="552" y="560" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Local LLM runtime</text>
+
+        <!-- Legend Row 2: Arrow treatments -->
+        <line x1="40" y1="576" x2="68" y2="576" stroke="#bf4520" stroke-width="1.4" marker-end="url(#arrow-accent)"/>
+        <text x="76" y="579" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Primary chat (SSE)</text>
+
+        <line x1="212" y1="576" x2="240" y2="576" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#arrow-link)"/>
+        <text x="248" y="579" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">HTTP / REST API</text>
+
+        <line x1="384" y1="576" x2="412" y2="576" stroke="#4f5d75" stroke-width="1.2" marker-end="url(#arrow)"/>
+        <text x="420" y="579" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Internal call</text>
+
+        <line x1="532" y1="576" x2="560" y2="576" stroke="#4f5d75" stroke-width="1" stroke-dasharray="4,3" marker-end="url(#arrow)"/>
+        <text x="568" y="579" fill="#4f5d75" font-size="8.5" font-family="'Geist', system-ui, sans-serif">Query embeddings</text>
+      </svg>
+    </div>
+  </div>
+</body>
+</html>
+
